@@ -2,7 +2,7 @@
 
 A) Backlog
 
-- [ ] T-pydantic-fixturegen-product-spec-01: Repository bootstrap and package skeleton (60m)
+- [x] T-pydantic-fixturegen-product-spec-01: Repository bootstrap and package skeleton (60m)
   - Goal: Create `pyproject.toml`, base package `pydantic_fixturegen/`, and test scaffolding without functionality.
   - Files/paths: `pyproject.toml`, `pydantic_fixturegen/__init__.py`, `pydantic_fixturegen/cli/__init__.py`, `tests/`.
   - Key edits: Define project metadata, Python 3.10–3.13, extras stubs; create empty package modules.
@@ -10,7 +10,7 @@ A) Backlog
   - Dependencies: None.
   - Estimate: 60m.
 
-- [ ] T-pydantic-fixturegen-product-spec-02: QA baseline (pytest, coverage, mypy strict, ruff) (60m)
+- [x] T-pydantic-fixturegen-product-spec-02: QA baseline (pytest, coverage, mypy strict, ruff) (60m)
   - Goal: Configure pytest, coverage thresholds, MyPy (strict), and Ruff/Black (via Ruff).
   - Files/paths: `pyproject.toml`, `tests/conftest.py`, `.github/workflows/ci.yml` (skeleton).
   - Key edits: Enable strict typing, set coverage ≥90% target, configure Ruff rules and Black profile.
