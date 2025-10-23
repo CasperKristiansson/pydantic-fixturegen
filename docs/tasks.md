@@ -18,7 +18,7 @@ A) Backlog
   - Dependencies: T-01.
   - Estimate: 60m.
 
-- [ ] T-pydantic-fixturegen-product-spec-03: CI workflow skeleton (tests + typecheck + lint) (45m)
+- [x] T-pydantic-fixturegen-product-spec-03: CI workflow skeleton (tests + typecheck + lint) (45m)
   - Goal: Add GitHub Actions for matrix Python (3.10–3.13) to run lint, type-check, tests.
   - Files/paths: `.github/workflows/ci.yml`.
   - Key edits: Cache deps, run `pip install -e .[all-dev]` (or similar), enforce fail on warnings.
@@ -26,7 +26,7 @@ A) Backlog
   - Dependencies: T-02.
   - Estimate: 45m.
 
-- [ ] T-pydantic-fixturegen-product-spec-04: Version metadata utility (tool_version + header helper) (30m)
+- [x] T-pydantic-fixturegen-product-spec-04: Version metadata utility (tool_version + header helper) (30m)
   - Goal: Provide a function to get tool version and compose artifact headers.
   - Files/paths: `pydantic_fixturegen/core/version.py`, `tests/core/test_version.py`.
   - Key edits: Read version from package metadata; format header with seed/tool version/model digest.
@@ -34,7 +34,7 @@ A) Backlog
   - Dependencies: T-01.
   - Estimate: 30m.
 
-- [ ] T-pydantic-fixturegen-product-spec-05: Deterministic seed plumbing (60m)
+- [x] T-pydantic-fixturegen-product-spec-05: Deterministic seed plumbing (60m)
   - Goal: Implement `seed.py` to seed `random`, Faker, NumPy; expose deterministic streams.
   - Files/paths: `pydantic_fixturegen/core/seed.py`, `tests/core/test_seed.py`.
   - Key edits: Master seed → substreams keyed by (model, field, index); locale integration for Faker.
@@ -42,7 +42,7 @@ A) Backlog
   - Dependencies: T-01.
   - Estimate: 60m.
 
-- [ ] T-pydantic-fixturegen-product-spec-06: Config loader (pyproject/YAML/env) + precedence (90m)
+- [x] T-pydantic-fixturegen-product-spec-06: Config loader (pyproject/YAML/env) + precedence (90m)
   - Goal: Load config from `[tool.pydantic_fixturegen]`, YAML alternative, `PFG_*` env; merge with CLI.
   - Files/paths: `pydantic_fixturegen/core/config.py`, `tests/core/test_config.py`.
   - Key edits: Schema validation, precedence: CLI > env > config; defaults for seed/locale/policies.

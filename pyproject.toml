@@ -20,7 +20,10 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Development Status :: 2 - Pre-Alpha",
 ]
-dependencies = []
+dependencies = [
+  "faker>=24.0.0",
+  "tomli>=2.0.1; python_version < '3.11'",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -51,8 +54,8 @@ addopts = [
   "-q",
   "--strict-config",
   "--strict-markers",
-  "--disable-warnings",
   "--maxfail=1",
+  "-Werror",
 ]
 testpaths = ["tests"]
 
