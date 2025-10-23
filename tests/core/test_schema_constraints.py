@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import datetime
+import uuid
 from decimal import Decimal
 from typing import Annotated, Any
 
 import annotated_types
 import pytest
-from pydantic import BaseModel, Field, conint, constr
+from pydantic import AnyUrl, BaseModel, Field, SecretBytes, SecretStr, conint, constr
 from pydantic_fixturegen.core import schema as schema_module
 from pydantic_fixturegen.core.schema import (
     FieldConstraints,
@@ -154,9 +156,33 @@ def test_summarize_field_for_mapping() -> None:
     assert summary["metadata"].type == "mapping"
 
 
-def test_summarize_field_for_url_and_any() -> None:
-    from pydantic import AnyUrl
+def test_summarize_field_for_uuid_and_datetime() -> None:
+    class TemporalModel(BaseModel):
+        identifier: uuid.UUID
+        created_at: datetime.datetime
+        birthday: datetime.date
+        wake_up: datetime.time
 
+    summary = schema_module.summarize_model_fields(TemporalModel)
+    assert summary["identifier"].format == "uuid"
+    assert summary["created_at"].format == "date-time"
+    assert summary["birthday"].format == "date"
+    assert summary["wake_up"].format == "time"
+
+
+def test_summarize_field_for_secret_and_url() -> None:
+    class SecretsModel(BaseModel):
+        password: SecretStr
+        token: SecretBytes
+        homepage: AnyUrl
+
+    summary = schema_module.summarize_model_fields(SecretsModel)
+    assert summary["password"].format == "secret-str"
+    assert summary["token"].format == "secret-bytes"
+    assert summary["homepage"].format == "url"
+
+
+def test_summarize_field_for_url_and_any() -> None:
     class MixedModel(BaseModel):
         url: AnyUrl
         misc: Any

@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
+import datetime
 import decimal
 import types
-import pydantic
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Annotated, Any, Union, get_args, get_origin
 
 import annotated_types
+import pydantic
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
-
-
 
 
 @dataclass(slots=True)
@@ -213,6 +213,9 @@ def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None
     if origin in {dict}:
         return "mapping", None, None
 
+    if annotation is Any:
+        return "any", None, None
+
     if isinstance(annotation, type):
         email_type = getattr(pydantic, "EmailStr", None)
         if email_type is not None and issubclass(annotation, email_type):
@@ -229,6 +232,23 @@ def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None
         ip_network_type = getattr(pydantic, "IPvAnyNetwork", None)
         if ip_network_type is not None and issubclass(annotation, ip_network_type):
             return "string", "ip-network", None
+        payment_card_type = getattr(pydantic, "PaymentCardNumber", None)
+        if payment_card_type is not None and issubclass(annotation, payment_card_type):
+            return "string", "payment-card", None
+        secret_str_type = getattr(pydantic, "SecretStr", None)
+        if secret_str_type is not None and issubclass(annotation, secret_str_type):
+            return "string", "secret-str", None
+        secret_bytes_type = getattr(pydantic, "SecretBytes", None)
+        if secret_bytes_type is not None and issubclass(annotation, secret_bytes_type):
+            return "bytes", "secret-bytes", None
+        if issubclass(annotation, uuid.UUID):
+            return "string", "uuid", None
+        if issubclass(annotation, datetime.datetime):
+            return "string", "date-time", None
+        if issubclass(annotation, datetime.date):
+            return "string", "date", None
+        if issubclass(annotation, datetime.time):
+            return "string", "time", None
         if issubclass(annotation, BaseModel):
             return "model", None, None
         scalar_map = {
@@ -236,6 +256,7 @@ def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None
             int: "int",
             float: "float",
             str: "string",
+            bytes: "bytes",
             decimal.Decimal: "decimal",
         }
         for candidate, label in scalar_map.items():
