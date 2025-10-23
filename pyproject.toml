@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pydantic-fixturegen"
+version = "0.0.1"
+description = "Deterministic fixture generator for Pydantic models."
+requires-python = ">=3.10,<3.14"
+readme = "README.md"
+authors = [{ name = "Fixturegen Developers" }]
+license = { text = "MIT" }
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "License :: OSI Approved :: MIT License",
+  "Development Status :: 2 - Pre-Alpha",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = []
+lint = []
+test = []
+docs = []
+all-dev = [
+  "pydantic-fixturegen[dev,lint,test]",
+]
+
+[project.urls]
+Homepage = "https://github.com/casper-kristiansson/pydantic-fixturegen"
+Documentation = "https://github.com/casper-kristiansson/pydantic-fixturegen"
+Repository = "https://github.com/casper-kristiansson/pydantic-fixturegen"
