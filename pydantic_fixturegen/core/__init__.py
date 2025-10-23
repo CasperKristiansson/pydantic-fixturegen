@@ -1,5 +1,6 @@
 """Core utilities for pydantic-fixturegen."""
 
+from .ast_discover import AstDiscoveryResult, AstModel, discover_models
 from .config import (
     AppConfig,
     ConfigError,
@@ -14,6 +15,8 @@ from .version import build_artifact_header, get_tool_version
 
 __all__ = [
     "AppConfig",
+    "AstDiscoveryResult",
+    "AstModel",
     "ConfigError",
     "EmittersConfig",
     "JsonConfig",
@@ -21,6 +24,7 @@ __all__ = [
     "SafeImportResult",
     "SeedManager",
     "build_artifact_header",
+    "discover_models",
     "get_tool_version",
     "load_config",
     "safe_import_models",

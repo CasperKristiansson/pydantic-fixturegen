@@ -65,7 +65,7 @@ A) Backlog
   - Dependencies: T-02.
   - Estimate: 90m.
 
-- [ ] T-pydantic-fixturegen-product-spec-08: AST discoverer for Pydantic models (75m)
+- [x] T-pydantic-fixturegen-product-spec-08: AST discoverer for Pydantic models (75m)
 
   - Goal: Parse Python files to list `BaseModel`/`RootModel` classes without executing code.
   - Files/paths: `pydantic_fixturegen/core/ast_discover.py`, `tests/core/test_ast_discover.py`.
