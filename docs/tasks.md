@@ -83,7 +83,7 @@ A) Backlog
   - Dependencies: T-07, T-08.
   - Estimate: 60m.
 
-- [ ] T-pydantic-fixturegen-product-spec-10: CLI `list` command (Typer) (45m)
+- [x] T-pydantic-fixturegen-product-spec-10: CLI `list` command (Typer) (45m)
 
   - Goal: Add `pfg list` with `--ast`, include/exclude, `--public-only`.
   - Files/paths: `pydantic_fixturegen/cli/__init__.py`, `pydantic_fixturegen/cli/list.py`, `tests/cli/test_list.py`.

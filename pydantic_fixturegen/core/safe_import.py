@@ -201,8 +201,13 @@ _RUNNER_SNIPPET = textwrap.dedent(
 
         socket.create_connection = _blocked_create_connection  # type: ignore[assignment]
 
+    def _derive_module_name(module_path: Path, index: int) -> str:
+        stem = module_path.stem or "module"
+        return stem if index == 0 else f"{stem}_{index}"
+
     def _load_module(module_path: Path, index: int):
-        spec = importlib_util.spec_from_file_location(f"pfg_safe_import_{index}", module_path)
+        module_name = _derive_module_name(module_path, index)
+        spec = importlib_util.spec_from_file_location(module_name, module_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Could not load module from {module_path}")
         module = importlib_util.module_from_spec(spec)
@@ -210,7 +215,7 @@ _RUNNER_SNIPPET = textwrap.dedent(
         spec.loader.exec_module(module)
         return module
 
-    def _collect_models(module):
+    def _collect_models(module, module_path: Path):
         models = []
         try:
             from pydantic import BaseModel
@@ -228,6 +233,7 @@ _RUNNER_SNIPPET = textwrap.dedent(
                         "module": module.__name__,
                         "name": attr_value.__name__,
                         "qualname": f"{module.__name__}.{attr_value.__name__}",
+                        "path": str(module_path),
                     }
                 )
         return models
@@ -245,8 +251,9 @@ _RUNNER_SNIPPET = textwrap.dedent(
 
         collected = []
         for idx, path in enumerate(paths):
-            module = _load_module(Path(path), idx)
-            collected.extend(_collect_models(module))
+            module_path = Path(path)
+            module = _load_module(module_path, idx)
+            collected.extend(_collect_models(module, module_path))
 
         payload = {"success": True, "models": collected}
         json.dump(payload, sys.stdout)

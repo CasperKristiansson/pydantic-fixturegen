@@ -129,11 +129,12 @@ def _to_introspection_model_from_import(model: dict[str, object]) -> Introspecte
     module = str(model.get("module"))
     name = str(model.get("name"))
     qualname = str(model.get("qualname") or f"{module}.{name}")
+    locator = str(model.get("path") or module)
     return IntrospectedModel(
         module=module,
         name=name,
         qualname=qualname,
-        locator=module,
+        locator=locator,
         lineno=None,
         discovery="import",
         is_public=not name.startswith("_"),
