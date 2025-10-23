@@ -12,6 +12,7 @@ from .config import (
 from .introspect import IntrospectedModel, IntrospectionResult
 from .introspect import discover as introspect
 from .providers import ProviderRef, ProviderRegistry
+from .providers.strings import generate_string, register_string_providers
 from .safe_import import SafeImportResult, safe_import_models
 from .schema import (
     FieldConstraints,
@@ -38,6 +39,8 @@ __all__ = [
     "FieldSummary",
     "ProviderRef",
     "ProviderRegistry",
+    "generate_string",
+    "register_string_providers",
     "build_artifact_header",
     "discover_models",
     "introspect",
