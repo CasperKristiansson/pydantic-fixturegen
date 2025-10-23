@@ -11,6 +11,7 @@ from .config import (
 )
 from .introspect import IntrospectedModel, IntrospectionResult
 from .introspect import discover as introspect
+from .providers import ProviderRef, ProviderRegistry
 from .safe_import import SafeImportResult, safe_import_models
 from .schema import (
     FieldConstraints,
@@ -35,6 +36,8 @@ __all__ = [
     "SeedManager",
     "FieldConstraints",
     "FieldSummary",
+    "ProviderRef",
+    "ProviderRegistry",
     "build_artifact_header",
     "discover_models",
     "introspect",

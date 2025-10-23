@@ -101,7 +101,7 @@ A) Backlog
   - Dependencies: T-01.
   - Estimate: 75m.
 
-- [ ] T-pydantic-fixturegen-product-spec-12: Support constrained types and standard extras (75m)
+- [x] T-pydantic-fixturegen-product-spec-12: Support constrained types and standard extras (75m)
 
   - Goal: Handle `conint`, `constr`, `conlist`, `condecimal`, `EmailStr`, `IPvAny*`, `AnyUrl`, etc.
   - Files/paths: `pydantic_fixturegen/core/schema.py`, `tests/core/test_schema_extras.py`.
