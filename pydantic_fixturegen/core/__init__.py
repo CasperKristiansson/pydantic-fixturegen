@@ -12,6 +12,14 @@ from .config import (
 from .introspect import IntrospectedModel, IntrospectionResult
 from .introspect import discover as introspect
 from .safe_import import SafeImportResult, safe_import_models
+from .schema import (
+    FieldConstraints,
+    FieldSummary,
+    extract_constraints,
+    extract_model_constraints,
+    summarize_field,
+    summarize_model_fields,
+)
 from .seed import SeedManager
 from .version import build_artifact_header, get_tool_version
 
@@ -25,6 +33,8 @@ __all__ = [
     "PytestEmitterConfig",
     "SafeImportResult",
     "SeedManager",
+    "FieldConstraints",
+    "FieldSummary",
     "build_artifact_header",
     "discover_models",
     "introspect",
@@ -32,5 +42,9 @@ __all__ = [
     "IntrospectionResult",
     "get_tool_version",
     "load_config",
+    "extract_constraints",
+    "extract_model_constraints",
+    "summarize_field",
+    "summarize_model_fields",
     "safe_import_models",
 ]

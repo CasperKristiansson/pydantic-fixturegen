@@ -92,7 +92,7 @@ A) Backlog
   - Dependencies: T-06, T-09.
   - Estimate: 45m.
 
-- [ ] T-pydantic-fixturegen-product-spec-11: Constraints extraction from Pydantic fields (75m)
+- [x] T-pydantic-fixturegen-product-spec-11: Constraints extraction from Pydantic fields (75m)
 
   - Goal: Normalize Pydantic v2 field info to `FieldConstraints`.
   - Files/paths: `pydantic_fixturegen/core/schema.py`, `tests/core/test_schema_constraints.py`.
