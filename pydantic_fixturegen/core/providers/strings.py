@@ -29,36 +29,21 @@ def generate_string(
 ) -> str | bytes:
     """Generate a string that satisfies the provided constraints."""
 
+    if summary.type not in {"string", "secret-str", "secret-bytes"}:
+        raise ValueError(f"Unsupported string type: {summary.type}")
+
     faker = faker or Faker()
     rng = random_generator or random.Random()
 
-    fmt = summary.format
-    if fmt == "email":
-        return str(faker.unique.email())
-    if fmt == "url":
-        return str(faker.unique.url())
-    if fmt == "uuid":
-        return str(faker.uuid4())
-    if fmt == "date-time":
-        return faker.date_time().isoformat()
-    if fmt == "date":
-        return faker.date()
-    if fmt == "time":
-        return faker.time()
-    if fmt == "payment-card":
-        return faker.credit_card_number()
-    if fmt == "secret-str":
+    if summary.type == "secret-str":
         return _random_string(rng, summary, faker=faker)
-    if fmt == "secret-bytes":
+    if summary.type == "secret-bytes":
         length = _determine_length(summary)
         return os.urandom(length)
 
     if summary.constraints.pattern:
-        generated = _regex_string(summary, faker=faker)
-    else:
-        generated = _random_string(rng, summary, faker=faker)
-
-    return generated
+        return _regex_string(summary, faker=faker)
+    return _random_string(rng, summary, faker=faker)
 
 
 def register_string_providers(registry: ProviderRegistry) -> None:

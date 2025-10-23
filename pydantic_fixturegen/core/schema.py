@@ -12,7 +12,7 @@ from typing import Annotated, Any, Union, get_args, get_origin
 
 import annotated_types
 import pydantic
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretBytes, SecretStr
 from pydantic.fields import FieldInfo
 
 
@@ -219,36 +219,34 @@ def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None
     if isinstance(annotation, type):
         email_type = getattr(pydantic, "EmailStr", None)
         if email_type is not None and issubclass(annotation, email_type):
-            return "string", "email", None
+            return "email", None, None
         any_url_type = getattr(pydantic, "AnyUrl", None)
         if any_url_type is not None and issubclass(annotation, any_url_type):
-            return "string", "url", None
+            return "url", None, None
         ip_address_type = getattr(pydantic, "IPvAnyAddress", None)
         if ip_address_type is not None and issubclass(annotation, ip_address_type):
-            return "string", "ip-address", None
+            return "ip-address", None, None
         ip_interface_type = getattr(pydantic, "IPvAnyInterface", None)
         if ip_interface_type is not None and issubclass(annotation, ip_interface_type):
-            return "string", "ip-interface", None
+            return "ip-interface", None, None
         ip_network_type = getattr(pydantic, "IPvAnyNetwork", None)
         if ip_network_type is not None and issubclass(annotation, ip_network_type):
-            return "string", "ip-network", None
+            return "ip-network", None, None
         payment_card_type = getattr(pydantic, "PaymentCardNumber", None)
         if payment_card_type is not None and issubclass(annotation, payment_card_type):
-            return "string", "payment-card", None
-        secret_str_type = getattr(pydantic, "SecretStr", None)
-        if secret_str_type is not None and issubclass(annotation, secret_str_type):
-            return "string", "secret-str", None
-        secret_bytes_type = getattr(pydantic, "SecretBytes", None)
-        if secret_bytes_type is not None and issubclass(annotation, secret_bytes_type):
-            return "bytes", "secret-bytes", None
+            return "payment-card", None, None
+        if issubclass(annotation, SecretStr):
+            return "secret-str", None, None
+        if issubclass(annotation, SecretBytes):
+            return "secret-bytes", None, None
         if issubclass(annotation, uuid.UUID):
-            return "string", "uuid", None
+            return "uuid", None, None
         if issubclass(annotation, datetime.datetime):
-            return "string", "date-time", None
-        if issubclass(annotation, datetime.date):
-            return "string", "date", None
+            return "datetime", None, None
+        if issubclass(annotation, datetime.date) and not issubclass(annotation, datetime.datetime):
+            return "date", None, None
         if issubclass(annotation, datetime.time):
-            return "string", "time", None
+            return "time", None, None
         if issubclass(annotation, BaseModel):
             return "model", None, None
         scalar_map = {

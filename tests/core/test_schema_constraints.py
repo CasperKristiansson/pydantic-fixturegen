@@ -164,10 +164,10 @@ def test_summarize_field_for_uuid_and_datetime() -> None:
         wake_up: datetime.time
 
     summary = schema_module.summarize_model_fields(TemporalModel)
-    assert summary["identifier"].format == "uuid"
-    assert summary["created_at"].format == "date-time"
-    assert summary["birthday"].format == "date"
-    assert summary["wake_up"].format == "time"
+    assert summary["identifier"].type == "uuid"
+    assert summary["created_at"].type == "datetime"
+    assert summary["birthday"].type == "date"
+    assert summary["wake_up"].type == "time"
 
 
 def test_summarize_field_for_secret_and_url() -> None:
@@ -177,9 +177,9 @@ def test_summarize_field_for_secret_and_url() -> None:
         homepage: AnyUrl
 
     summary = schema_module.summarize_model_fields(SecretsModel)
-    assert summary["password"].format == "secret-str"
-    assert summary["token"].format == "secret-bytes"
-    assert summary["homepage"].format == "url"
+    assert summary["password"].type == "secret-str"
+    assert summary["token"].type == "secret-bytes"
+    assert summary["homepage"].type == "url"
 
 
 def test_summarize_field_for_url_and_any() -> None:
@@ -188,7 +188,7 @@ def test_summarize_field_for_url_and_any() -> None:
         misc: Any
 
     summary = schema_module.summarize_model_fields(MixedModel)
-    assert summary["url"].format == "url"
+    assert summary["url"].type == "url"
     assert summary["misc"].type == "any"
 
 
@@ -200,7 +200,7 @@ def test_summarize_field_for_email() -> None:
         email: EmailStr
 
     summary = schema_module.summarize_model_fields(ContactModel)
-    assert summary["email"].format == "email"
+    assert summary["email"].type == "email"
 
 
 def test_summarize_field_for_ip_address() -> None:
@@ -210,7 +210,7 @@ def test_summarize_field_for_ip_address() -> None:
         host: IPvAnyAddress
 
     summary = schema_module.summarize_model_fields(NetworkModel)
-    assert summary["host"].format == "ip-address"
+    assert summary["host"].type == "ip-address"
 
 
 def test_summarize_field_for_ip_interface_and_network() -> None:
@@ -221,8 +221,8 @@ def test_summarize_field_for_ip_interface_and_network() -> None:
         network: IPvAnyNetwork
 
     summary = schema_module.summarize_model_fields(NetModel)
-    assert summary["interface"].format == "ip-interface"
-    assert summary["network"].format == "ip-network"
+    assert summary["interface"].type == "ip-interface"
+    assert summary["network"].type == "ip-network"
 
 
 def test_summarize_field_for_nested_model() -> None:

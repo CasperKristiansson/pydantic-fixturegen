@@ -128,7 +128,7 @@ A) Backlog
   - Dependencies: T-13.
   - Estimate: 60m.
 
-- [ ] T-pydantic-fixturegen-product-spec-15: Numeric and Decimal providers (60m)
+- [x] T-pydantic-fixturegen-product-spec-15: Numeric and Decimal providers (60m)
 
   - Goal: Implement `int`, `float`, `Decimal` providers honoring bounds/quantization.
   - Files/paths: `pydantic_fixturegen/core/providers/numbers.py`, `tests/providers/test_numbers.py`.
