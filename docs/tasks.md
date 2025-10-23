@@ -74,7 +74,7 @@ A) Backlog
   - Dependencies: T-02.
   - Estimate: 75m.
 
-- [ ] T-pydantic-fixturegen-product-spec-09: Discovery orchestration + include/exclude filters (60m)
+- [x] T-pydantic-fixturegen-product-spec-09: Discovery orchestration + include/exclude filters (60m)
 
   - Goal: Combine AST and import modes behind one API with include/exclude patterns.
   - Files/paths: `pydantic_fixturegen/core/introspect.py`, `tests/core/test_introspect.py`.

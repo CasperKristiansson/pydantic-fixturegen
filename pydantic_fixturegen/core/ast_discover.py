@@ -13,6 +13,7 @@ class AstModel:
     module: str
     name: str
     qualname: str
+    path: Path
     lineno: int
     is_public: bool
 
@@ -76,6 +77,7 @@ def discover_models(
                 module=module_name,
                 name=class_node.name,
                 qualname=f"{module_name}.{class_node.name}",
+                path=path,
                 lineno=class_node.lineno,
                 is_public=is_public,
             )
