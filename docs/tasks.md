@@ -137,7 +137,7 @@ A) Backlog
   - Dependencies: T-13.
   - Estimate: 60m.
 
-- [ ] T-pydantic-fixturegen-product-spec-16: Temporal and identifier providers (60m)
+- [x] T-pydantic-fixturegen-product-spec-16: Temporal and identifier providers (60m)
 
   - Goal: Implement `datetime`, `date`, `time` (zone-aware), `UUID`, URL/email/IPs/payment card.
   - Files/paths: `pydantic_fixturegen/core/providers/datetimes.py`, `tests/providers/test_datetimes.py`.
@@ -146,7 +146,7 @@ A) Backlog
   - Dependencies: T-13.
   - Estimate: 60m.
 
-- [ ] T-pydantic-fixturegen-product-spec-17: Collection providers (list/tuple/set/dict) (60m)
+- [x] T-pydantic-fixturegen-product-spec-17: Collection providers (list/tuple/set/dict) (60m)
 
   - Goal: Implement min/max size and uniqueness; dict key/value mapping.
   - Files/paths: `pydantic_fixturegen/core/providers/collections.py`, `tests/providers/test_collections.py`.

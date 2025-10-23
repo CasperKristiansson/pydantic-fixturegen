@@ -11,8 +11,21 @@ from .config import (
 )
 from .introspect import IntrospectedModel, IntrospectionResult
 from .introspect import discover as introspect
-from .providers import ProviderRef, ProviderRegistry
-from .providers.strings import generate_string, register_string_providers
+from .providers import (
+    ProviderRef,
+    ProviderRegistry,
+    create_default_registry,
+    register_collection_providers,
+    register_identifier_providers,
+    register_numeric_providers,
+    register_string_providers,
+    register_temporal_providers,
+)
+from .providers.strings import generate_string
+from .providers.numbers import generate_numeric
+from .providers.collections import generate_collection
+from .providers.identifiers import generate_identifier
+from .providers.temporal import generate_temporal
 from .safe_import import SafeImportResult, safe_import_models
 from .schema import (
     FieldConstraints,
@@ -22,6 +35,7 @@ from .schema import (
     summarize_field,
     summarize_model_fields,
 )
+from .strategies import Strategy, StrategyBuilder, UnionStrategy
 from .seed import SeedManager
 from .version import build_artifact_header, get_tool_version
 
@@ -39,8 +53,20 @@ __all__ = [
     "FieldSummary",
     "ProviderRef",
     "ProviderRegistry",
+    "Strategy",
+    "StrategyBuilder",
+    "UnionStrategy",
+    "create_default_registry",
+    "generate_collection",
+    "generate_identifier",
+    "generate_numeric",
     "generate_string",
+    "generate_temporal",
     "register_string_providers",
+    "register_numeric_providers",
+    "register_collection_providers",
+    "register_identifier_providers",
+    "register_temporal_providers",
     "build_artifact_header",
     "discover_models",
     "introspect",

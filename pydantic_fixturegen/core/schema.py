@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import decimal
+import enum
 import types
 import uuid
 from collections.abc import Mapping
@@ -53,6 +54,8 @@ class FieldSummary:
     constraints: FieldConstraints
     format: str | None = None
     item_type: str | None = None
+    enum_values: list[Any] | None = None
+    is_optional: bool = False
 
 
 def extract_constraints(field: FieldInfo) -> FieldConstraints:
@@ -81,11 +84,20 @@ def extract_model_constraints(model: type[BaseModel]) -> Mapping[str, FieldConst
 def summarize_field(field: FieldInfo) -> FieldSummary:
     constraints = extract_constraints(field)
     annotation = field.annotation
-    type_name, fmt, item_annotation = _infer_annotation_kind(annotation)
+    inner_annotation, is_optional = _strip_optional(annotation)
+    type_name, fmt, item_annotation = _infer_annotation_kind(inner_annotation)
     item_type = None
     if item_annotation is not None:
         item_type, _, _ = _infer_annotation_kind(item_annotation)
-    return FieldSummary(type=type_name, constraints=constraints, format=fmt, item_type=item_type)
+    enum_values = _extract_enum_values(inner_annotation)
+    return FieldSummary(
+        type=type_name,
+        constraints=constraints,
+        format=fmt,
+        item_type=item_type,
+        enum_values=enum_values,
+        is_optional=is_optional,
+    )
 
 
 def summarize_model_fields(model: type[BaseModel]) -> Mapping[str, FieldSummary]:
@@ -192,6 +204,21 @@ def _min_int(current: int | None, new: int | None) -> int | None:
     return current
 
 
+def _strip_optional(annotation: Any) -> tuple[Any, bool]:
+    origin = get_origin(annotation)
+    if origin in {Union, types.UnionType}:
+        args = [arg for arg in get_args(annotation) if arg is not type(None)]  # noqa: E721
+        if len(args) == 1 and len(get_args(annotation)) != len(args):
+            return args[0], True
+    return annotation, False
+
+
+def _extract_enum_values(annotation: Any) -> list[Any] | None:
+    if isinstance(annotation, type) and issubclass(annotation, enum.Enum):
+        return [member.value for member in annotation]
+    return None
+
+
 def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None]:
     annotation = _unwrap_annotation(annotation)
     origin = get_origin(annotation)
@@ -212,6 +239,9 @@ def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None
 
     if origin in {dict}:
         return "mapping", None, None
+
+    if isinstance(annotation, type) and issubclass(annotation, enum.Enum):
+        return "enum", None, None
 
     if annotation is Any:
         return "any", None, None
