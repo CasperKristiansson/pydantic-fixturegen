@@ -21,10 +21,11 @@ from .providers import (
     register_string_providers,
     register_temporal_providers,
 )
-from .providers.strings import generate_string
-from .providers.numbers import generate_numeric
+from .generate import GenerationConfig, InstanceGenerator
 from .providers.collections import generate_collection
 from .providers.identifiers import generate_identifier
+from .providers.numbers import generate_numeric
+from .providers.strings import generate_string
 from .providers.temporal import generate_temporal
 from .safe_import import SafeImportResult, safe_import_models
 from .schema import (
@@ -62,6 +63,8 @@ __all__ = [
     "generate_numeric",
     "generate_string",
     "generate_temporal",
+    "GenerationConfig",
+    "InstanceGenerator",
     "register_string_providers",
     "register_numeric_providers",
     "register_collection_providers",

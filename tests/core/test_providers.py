@@ -152,16 +152,21 @@ def test_identifier_provider_formats() -> None:
     assert provider is not None
 
     faker = Faker(seed=3)
-    email_value = provider.func(summary=FieldSummary(type="email", constraints=FieldConstraints()), faker=faker)
+    email_value = provider.func(
+        summary=FieldSummary(type="email", constraints=FieldConstraints()),
+        faker=faker,
+    )
     assert "@" in email_value
 
     card_value = registry.get("payment-card").func(
-        summary=FieldSummary(type="payment-card", constraints=FieldConstraints()), faker=faker
+        summary=FieldSummary(type="payment-card", constraints=FieldConstraints()),
+        faker=faker,
     )
     assert isinstance(card_value, str) and len(card_value) > 0
 
     url_value = registry.get("url").func(
-        summary=FieldSummary(type="url", constraints=FieldConstraints()), faker=faker
+        summary=FieldSummary(type="url", constraints=FieldConstraints()),
+        faker=faker,
     )
     assert url_value.startswith("http")
 
@@ -211,20 +216,31 @@ def test_numeric_provider_respects_bounds() -> None:
         constraints=FieldConstraints(ge=1.5, le=2.5),
         format=None,
     )
-    float_value = registry.get("float").func(summary=float_summary, random_generator=random.Random(1))
+    float_value = registry.get("float").func(
+        summary=float_summary,
+        random_generator=random.Random(1),
+    )
     assert 1.5 <= float_value <= 2.5
 
     decimal_summary = FieldSummary(
         type="decimal",
-        constraints=FieldConstraints(ge=decimal.Decimal("1.10"), le=decimal.Decimal("1.20"), decimal_places=2),
+        constraints=FieldConstraints(
+            ge=decimal.Decimal("1.10"),
+            le=decimal.Decimal("1.20"),
+            decimal_places=2,
+        ),
         format=None,
     )
-    decimal_value = registry.get("decimal").func(summary=decimal_summary, random_generator=random.Random(2))
+    decimal_value = registry.get("decimal").func(
+        summary=decimal_summary,
+        random_generator=random.Random(2),
+    )
     assert decimal.Decimal("1.10") <= decimal_value <= decimal.Decimal("1.20")
     assert decimal_value.as_tuple().exponent == -2
 
     bool_value = registry.get("bool").func(
-        summary=FieldSummary(type="bool", constraints=FieldConstraints()), random_generator=random.Random(3)
+        summary=FieldSummary(type="bool", constraints=FieldConstraints()),
+        random_generator=random.Random(3),
     )
     assert isinstance(bool_value, bool)
 
@@ -239,7 +255,11 @@ def test_collection_provider_generates_items() -> None:
         format=None,
         item_type="int",
     )
-    values = registry.get("list").func(summary=summary, faker=Faker(seed=10), random_generator=random.Random(2))
+    values = registry.get("list").func(
+        summary=summary,
+        faker=Faker(seed=10),
+        random_generator=random.Random(2),
+    )
     assert 2 <= len(values) <= 4
     assert all(isinstance(v, int) for v in values)
 
@@ -249,7 +269,11 @@ def test_collection_provider_generates_items() -> None:
         format=None,
         item_type="float",
     )
-    set_values = registry.get("set").func(summary=set_summary, faker=Faker(seed=11), random_generator=random.Random(4))
+    set_values = registry.get("set").func(
+        summary=set_summary,
+        faker=Faker(seed=11),
+        random_generator=random.Random(4),
+    )
     assert isinstance(set_values, set)
     assert 1 <= len(set_values) <= 2
 
@@ -259,7 +283,11 @@ def test_collection_provider_generates_items() -> None:
         format=None,
         item_type="string",
     )
-    tuple_value = registry.get("tuple").func(summary=tuple_summary, faker=Faker(seed=12), random_generator=random.Random(5))
+    tuple_value = registry.get("tuple").func(
+        summary=tuple_summary,
+        faker=Faker(seed=12),
+        random_generator=random.Random(5),
+    )
     assert isinstance(tuple_value, tuple)
     assert len(tuple_value) == 1
 
@@ -269,7 +297,11 @@ def test_collection_provider_generates_items() -> None:
         format=None,
         item_type="int",
     )
-    mapping_value = registry.get("mapping").func(summary=mapping_summary, faker=Faker(seed=13), random_generator=random.Random(6))
+    mapping_value = registry.get("mapping").func(
+        summary=mapping_summary,
+        faker=Faker(seed=13),
+        random_generator=random.Random(6),
+    )
     assert isinstance(mapping_value, dict)
     assert len(mapping_value) == 1
     assert all(isinstance(v, int) for v in mapping_value.values())

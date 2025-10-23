@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import enum
-import random
 
 from pydantic import BaseModel, Field
 
-from pydantic_fixturegen.core.providers import create_default_registry, ProviderRegistry
+from pydantic_fixturegen.core.providers import ProviderRegistry, create_default_registry
 from pydantic_fixturegen.core.strategies import Strategy, StrategyBuilder, UnionStrategy
 
 
@@ -39,7 +38,8 @@ def test_build_strategies_for_model() -> None:
     name_strategy = strategies["name"]
     assert isinstance(name_strategy, Strategy)
     assert name_strategy.summary.type == "string"
-    assert name_strategy.provider_name.startswith("string.")
+    assert name_strategy.provider_ref is not None
+    assert name_strategy.provider_ref.type_id == "string"
 
     age_strategy = strategies["age"]
     assert isinstance(age_strategy, Strategy)
@@ -47,6 +47,7 @@ def test_build_strategies_for_model() -> None:
 
     color_strategy = strategies["color"]
     assert isinstance(color_strategy, Strategy)
+    assert color_strategy.summary.type == "enum"
     assert color_strategy.enum_values == [member.value for member in Color]
 
     score_strategy = strategies["score"]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses as dataclasses_module
 import datetime
 import decimal
 import enum
@@ -56,6 +57,8 @@ class FieldSummary:
     item_type: str | None = None
     enum_values: list[Any] | None = None
     is_optional: bool = False
+    annotation: Any | None = None
+    item_annotation: Any | None = None
 
 
 def extract_constraints(field: FieldInfo) -> FieldConstraints:
@@ -84,20 +87,8 @@ def extract_model_constraints(model: type[BaseModel]) -> Mapping[str, FieldConst
 def summarize_field(field: FieldInfo) -> FieldSummary:
     constraints = extract_constraints(field)
     annotation = field.annotation
-    inner_annotation, is_optional = _strip_optional(annotation)
-    type_name, fmt, item_annotation = _infer_annotation_kind(inner_annotation)
-    item_type = None
-    if item_annotation is not None:
-        item_type, _, _ = _infer_annotation_kind(item_annotation)
-    enum_values = _extract_enum_values(inner_annotation)
-    return FieldSummary(
-        type=type_name,
-        constraints=constraints,
-        format=fmt,
-        item_type=item_type,
-        enum_values=enum_values,
-        is_optional=is_optional,
-    )
+    summary = _summarize_annotation(annotation, constraints)
+    return summary
 
 
 def summarize_model_fields(model: type[BaseModel]) -> Mapping[str, FieldSummary]:
@@ -219,6 +210,28 @@ def _extract_enum_values(annotation: Any) -> list[Any] | None:
     return None
 
 
+def _summarize_annotation(annotation: Any, constraints: FieldConstraints | None = None) -> FieldSummary:
+    inner_annotation, is_optional = _strip_optional(annotation)
+    type_name, fmt, item_annotation = _infer_annotation_kind(inner_annotation)
+    item_type = None
+    item_annotation_clean = None
+    if item_annotation is not None:
+        item_inner, _ = _strip_optional(item_annotation)
+        item_annotation_clean = item_inner
+        item_type, _, _ = _infer_annotation_kind(item_inner)
+    enum_values = _extract_enum_values(inner_annotation)
+    return FieldSummary(
+        type=type_name,
+        constraints=constraints or FieldConstraints(),
+        format=fmt,
+        item_type=item_type,
+        enum_values=enum_values,
+        is_optional=is_optional,
+        annotation=inner_annotation,
+        item_annotation=item_annotation_clean,
+    )
+
+
 def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None]:
     annotation = _unwrap_annotation(annotation)
     origin = get_origin(annotation)
@@ -238,7 +251,8 @@ def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None
         return type_map.get(origin, "collection"), None, item_annotation
 
     if origin in {dict}:
-        return "mapping", None, None
+        value_annotation = args[1] if len(args) > 1 else None
+        return "mapping", None, value_annotation
 
     if isinstance(annotation, type) and issubclass(annotation, enum.Enum):
         return "enum", None, None
@@ -247,6 +261,8 @@ def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None
         return "any", None, None
 
     if isinstance(annotation, type):
+        if dataclasses_module.is_dataclass(annotation):
+            return "dataclass", None, None
         email_type = getattr(pydantic, "EmailStr", None)
         if email_type is not None and issubclass(annotation, email_type):
             return "email", None, None

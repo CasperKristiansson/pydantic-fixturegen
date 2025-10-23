@@ -155,7 +155,7 @@ A) Backlog
   - Dependencies: T-13, T-15.
   - Estimate: 60m.
 
-- [ ] T-pydantic-fixturegen-product-spec-18: Strategy builder and policies (90m)
+- [x] T-pydantic-fixturegen-product-spec-18: Strategy builder and policies (90m)
 
   - Goal: Build `Strategy` per field from schema; apply defaults, `p_none`, union/enum policies.
   - Files/paths: `pydantic_fixturegen/core/strategies.py`, `tests/core/test_strategies.py`.
@@ -164,7 +164,7 @@ A) Backlog
   - Dependencies: T-11, T-12, T-13–T-17.
   - Estimate: 90m.
 
-- [ ] T-pydantic-fixturegen-product-spec-19: Recursive instance generator + guards (90m)
+- [x] T-pydantic-fixturegen-product-spec-19: Recursive instance generator + guards (90m)
 
   - Goal: Generate model instances depth-first; enforce recursion depth and object budget.
   - Files/paths: `pydantic_fixturegen/core/generate.py`, `tests/core/test_generate.py`.
