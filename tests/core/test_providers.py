@@ -11,9 +11,15 @@ from pydantic import BaseModel, SecretBytes, SecretStr, constr
 
 from pydantic_fixturegen.core import schema as schema_module
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
-from pydantic_fixturegen.core.providers import ProviderRef, ProviderRegistry
+from pydantic_fixturegen.core.providers import (
+    ProviderRef,
+    ProviderRegistry,
+    create_default_registry,
+)
 from pydantic_fixturegen.core.providers import strings as strings_module
 from pydantic_fixturegen.core.providers.strings import register_string_providers
+from pydantic_fixturegen.core.providers.numbers import register_numeric_providers
+from pydantic_fixturegen.core.providers.collections import register_collection_providers
 from pydantic_fixturegen.plugins.hookspecs import hookimpl
 
 
@@ -146,6 +152,51 @@ def test_string_provider_formats() -> None:
     )
     plain_value = provider.func(summary=plain_summary, faker=faker, random_generator=random.Random(1))
     assert 2 <= len(plain_value) <= 3
+
+
+def test_numeric_provider_respects_bounds() -> None:
+    registry = ProviderRegistry()
+    register_numeric_providers(registry)
+    provider = registry.get("int")
+    assert provider is not None
+
+    summary = FieldSummary(
+        type="int",
+        constraints=FieldConstraints(ge=5, le=5),
+        format=None,
+    )
+    value = provider.func(summary=summary, random_generator=random.Random(0))
+    assert value == 5
+
+    float_summary = FieldSummary(
+        type="float",
+        constraints=FieldConstraints(ge=1.5, le=2.5),
+        format=None,
+    )
+    float_value = registry.get("float").func(summary=float_summary, random_generator=random.Random(1))
+    assert 1.5 <= float_value <= 2.5
+
+
+def test_collection_provider_generates_items() -> None:
+    registry = ProviderRegistry()
+    register_collection_providers(registry)
+
+    summary = FieldSummary(
+        type="list",
+        constraints=FieldConstraints(min_length=2, max_length=4),
+        format=None,
+        item_type="int",
+    )
+    values = registry.get("list").func(summary=summary, faker=Faker(seed=10), random_generator=random.Random(2))
+    assert 2 <= len(values) <= 4
+    assert all(isinstance(v, int) for v in values)
+
+
+def test_default_registry_includes_providers() -> None:
+    registry = create_default_registry(load_plugins=False)
+    assert registry.get("string") is not None
+    assert registry.get("int") is not None
+    assert registry.get("list") is not None
 
 
 def test_string_provider_secret_bytes() -> None:

@@ -34,9 +34,9 @@ def generate_string(
 
     fmt = summary.format
     if fmt == "email":
-        return faker.unique.email()
+        return str(faker.unique.email())
     if fmt == "url":
-        return faker.unique.url()
+        return str(faker.unique.url())
     if fmt == "uuid":
         return str(faker.uuid4())
     if fmt == "date-time":

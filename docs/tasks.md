@@ -110,7 +110,7 @@ A) Backlog
   - Dependencies: T-11.
   - Estimate: 75m.
 
-- [ ] T-pydantic-fixturegen-product-spec-13: Provider registry + pluggy hooks (60m)
+- [x] T-pydantic-fixturegen-product-spec-13: Provider registry + pluggy hooks (60m)
 
   - Goal: Implement provider registry and `pfg_register_providers` hook.
   - Files/paths: `pydantic_fixturegen/core/providers.py`, `pydantic_fixturegen/plugins/hookspecs.py`, `tests/core/test_providers_registry.py`.
@@ -119,7 +119,7 @@ A) Backlog
   - Dependencies: T-05, T-06.
   - Estimate: 60m.
 
-- [ ] T-pydantic-fixturegen-product-spec-14: String and regex providers (with `[regex]`) (60m)
+- [x] T-pydantic-fixturegen-product-spec-14: String and regex providers (with `[regex]`) (60m)
 
   - Goal: Implement `str` provider with Faker and optional regex via `rstr` extra.
   - Files/paths: `pydantic_fixturegen/core/providers/strings.py`, `tests/providers/test_strings.py`.

@@ -1,5 +1,26 @@
 """Provider registry and built-in providers."""
 
 from .registry import ProviderRef, ProviderRegistry
+from .strings import register_string_providers
+from .numbers import register_numeric_providers
+from .collections import register_collection_providers
 
-__all__ = ["ProviderRef", "ProviderRegistry"]
+
+def create_default_registry(load_plugins: bool = True) -> ProviderRegistry:
+    registry = ProviderRegistry()
+    register_numeric_providers(registry)
+    register_string_providers(registry)
+    register_collection_providers(registry)
+    if load_plugins:
+        registry.load_entrypoint_plugins()
+    return registry
+
+
+__all__ = [
+    "ProviderRef",
+    "ProviderRegistry",
+    "create_default_registry",
+    "register_string_providers",
+    "register_numeric_providers",
+    "register_collection_providers",
+]
