@@ -299,7 +299,7 @@ A) Backlog
   - Dependencies: T-20, T-32.
   - Estimate: 45m.
 
-- [ ] T-pydantic-fixturegen-product-spec-34: Determinism integration test (60m)
+- [x] T-pydantic-fixturegen-product-spec-34: Determinism integration test (60m)
 
   - Goal: Prove identical outputs across two runs with same inputs/seed/version.
   - Files/paths: `tests/e2e/test_determinism.py`.
