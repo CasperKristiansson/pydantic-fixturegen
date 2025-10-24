@@ -236,4 +236,3 @@ pfg doctor <target> --fail-on-warn --json-errors
 ## Next steps (next-steps)
 
 - Continue to the **[Cookbook](./cookbook.md)** for advanced recipes.
-- Track progress in **[`docs/tasks.md`](./tasks.md)**.

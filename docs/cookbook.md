@@ -231,11 +231,11 @@ Parallel-safe emitters plus sharding yield throughput without compromising repro
 
 ```mermaid
 flowchart TD
-  CLI["pfg CLI"] --> D[Discovery<br/>(AST + Safe-Import)]
-  D --> S[Strategies<br/>(policies + constraints)]
-  S --> R[ProviderRegistry<br/>(built-ins + plugins)]
+  CLI["pfg CLI"] --> D["Discovery\n(AST + Safe-Import)"]
+  D --> S["Strategies\n(policies + constraints)"]
+  S --> R["ProviderRegistry\n(built-ins + plugins)"]
   R --> G[Instance Builder]
-  G --> E[Emitters<br/>(JSON | Fixtures | Schema)]
+  G --> E["Emitters\n(JSON | Fixtures | Schema)"]
   E --> A[(Artifacts on disk)]
 
   subgraph Plugin Hooks
@@ -300,4 +300,3 @@ Use <code>--json-errors</code> on supported commands. Discovery failures return 
 ## Next steps (next-steps)
 
 - Browse the **[Quickstart](./quickstart.md)** for the core flow.
-- Track work items in **[`docs/tasks.md`](./tasks.md)**.

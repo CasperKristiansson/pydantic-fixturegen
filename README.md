@@ -208,13 +208,6 @@ Models → Discovery (AST ⟷ Safe-Import Sandbox) → Strategies (policies + ho
 
 ---
 
-## Roadmap highlights (roadmap)
-
-- Milestones and progress are tracked in **[`docs/tasks.md`](./docs/tasks.md)**.
-- CI pipelines, release workflows, and Trusted Publishing specifics: see **[`docs/ci_examples.md`](./docs/ci_examples.md)**.
-
----
-
 ## Community & support (community)
 
 - Issues and contributions are welcome. Open an issue for bugs or feature discussions, and submit PRs with tests and docs.
