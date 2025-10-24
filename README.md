@@ -232,4 +232,3 @@ MIT. See `LICENSE`.
 
 - Start with the **[Quickstart](./docs/quickstart.md)**.
 - Dive deeper with the **[Cookbook](./docs/cookbook.md)**.
-- Wire into CI using **[CI examples](./docs/ci_examples.md)**.

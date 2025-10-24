@@ -1,16 +1,3 @@
----
-title: "Quickstart — Deterministic Pydantic fixtures with a secure CLI"
-description: "Evaluate pydantic-fixturegen in 5 minutes: install, generate deterministic JSON, emit pytest fixtures, and enable the safe-import sandbox."
-keywords:
-  - "pydantic fixtures"
-  - "deterministic test data"
-  - "pytest fixture generator"
-  - "test data orchestration"
-  - "generate deterministic JSON from Pydantic models"
-  - "secure safe-import sandbox for Pydantic"
-last_updated: "2025-01-01"
----
-
 # Quickstart: Generate deterministic Pydantic fixtures in minutes (quickstart)
 
 > Install, list models, generate deterministic JSON and pytest fixtures, and learn the sandbox and config precedence.

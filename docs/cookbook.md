@@ -1,16 +1,3 @@
----
-title: "Cookbook — Advanced recipes for pydantic-fixturegen"
-description: "Strategy tuning, emitter options, plugin hooks, sandbox practices, and performance tips for deterministic Pydantic fixtures."
-keywords:
-  - "pydantic fixtures"
-  - "pytest fixture generator"
-  - "deterministic test data"
-  - "pydantic automation tooling"
-  - "test data orchestration"
-  - "secure safe-import sandbox for Pydantic"
-last_updated: "2025-01-01"
----
-
 # Cookbook: Recipes for power users and plugin authors (cookbook)
 
 > Strategy tuning, plugin hooks, emitter tricks, sandbox hardening, and performance for large test suites.
