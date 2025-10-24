@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from itertools import islice
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable as TypingCallable, cast
+from typing import Any, cast
 
 from pydantic import BaseModel
 
@@ -319,7 +319,7 @@ def _normalise_record(record: Any) -> Any:
         return record.model_dump()
     model_dump = getattr(record, "model_dump", None)
     if callable(model_dump):
-        dump_call = cast(TypingCallable[[], Any], model_dump)
+        dump_call = cast(Callable[[], Any], model_dump)
         return dump_call()
     return record
 

@@ -16,6 +16,7 @@ from pydantic_fixturegen.plugins.loader import get_plugin_manager
 
 from .gen._common import (
     JSON_ERRORS_OPTION,
+    DiscoveryMethod,
     clear_module_cache,
     discover_models,
     load_model_class,
@@ -97,7 +98,7 @@ def doctor(  # noqa: D401 - Typer callback
 app.callback(invoke_without_command=True)(doctor)
 
 
-def _resolve_method(ast_mode: bool, hybrid_mode: bool) -> str:
+def _resolve_method(ast_mode: bool, hybrid_mode: bool) -> DiscoveryMethod:
     if ast_mode and hybrid_mode:
         raise DiscoveryError("Choose only one of --ast or --hybrid.")
     if hybrid_mode:

@@ -29,6 +29,7 @@ RETURN_CHOICES = {"model", "dict"}
 
 StyleLiteral = Literal["functions", "factory", "class"]
 ReturnLiteral = Literal["model", "dict"]
+DEFAULT_RETURN: ReturnLiteral = "model"
 
 TARGET_ARGUMENT = typer.Argument(
     ...,
@@ -204,7 +205,7 @@ def _execute_fixtures_command(
 
     style_final = style_value or cast(StyleLiteral, app_config.emitters.pytest.style)
     scope_final = scope_value or app_config.emitters.pytest.scope
-    return_type_final = return_type_value or cast(ReturnLiteral, "model")
+    return_type_final = return_type_value or DEFAULT_RETURN
 
     pytest_config = PytestEmitConfig(
         scope=scope_final,
@@ -251,7 +252,10 @@ def _coerce_style(value: str | None) -> StyleLiteral | None:
         return None
     lowered = value.strip().lower()
     if lowered not in STYLE_CHOICES:
-        raise DiscoveryError(f"Unsupported fixture style: {value!r}.")
+        raise DiscoveryError(
+            f"Invalid style '{value}'.",
+            details={"style": value},
+        )
     return cast(StyleLiteral, lowered)
 
 
@@ -260,7 +264,10 @@ def _coerce_scope(value: str | None) -> str | None:
         return None
     lowered = value.strip().lower()
     if lowered not in SCOPE_CHOICES:
-        raise DiscoveryError(f"Unsupported fixture scope: {value!r}.")
+        raise DiscoveryError(
+            f"Invalid scope '{value}'.",
+            details={"scope": value},
+        )
     return lowered
 
 
@@ -269,5 +276,8 @@ def _coerce_return_type(value: str | None) -> ReturnLiteral | None:
         return None
     lowered = value.strip().lower()
     if lowered not in RETURN_CHOICES:
-        raise DiscoveryError(f"Unsupported return type: {value!r}.")
+        raise DiscoveryError(
+            f"Invalid return type '{value}'.",
+            details={"return_type": value},
+        )
     return cast(ReturnLiteral, lowered)
