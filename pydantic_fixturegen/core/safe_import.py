@@ -307,6 +307,30 @@ _RUNNER_SNIPPET = textwrap.dedent(
 
         os.open = _guarded_os_open  # type: ignore[assignment]
 
+        original_path_write_text = Path.write_text
+
+        def _guarded_write_text(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            _ensure_allowed(self)
+            return original_path_write_text(self, *args, **kwargs)
+
+        Path.write_text = _guarded_write_text  # type: ignore[assignment]
+
+        original_path_write_bytes = Path.write_bytes
+
+        def _guarded_write_bytes(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            _ensure_allowed(self)
+            return original_path_write_bytes(self, *args, **kwargs)
+
+        Path.write_bytes = _guarded_write_bytes  # type: ignore[assignment]
+
+        original_path_touch = Path.touch
+
+        def _guarded_touch(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            _ensure_allowed(self)
+            return original_path_touch(self, *args, **kwargs)
+
+        Path.touch = _guarded_touch  # type: ignore[assignment]
+
     def _derive_module_name(module_path: Path, index: int) -> str:
         stem = module_path.stem or "module"
         return stem if index == 0 else f"{stem}_{index}"
