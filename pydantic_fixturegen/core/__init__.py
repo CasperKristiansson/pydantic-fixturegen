@@ -27,6 +27,7 @@ from .providers.identifiers import generate_identifier
 from .providers.numbers import generate_numeric
 from .providers.strings import generate_string
 from .providers.temporal import generate_temporal
+from .io_utils import WriteResult, write_atomic_bytes, write_atomic_text
 from .safe_import import SafeImportResult, safe_import_models
 from .schema import (
     FieldConstraints,
@@ -50,6 +51,7 @@ __all__ = [
     "PytestEmitterConfig",
     "SafeImportResult",
     "SeedManager",
+    "WriteResult",
     "FieldConstraints",
     "FieldSummary",
     "ProviderRef",
@@ -82,4 +84,6 @@ __all__ = [
     "summarize_field",
     "summarize_model_fields",
     "safe_import_models",
+    "write_atomic_text",
+    "write_atomic_bytes",
 ]

@@ -191,7 +191,7 @@ A) Backlog
   - Dependencies: T-19.
   - Estimate: 30m.
 
-- [ ] T-pydantic-fixturegen-product-spec-22: Atomic writes + content hashing utility (45m)
+- [x] T-pydantic-fixturegen-product-spec-22: Atomic writes + content hashing utility (45m)
 
   - Goal: Prevent partial writes; skip when content unchanged.
   - Files/paths: `pydantic_fixturegen/core/io_utils.py`, `tests/core/test_io_utils.py`.
