@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from pydantic_fixturegen.cli import app as cli_app
 from typer.testing import CliRunner
 
@@ -108,3 +109,95 @@ def test_gen_json_respects_config_env(tmp_path: Path) -> None:
     assert result.exit_code == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
     text = output.read_text(encoding="utf-8")
     assert "\n" not in text
+
+
+def test_gen_json_mapping_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "out.json"
+
+    class DummyGenerator:
+        def generate_one(self, model):  # noqa: ANN001
+            return None
+
+    def dummy_builder(_: object) -> DummyGenerator:
+        return DummyGenerator()
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.gen.json._build_instance_generator",
+        dummy_builder,
+    )
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(output),
+            "--include",
+            "models.User",
+        ],
+    )
+
+    assert result.exit_code == 20
+    assert "Failed to generate instance" in result.stderr
+
+
+def test_gen_json_emit_artifact_short_circuit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "out.json"
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.gen.json.emit_artifact",
+        lambda *args, **kwargs: True,
+    )
+
+    def fail_emit(*args, **kwargs):  # noqa: ANN001, ANN002
+        raise AssertionError("emit_json_samples should not be called")
+
+    monkeypatch.setattr("pydantic_fixturegen.cli.gen.json.emit_json_samples", fail_emit)
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(output),
+            "--include",
+            "models.User",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert not output.exists()
+
+
+def test_gen_json_emit_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "out.json"
+
+    def boom_emit(*args, **kwargs):  # noqa: ANN001, ANN002
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("pydantic_fixturegen.cli.gen.json.emit_json_samples", boom_emit)
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(output),
+            "--include",
+            "models.User",
+        ],
+    )
+
+    assert result.exit_code == 30
+    assert "boom" in result.stderr

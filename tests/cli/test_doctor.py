@@ -82,6 +82,33 @@ def test_doctor_json_errors(tmp_path: Path) -> None:
     assert "DiscoveryError" in result.stdout
 
 
+def test_execute_doctor_path_checks(tmp_path: Path) -> None:
+    not_there = tmp_path / "missing.py"
+    with pytest.raises(DiscoveryError):
+        doctor_mod._execute_doctor(
+            target=str(not_there),
+            include=None,
+            exclude=None,
+            ast_mode=False,
+            hybrid_mode=False,
+            timeout=1.0,
+            memory_limit_mb=256,
+        )
+
+    directory = tmp_path / "dir"
+    directory.mkdir()
+    with pytest.raises(DiscoveryError):
+        doctor_mod._execute_doctor(
+            target=str(directory),
+            include=None,
+            exclude=None,
+            ast_mode=False,
+            hybrid_mode=False,
+            timeout=1.0,
+            memory_limit_mb=256,
+        )
+
+
 def test_doctor_warnings_and_no_models(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
