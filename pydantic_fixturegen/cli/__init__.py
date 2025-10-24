@@ -2,34 +2,84 @@
 
 from __future__ import annotations
 
+import builtins
+from collections.abc import Callable
+from importlib import import_module
+
 import typer
+from typer.main import get_command
 
-from .doctor import app as doctor_app
-from .gen import app as gen_app
-from .gen.explain import app as explain_app
-from .list import app as list_app
+Loader = Callable[[], typer.Typer]
 
-app = typer.Typer(help="pydantic-fixturegen command line interface")
-app.add_typer(
-    list_app,
-    name="list",
-    help="List Pydantic models from modules or files.",
+
+def _load_typer(import_path: str) -> typer.Typer:
+    module_name, attr = import_path.split(":", 1)
+    module = import_module(module_name)
+    return getattr(module, attr)
+
+
+def _invoke(import_path: str, ctx: typer.Context) -> None:
+    sub_app = _load_typer(import_path)
+    command = get_command(sub_app)
+    args = builtins.list(ctx.args)
+    result = command.main(
+        args=args,
+        prog_name=ctx.command_path,
+        standalone_mode=False,
+    )
+    if isinstance(result, int):
+        raise typer.Exit(code=result)
+
+
+app = typer.Typer(
+    help="pydantic-fixturegen command line interface",
     invoke_without_command=True,
+    context_settings={
+        "allow_extra_args": True,
+        "ignore_unknown_options": True,
+    },
 )
-app.add_typer(
-    gen_app,
-    name="gen",
-    help="Generate artifacts for discovered models.",
+
+
+@app.callback(invoke_without_command=True)
+def _root(ctx: typer.Context) -> None:  # noqa: D401
+    if ctx.invoked_subcommand is None:
+        _invoke("pydantic_fixturegen.cli.list:app", ctx)
+        raise typer.Exit()
+
+
+def _proxy(name: str, import_path: str, help_text: str) -> None:
+    context_settings = {
+        "allow_extra_args": True,
+        "ignore_unknown_options": True,
+    }
+
+    @app.command(name, context_settings=context_settings)
+    def command(ctx: typer.Context) -> None:  # type: ignore[misc]
+        _invoke(import_path, ctx)
+
+    command.__doc__ = help_text
+
+
+_proxy(
+    "list",
+    "pydantic_fixturegen.cli.list:app",
+    "List Pydantic models from modules or files.",
 )
-app.add_typer(
-    doctor_app,
-    name="doctor",
-    help="Inspect models for coverage and risks.",
+_proxy(
+    "gen",
+    "pydantic_fixturegen.cli.gen:app",
+    "Generate artifacts for discovered models.",
 )
-app.add_typer(
-    explain_app,
-    name="explain",
-    help="Explain generation strategies per model field.",
+_proxy(
+    "doctor",
+    "pydantic_fixturegen.cli.doctor:app",
+    "Inspect models for coverage and risks.",
+)
+_proxy(
+    "explain",
+    "pydantic_fixturegen.cli.gen.explain:app",
+    "Explain generation strategies per model field.",
 )
 
 __all__ = ["app"]

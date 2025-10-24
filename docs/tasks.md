@@ -308,7 +308,7 @@ A) Backlog
   - Dependencies: T-19, T-20, T-23, T-27.
   - Estimate: 60m.
 
-- [ ] T-pydantic-fixturegen-product-spec-35: CLI startup time optimization (45m)
+- [x] T-pydantic-fixturegen-product-spec-35: CLI startup time optimization (45m)
 
   - Goal: Keep warm startup ≤200ms via lazy imports.
   - Files/paths: `pydantic_fixturegen/cli/__init__.py`, lazy import wrappers.
@@ -317,7 +317,7 @@ A) Backlog
   - Dependencies: T-10, T-25–T-27.
   - Estimate: 45m.
 
-- [ ] T-pydantic-fixturegen-product-spec-36: Security hardening (network block + FS jail) (60m)
+- [x] T-pydantic-fixturegen-product-spec-36: Security hardening (network block + FS jail) (60m)
 
   - Goal: Strengthen safe-import sandbox and add tests.
   - Files/paths: `pydantic_fixturegen/core/safe_import.py`, `tests/security/test_sandbox.py`.
@@ -326,7 +326,7 @@ A) Backlog
   - Dependencies: T-07.
   - Estimate: 60m.
 
-- [ ] T-pydantic-fixturegen-product-spec-37: Packaging with Hatch + extras (45m)
+- [x] T-pydantic-fixturegen-product-spec-37: Packaging with Hatch + extras (45m)
 
   - Goal: Complete Hatch config, extras `[hypothesis]`, `[regex]`, `[orjson]`, `[all]`.
   - Files/paths: `pyproject.toml`.

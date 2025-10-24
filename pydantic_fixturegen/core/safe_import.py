@@ -14,6 +14,24 @@ from typing import Any
 
 EXIT_TIMEOUT = 40
 
+_PROTECTED_ENV_KEYS = {
+    "PYTHONPATH",
+    "PYTHONSAFEPATH",
+    "PYTHONNOUSERSITE",
+    "NO_PROXY",
+    "no_proxy",
+    "http_proxy",
+    "https_proxy",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "all_proxy",
+    "TMPDIR",
+    "TMP",
+    "TEMP",
+    "HOME",
+}
+
 
 @dataclass(slots=True)
 class SafeImportResult:
@@ -133,24 +151,37 @@ def _build_env(workdir: Path, extra_env: Mapping[str, str] | None) -> dict[str, 
         "PYTHONSAFEPATH": "1",
         "PYTHONPATH": str(workdir),
         "NO_PROXY": "*",
+        "no_proxy": "*",
         "http_proxy": "",
         "https_proxy": "",
+        "HTTP_PROXY": "",
+        "HTTPS_PROXY": "",
+        "ALL_PROXY": "",
+        "all_proxy": "",
         "PYTHONNOUSERSITE": "1",
+        "TMPDIR": str(workdir),
+        "TMP": str(workdir),
+        "TEMP": str(workdir),
+        "HOME": str(workdir),
     }
 
-    allowed_passthrough = ["PATH", "SYSTEMROOT", "TMPDIR", "TEMP", "COMSPEC"]
+    allowed_passthrough = ["PATH", "SYSTEMROOT", "COMSPEC"]
     for key in allowed_passthrough:
         if key in os.environ:
             base_env[key] = os.environ[key]
 
     if extra_env:
-        base_env.update(extra_env)
+        for key, value in extra_env.items():
+            if key in _PROTECTED_ENV_KEYS:
+                continue
+            base_env[key] = value
 
     return base_env
 
 
 _RUNNER_SNIPPET = textwrap.dedent(
     """
+    import builtins
     import json
     import os
     import sys
@@ -188,18 +219,93 @@ _RUNNER_SNIPPET = textwrap.dedent(
         import socket
 
         class _ProtectedSocket(socket.socket):
+            def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+                raise RuntimeError("network access disabled in safe-import")
+
             def connect(self, *args, **kwargs):  # type: ignore[override]
                 raise RuntimeError("network access disabled in safe-import")
 
             def connect_ex(self, *args, **kwargs):  # type: ignore[override]
                 raise RuntimeError("network access disabled in safe-import")
 
-        socket.socket = _ProtectedSocket  # type: ignore[assignment]
-
-        def _blocked_create_connection(*args, **kwargs):
+        def _blocked(*_args, **_kwargs):
             raise RuntimeError("network access disabled in safe-import")
 
-        socket.create_connection = _blocked_create_connection  # type: ignore[assignment]
+        socket.socket = _ProtectedSocket  # type: ignore[assignment]
+        socket.create_connection = _blocked  # type: ignore[assignment]
+        socket.socketpair = _blocked  # type: ignore[assignment]
+        socket.create_server = _blocked  # type: ignore[assignment]
+        socket.getaddrinfo = _blocked  # type: ignore[assignment]
+        socket.gethostbyname = _blocked  # type: ignore[assignment]
+        socket.gethostbyaddr = _blocked  # type: ignore[assignment]
+
+
+    def _restrict_filesystem(root: Path) -> None:
+        import io
+
+        allowed_root = root.resolve()
+
+        def _normalize_candidate(candidate: object) -> Path | None:
+            if isinstance(candidate, int):
+                return None
+            if isinstance(candidate, (str, bytes, os.PathLike)):
+                path = Path(candidate)
+            else:
+                return None
+            if not path.is_absolute():
+                path = (Path.cwd() / path).resolve()
+            else:
+                path = path.resolve()
+            return path
+
+        def _ensure_allowed(candidate: object) -> None:
+            normalized = _normalize_candidate(candidate)
+            if normalized is None:
+                return
+            try:
+                normalized.relative_to(allowed_root)
+            except ValueError:
+                raise RuntimeError("filesystem writes outside the sandbox are not permitted")
+
+        def _needs_write(mode: str) -> bool:
+            return any(flag in mode for flag in ("w", "a", "x", "+"))
+
+        original_open = builtins.open
+
+        def _guarded_open(file, mode="r", *args, **kwargs):  # type: ignore[no-untyped-def]
+            if _needs_write(mode):
+                _ensure_allowed(file)
+            return original_open(file, mode, *args, **kwargs)
+
+        builtins.open = _guarded_open  # type: ignore[assignment]
+
+        original_io_open = io.open
+
+        def _guarded_io_open(file, mode="r", *args, **kwargs):  # type: ignore[no-untyped-def]
+            if _needs_write(mode):
+                _ensure_allowed(file)
+            return original_io_open(file, mode, *args, **kwargs)
+
+        io.open = _guarded_io_open  # type: ignore[assignment]
+
+        original_os_open = os.open
+
+        def _guarded_os_open(path, flags, mode=0o777):  # type: ignore[no-untyped-def]
+            needs_write = bool(
+                flags
+                & (
+                    os.O_WRONLY
+                    | os.O_RDWR
+                    | os.O_APPEND
+                    | os.O_CREAT
+                    | os.O_TRUNC
+                )
+            )
+            if needs_write:
+                _ensure_allowed(path)
+            return original_os_open(path, flags, mode)
+
+        os.open = _guarded_os_open  # type: ignore[assignment]
 
     def _derive_module_name(module_path: Path, index: int) -> str:
         stem = module_path.stem or "module"
@@ -246,6 +352,7 @@ _RUNNER_SNIPPET = textwrap.dedent(
 
         _apply_resource_limits(int(request.get("memory_limit_mb", 256)))
         _block_network()
+        _restrict_filesystem(workdir)
 
         paths = [Path(path) for path in request.get("paths", [])]
 
