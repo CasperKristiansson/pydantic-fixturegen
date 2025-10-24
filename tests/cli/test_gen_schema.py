@@ -247,15 +247,21 @@ def test_execute_schema_command_errors(tmp_path: Path, monkeypatch: pytest.Monke
 
     def fake_discover(path: Path, **_: object) -> IntrospectionResult:
         assert path == module_path
-        return IntrospectionResult(models=[IntrospectedModel(
-            module="pkg",
-            name="User",
-            qualname="pkg.User",
-            locator=str(module_path),
-            lineno=1,
-            discovery="import",
-            is_public=True,
-        )], warnings=[], errors=["boom"])
+        return IntrospectionResult(
+            models=[
+                IntrospectedModel(
+                    module="pkg",
+                    name="User",
+                    qualname="pkg.User",
+                    locator=str(module_path),
+                    lineno=1,
+                    discovery="import",
+                    is_public=True,
+                )
+            ],
+            warnings=[],
+            errors=["boom"],
+        )
 
     monkeypatch.setattr(schema_mod, "discover_models", fake_discover)
     monkeypatch.setattr(schema_mod, "clear_module_cache", lambda: None)

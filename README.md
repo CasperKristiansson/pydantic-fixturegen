@@ -5,7 +5,6 @@
 [![PyPI version](https://img.shields.io/pypi/v/pydantic-fixturegen.svg "PyPI")](https://pypi.org/project/pydantic-fixturegen/)
 ![Python versions](https://img.shields.io/pypi/pyversions/pydantic-fixturegen.svg "Python 3.10–3.13")
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg "MIT License")
-![CI](https://img.shields.io/badge/CI-GitHub%20Actions-blue "Continuous Integration")
 
 `pydantic-fixturegen` is a **deterministic data generation toolkit for Pydantic v2 models**. It discovers models, builds generation strategies, creates instances, and **emits artifacts**—JSON, **pytest fixtures**, and JSON Schema—through a composable CLI and a **Pluggy** plugin layer.
 
