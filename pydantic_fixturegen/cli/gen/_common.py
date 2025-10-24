@@ -53,13 +53,18 @@ def discover_models(
     *,
     include: Sequence[str] | None = None,
     exclude: Sequence[str] | None = None,
+    method: str = "import",
+    timeout: float = 5.0,
+    memory_limit_mb: int = 256,
 ) -> IntrospectionResult:
     return discover(
         [path],
-        method="import",
+        method=method,
         include=list(include or ()),
         exclude=list(exclude or ()),
         public_only=False,
+        safe_import_timeout=timeout,
+        safe_import_memory_limit_mb=memory_limit_mb,
     )
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import typer
 
+from .doctor import app as doctor_app
 from .gen import app as gen_app
 from .list import app as list_app
 
@@ -18,6 +19,11 @@ app.add_typer(
     gen_app,
     name="gen",
     help="Generate artifacts for discovered models.",
+)
+app.add_typer(
+    doctor_app,
+    name="doctor",
+    help="Inspect models for coverage and risks.",
 )
 
 __all__ = ["app"]

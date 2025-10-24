@@ -263,7 +263,7 @@ A) Backlog
   - Dependencies: T-13, T-18, T-23.
   - Estimate: 75m.
 
-- [ ] T-pydantic-fixturegen-product-spec-30: Doctor command (coverage + risky imports) (75m)
+- [x] T-pydantic-fixturegen-product-spec-30: Doctor command (coverage + risky imports) (75m)
 
   - Goal: Implement `pfg doctor` showing type coverage, unmapped constraints, risky imports.
   - Files/paths: `pydantic_fixturegen/cli/doctor.py`, `tests/cli/test_doctor.py`.
