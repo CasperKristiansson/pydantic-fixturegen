@@ -200,7 +200,7 @@ A) Backlog
   - Dependencies: T-01.
   - Estimate: 45m.
 
-- [ ] T-pydantic-fixturegen-product-spec-23: Pytest fixture codegen (functions style) (90m)
+- [x] T-pydantic-fixturegen-product-spec-23: Pytest fixture codegen (functions style) (90m)
 
   - Goal: Jinja template for function fixtures; imports de-duped; header metadata.
   - Files/paths: `pydantic_fixturegen/emitters/pytest_codegen.py`, `pydantic_fixturegen/templates/fixtures.j2`, `tests/emitters/test_pytest_codegen.py`.
