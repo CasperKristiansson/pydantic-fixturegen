@@ -1,0 +1,44 @@
+from __future__ import annotations
+
+import decimal
+import random
+
+import pytest
+from pydantic_fixturegen.core.providers import numbers
+from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
+
+
+def _summary(type_id: str, **constraints: float) -> FieldSummary:
+    return FieldSummary(type=type_id, constraints=FieldConstraints(**constraints))
+
+
+def test_generate_numeric_bool() -> None:
+    summary = _summary("bool")
+    value = numbers.generate_numeric(summary, random_generator=random.Random(0))
+    assert value in {True, False}
+
+
+def test_generate_numeric_int_bounds() -> None:
+    summary = _summary("int", ge=5, lt=5)
+    value = numbers.generate_numeric(summary, random_generator=random.Random(0))
+    assert value == 4
+
+
+def test_generate_numeric_float_adjusts_exclusive() -> None:
+    summary = _summary("float", gt=1.0, lt=1.0)
+    value = numbers.generate_numeric(summary, random_generator=random.Random(0))
+    assert pytest.approx(value, rel=1e-6) == pytest.approx(1.0 - 1e-6)
+
+
+def test_generate_numeric_decimal_quantize() -> None:
+    constraints = FieldConstraints(ge=decimal.Decimal("1.2"), decimal_places=2)
+    summary = FieldSummary(type="decimal", constraints=constraints)
+    value = numbers.generate_numeric(summary, random_generator=random.Random(0))
+    assert isinstance(value, decimal.Decimal)
+    assert value.as_tuple().exponent == -2
+
+
+def test_generate_numeric_unsupported() -> None:
+    summary = _summary("custom")
+    with pytest.raises(ValueError):
+        numbers.generate_numeric(summary)
