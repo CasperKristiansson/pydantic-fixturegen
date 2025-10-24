@@ -59,13 +59,15 @@ models.Address
 ### 3.3 Generate deterministic JSON (gen-json)
 
 ```bash
-pfg gen json ./models.py --n 2 --indent 2 --out ./out
+pfg gen json ./models.py --include models.User --n 2 --indent 2 --out ./out/User
 ```
 
 **What it does**: Builds two deterministic instances per model and writes pretty-printed JSON.
 **Files written**:
 
 - `out/User.json` with a **metadata header comment** containing `seed/version/digest` when `--indent` is used.
+
+> **Note:** When your module exposes several models, add `--include module.Model` so the generator focuses on a single target.
 
 Example excerpt:
 
@@ -92,7 +94,7 @@ Example excerpt:
 ```bash
 pfg gen fixtures ./models.py \
   --out tests/fixtures/test_user_fixtures.py \
-  --style function --scope module --p-none 0.25 --cases 3 --return-type model
+  --style functions --scope module --p-none 0.25 --cases 3 --return-type model
 ```
 
 **What it does**: Outputs a fixture module with deduped imports and a banner holding `seed/version/digest`.
@@ -147,7 +149,7 @@ union_policy = "weighted"
 enum_policy = "random"
 emitters.json.indent = 2
 emitters.json.orjson = false
-fixtures.style = "function"
+fixtures.style = "functions"
 fixtures.scope = "module"
 ```
 
@@ -203,15 +205,15 @@ pfg gen json ./models.py --seed 777 --indent 0
 # List models
 pfg list <module_or_path>
 
-# Deterministic JSON / JSONL
-pfg gen json <target> --n 100 --jsonl --indent 2 --orjson --shard-size 1000 --out ./out --seed 42
+# Deterministic JSON / JSONL (narrow to one model when files contain many)
+pfg gen json <target> --include package.Model --n 100 --jsonl --indent 2 --orjson --shard-size 1000 --out ./out --seed 42
 
 # JSON Schema
 pfg gen schema <target> --out ./schema --json-errors
 
 # Pytest fixtures
 pfg gen fixtures <target> --out tests/fixtures/test_models.py \
-  --style {function,factory,class} --scope {function,module,session} \
+  --style {functions,factory,class} --scope {function,module,session} \
   --p-none 0.1 --cases 3 --return-type {model,dict} --seed 42
 
 # Explain strategy tree

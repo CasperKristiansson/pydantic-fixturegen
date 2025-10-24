@@ -106,8 +106,10 @@ pfg list ./models.py
 **3) Generate JSON samples**
 
 ```bash
-pfg gen json ./models.py --n 2 --indent 2 --out ./out
-# writes out/user.json with a metadata header comment when indenting
+pfg gen json ./models.py --include models.User --n 2 --indent 2 --out ./out/User
+# writes out/User.json with a metadata header comment when indenting
+
+> **Note:** When a module declares more than one model, `--include` narrows generation to the desired `module.Model`.
 ```
 
 Example file (excerpt):
@@ -135,7 +137,7 @@ Example file (excerpt):
 ```bash
 pfg gen fixtures ./models.py \
   --out tests/fixtures/test_user_fixtures.py \
-  --style function --scope module --cases 3 --return-type model
+  --style functions --scope module --cases 3 --return-type model
 # produces a module with a banner and deduped imports, formatted by Ruff/Black
 ```
 
@@ -165,7 +167,7 @@ union_policy = "weighted"
 enum_policy = "random"
 emitters.json.indent = 2
 emitters.json.orjson = false
-fixtures.style = "function"
+fixtures.style = "functions"
 fixtures.scope = "module"
 ```
 
@@ -178,7 +180,7 @@ Environment variables mirror keys using `PFG_` (e.g., `PFG_SEED=99`). **CLI flag
 - `pfg list <module_or_path>` — enumerate models (AST and/or sandboxed import).
 - `pfg gen json <target>` — deterministic JSON/JSONL (`--n`, `--jsonl`, `--indent`, `--orjson/--no-orjson`, `--shard-size`, `--out`, `--seed`).
 - `pfg gen schema <target>` — emit JSON Schema (`--out` required; atomic writes; `--json-errors`).
-- `pfg gen fixtures <target>` — emit pytest fixtures (`--style {function,factory,class}`, `--scope {function,module,session}`, `--p-none`, `--cases`, `--return-type {model,dict}`).
+- `pfg gen fixtures <target>` — emit pytest fixtures (`--style {functions,factory,class}`, `--scope {function,module,session}`, `--p-none`, `--cases`, `--return-type {model,dict}`).
 - `pfg gen explain <target>` — print provider/strategy tree per field; optional `--json` if exposed.
 - `pfg doctor <target>` — audit coverage, constraints, risky imports (`--fail-on-warn`, `--json-errors`).
 
