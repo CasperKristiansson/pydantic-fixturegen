@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import os
 import random
-from collections.abc import Callable
-from typing import Any
 
 try:  # Optional dependency for regex generation
     import rstr  # type: ignore
@@ -58,10 +56,11 @@ def register_string_providers(registry: ProviderRegistry) -> None:
 def _regex_string(summary: FieldSummary, *, faker: Faker) -> str:
     pattern = summary.constraints.pattern or ".*"
     candidate: str
-    if rstr is not None:
-        candidate = rstr.xeger(pattern)
-    else:  # pragma: no cover - fallback path without regex extra
-        candidate = _fallback_regex(pattern, faker)
+    candidate = (
+        rstr.xeger(pattern)
+        if rstr is not None
+        else _fallback_regex(pattern, faker)  # pragma: no cover - fallback path without regex extra
+    )
     return _apply_length(candidate, summary, faker=faker)
 
 

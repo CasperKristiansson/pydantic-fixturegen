@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from typer.testing import CliRunner
-
 from pydantic_fixturegen.cli import app as cli_app
+from typer.testing import CliRunner
 
 runner = CliRunner()
 

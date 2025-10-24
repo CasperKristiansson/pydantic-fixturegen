@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 
 import pytest
-
 from pydantic_fixturegen.core.io_utils import WriteResult, write_atomic_bytes, write_atomic_text
 
 

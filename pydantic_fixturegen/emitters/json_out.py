@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, Iterator, Sequence
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -84,7 +85,6 @@ def emit_json_samples(
     )
 
     records = list(_collect_samples(samples, config.count))
-    total = len(records)
     shards = _split_into_shards(records, config.shard_size)
     config.output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -134,12 +134,10 @@ def _collect_samples(
         return factory_iterator()
 
     def iterable_iterator() -> Iterator[Any]:
-        yielded = 0
-        for item in samples:
+        for yielded, item in enumerate(samples):
             if yielded >= count:
                 break
             yield _normalise_record(item)
-            yielded += 1
 
     return iterable_iterator()
 
@@ -186,7 +184,7 @@ def _write_shard(
     shard_index: int,
     shard_count: int,
     jsonl: bool,
-    encoder: "_JsonEncoder",
+    encoder: _JsonEncoder,
 ) -> Path:
     path = _shard_path(base_path, shard_index, shard_count, jsonl)
     payload = _prepare_payload(chunk, jsonl, encoder)
@@ -198,7 +196,7 @@ def _write_shard(
 def _write_empty_shard(
     base_path: Path,
     jsonl: bool,
-    encoder: "_JsonEncoder",
+    encoder: _JsonEncoder,
 ) -> Path:
     path = _shard_path(base_path, 1, 1, jsonl)
     empty_payload = "" if jsonl else encoder.encode([])
@@ -207,7 +205,7 @@ def _write_empty_shard(
     return path
 
 
-def _prepare_payload(chunk: Sequence[Any], jsonl: bool, encoder: "_JsonEncoder") -> str:
+def _prepare_payload(chunk: Sequence[Any], jsonl: bool, encoder: _JsonEncoder) -> str:
     if jsonl:
         lines = [encoder.encode(item) for item in chunk]
         return "\n".join(lines) + ("\n" if lines else "")

@@ -2,12 +2,9 @@ from __future__ import annotations
 
 import itertools
 import json
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
 
 import pytest
-
 from pydantic_fixturegen.emitters.json_out import emit_json_samples
 
 try:

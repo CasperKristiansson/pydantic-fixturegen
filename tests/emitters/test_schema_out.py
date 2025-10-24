@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from pydantic import BaseModel
-
 from pydantic_fixturegen.emitters.schema_out import emit_model_schema, emit_models_schema
 
 

@@ -6,10 +6,11 @@ import json
 import re
 import shutil
 import subprocess
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Iterable, Literal, Sequence
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -70,7 +71,9 @@ def emit_pytest_fixtures(
     for model in models:
         instances = generator.generate(model, count=cfg.cases)
         if len(instances) < cfg.cases:
-            raise RuntimeError(f"Failed to generate {cfg.cases} instance(s) for {model.__qualname__}.")
+            raise RuntimeError(
+                f"Failed to generate {cfg.cases} instance(s) for {model.__qualname__}."
+            )
         data = [_model_to_literal(instance) for instance in instances]
         base_name = model.__name__
         if cfg.style in {"factory", "class"}:

@@ -3,7 +3,6 @@ from __future__ import annotations
 import enum
 
 from pydantic import BaseModel, Field
-
 from pydantic_fixturegen.core.providers import ProviderRegistry, create_default_registry
 from pydantic_fixturegen.core.strategies import Strategy, StrategyBuilder, UnionStrategy
 

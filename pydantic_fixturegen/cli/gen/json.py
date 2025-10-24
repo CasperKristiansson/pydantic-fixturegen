@@ -12,6 +12,7 @@ from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingEr
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.seed import SeedManager
 from pydantic_fixturegen.emitters.json_out import emit_json_samples
+
 from ._common import (
     JSON_ERRORS_OPTION,
     clear_module_cache,
@@ -21,66 +22,86 @@ from ._common import (
     split_patterns,
 )
 
+TARGET_ARGUMENT = typer.Argument(
+    ...,
+    help="Path to a Python module containing Pydantic models.",
+)
+
+OUT_OPTION = typer.Option(
+    ...,
+    "--out",
+    "-o",
+    help="Output file path (single file or shard prefix).",
+)
+
+COUNT_OPTION = typer.Option(
+    1,
+    "--n",
+    "-n",
+    min=1,
+    help="Number of samples to generate.",
+)
+
+JSONL_OPTION = typer.Option(
+    False,
+    "--jsonl",
+    help="Emit newline-delimited JSON instead of a JSON array.",
+)
+
+INDENT_OPTION = typer.Option(
+    None,
+    "--indent",
+    min=0,
+    help="Indentation level for JSON output (overrides config).",
+)
+
+ORJSON_OPTION = typer.Option(
+    None,
+    "--orjson/--no-orjson",
+    help="Toggle orjson serialization (overrides config).",
+)
+
+SHARD_OPTION = typer.Option(
+    None,
+    "--shard-size",
+    min=1,
+    help="Maximum number of records per shard (JSONL or JSON).",
+)
+
+INCLUDE_OPTION = typer.Option(
+    None,
+    "--include",
+    "-i",
+    help="Comma-separated pattern(s) of fully-qualified model names to include.",
+)
+
+EXCLUDE_OPTION = typer.Option(
+    None,
+    "--exclude",
+    "-e",
+    help="Comma-separated pattern(s) of fully-qualified model names to exclude.",
+)
+
+SEED_OPTION = typer.Option(
+    None,
+    "--seed",
+    help="Seed override for deterministic generation.",
+)
+
 
 def register(app: typer.Typer) -> None:
     @app.command("json")
     def gen_json(  # noqa: PLR0913 - CLI surface mirrors documented parameters
-        target: str = typer.Argument(
-            ...,
-            help="Path to a Python module containing Pydantic models.",
-        ),
-        out: Path = typer.Option(
-            ...,
-            "--out",
-            "-o",
-            help="Output file path (single file or shard prefix).",
-        ),
-        count: int = typer.Option(
-            1,
-            "--n",
-            "-n",
-            min=1,
-            help="Number of samples to generate.",
-        ),
-        jsonl: bool = typer.Option(
-            False,
-            "--jsonl",
-            help="Emit newline-delimited JSON instead of a JSON array.",
-        ),
-        indent: int | None = typer.Option(
-            None,
-            "--indent",
-            min=0,
-            help="Indentation level for JSON output (overrides config).",
-        ),
-        use_orjson: bool | None = typer.Option(
-            None,
-            "--orjson/--no-orjson",
-            help="Toggle orjson serialization (overrides config).",
-        ),
-        shard_size: int | None = typer.Option(
-            None,
-            "--shard-size",
-            min=1,
-            help="Maximum number of records per shard (JSONL or JSON).",
-        ),
-        include: str | None = typer.Option(
-            None,
-            "--include",
-            "-i",
-            help="Comma-separated pattern(s) of fully-qualified model names to include.",
-        ),
-        exclude: str | None = typer.Option(
-            None,
-            "--exclude",
-            "-e",
-            help="Comma-separated pattern(s) of fully-qualified model names to exclude.",
-        ),
-        seed: int | None = typer.Option(
-            None,
-            "--seed",
-            help="Seed override for deterministic generation.",
-        ),
+        target: str = TARGET_ARGUMENT,
+        out: Path = OUT_OPTION,
+        count: int = COUNT_OPTION,
+        jsonl: bool = JSONL_OPTION,
+        indent: int | None = INDENT_OPTION,
+        use_orjson: bool | None = ORJSON_OPTION,
+        shard_size: int | None = SHARD_OPTION,
+        include: str | None = INCLUDE_OPTION,
+        exclude: str | None = EXCLUDE_OPTION,
+        seed: int | None = SEED_OPTION,
         json_errors: bool = JSON_ERRORS_OPTION,
     ) -> None:
         try:

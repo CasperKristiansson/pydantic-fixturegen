@@ -4,7 +4,6 @@ import enum
 from dataclasses import dataclass
 
 from pydantic import BaseModel, Field
-
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 
 

@@ -7,7 +7,6 @@ import os
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 __all__ = ["WriteResult", "write_atomic_text", "write_atomic_bytes"]
 
@@ -56,14 +55,13 @@ def _write_atomic(path: Path, data: bytes, *, hash_compare: bool) -> WriteResult
         if _hash_bytes(existing) == digest:
             return WriteResult(path=path, wrote=False, skipped=True, reason="unchanged")
 
-    temp_file = tempfile.NamedTemporaryFile(
+    with tempfile.NamedTemporaryFile(
         delete=False,
         dir=path.parent,
         prefix=f".{path.name}.",
         suffix=".tmp",
-    )
-    temp_path = Path(temp_file.name)
-    temp_file.close()
+    ) as temp_file:
+        temp_path = Path(temp_file.name)
 
     try:
         temp_path.write_bytes(data)

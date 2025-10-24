@@ -210,7 +210,10 @@ def _extract_enum_values(annotation: Any) -> list[Any] | None:
     return None
 
 
-def _summarize_annotation(annotation: Any, constraints: FieldConstraints | None = None) -> FieldSummary:
+def _summarize_annotation(
+    annotation: Any,
+    constraints: FieldConstraints | None = None,
+) -> FieldSummary:
     inner_annotation, is_optional = _strip_optional(annotation)
     type_name, fmt, item_annotation = _infer_annotation_kind(inner_annotation)
     item_type = None

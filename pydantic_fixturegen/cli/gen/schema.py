@@ -10,6 +10,7 @@ import typer
 from pydantic_fixturegen.core.config import ConfigError, load_config
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, PFGError
 from pydantic_fixturegen.emitters.schema_out import emit_model_schema, emit_models_schema
+
 from ._common import (
     JSON_ERRORS_OPTION,
     clear_module_cache,
@@ -19,38 +20,48 @@ from ._common import (
     split_patterns,
 )
 
+TARGET_ARGUMENT = typer.Argument(
+    ...,
+    help="Path to a Python module containing Pydantic models.",
+)
+
+OUT_OPTION = typer.Option(
+    ...,
+    "--out",
+    "-o",
+    help="Output file path for the generated schema.",
+)
+
+INDENT_OPTION = typer.Option(
+    None,
+    "--indent",
+    min=0,
+    help="Indentation level for JSON output (overrides config).",
+)
+
+INCLUDE_OPTION = typer.Option(
+    None,
+    "--include",
+    "-i",
+    help="Comma-separated pattern(s) of fully-qualified model names to include.",
+)
+
+EXCLUDE_OPTION = typer.Option(
+    None,
+    "--exclude",
+    "-e",
+    help="Comma-separated pattern(s) of fully-qualified model names to exclude.",
+)
+
 
 def register(app: typer.Typer) -> None:
     @app.command("schema")
     def gen_schema(  # noqa: PLR0913
-        target: str = typer.Argument(
-            ...,
-            help="Path to a Python module containing Pydantic models.",
-        ),
-        out: Path = typer.Option(
-            ...,
-            "--out",
-            "-o",
-            help="Output file path for the generated schema.",
-        ),
-        indent: int | None = typer.Option(
-            None,
-            "--indent",
-            min=0,
-            help="Indentation level for JSON output (overrides config).",
-        ),
-        include: str | None = typer.Option(
-            None,
-            "--include",
-            "-i",
-            help="Comma-separated pattern(s) of fully-qualified model names to include.",
-        ),
-        exclude: str | None = typer.Option(
-            None,
-            "--exclude",
-            "-e",
-            help="Comma-separated pattern(s) of fully-qualified model names to exclude.",
-        ),
+        target: str = TARGET_ARGUMENT,
+        out: Path = OUT_OPTION,
+        indent: int | None = INDENT_OPTION,
+        include: str | None = INCLUDE_OPTION,
+        exclude: str | None = EXCLUDE_OPTION,
         json_errors: bool = JSON_ERRORS_OPTION,
     ) -> None:
         try:

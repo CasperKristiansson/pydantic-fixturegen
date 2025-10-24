@@ -8,21 +8,20 @@ from typing import Any
 
 import pytest
 from faker import Faker
-from pydantic import BaseModel, SecretBytes, SecretStr, constr
-
+from pydantic import BaseModel, SecretBytes, SecretStr
 from pydantic_fixturegen.core import schema as schema_module
-from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
 from pydantic_fixturegen.core.providers import (
     ProviderRef,
     ProviderRegistry,
     create_default_registry,
 )
 from pydantic_fixturegen.core.providers import strings as strings_module
-from pydantic_fixturegen.core.providers.strings import register_string_providers
-from pydantic_fixturegen.core.providers.numbers import register_numeric_providers
 from pydantic_fixturegen.core.providers.collections import register_collection_providers
 from pydantic_fixturegen.core.providers.identifiers import register_identifier_providers
+from pydantic_fixturegen.core.providers.numbers import register_numeric_providers
+from pydantic_fixturegen.core.providers.strings import register_string_providers
 from pydantic_fixturegen.core.providers.temporal import register_temporal_providers
+from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
 from pydantic_fixturegen.plugins.hookspecs import hookimpl
 
 
@@ -141,7 +140,11 @@ def test_string_provider_formats() -> None:
         constraints=FieldConstraints(min_length=2, max_length=3),
         format=None,
     )
-    plain_value = provider.func(summary=plain_summary, faker=faker, random_generator=random.Random(1))
+    plain_value = provider.func(
+        summary=plain_summary,
+        faker=faker,
+        random_generator=random.Random(1),
+    )
     assert 2 <= len(plain_value) <= 3
 
 

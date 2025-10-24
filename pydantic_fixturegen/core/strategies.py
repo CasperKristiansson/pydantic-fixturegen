@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-import random
 import types
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence, Union, get_args, get_origin
+from typing import Any, Union, get_args, get_origin
 
 from pydantic import BaseModel
-from pydantic.fields import FieldInfo
 
+from pydantic_fixturegen.core import schema as schema_module
 from pydantic_fixturegen.core.providers import ProviderRef, ProviderRegistry
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary, summarize_model_fields
-from pydantic_fixturegen.core import schema as schema_module
 
 
 @dataclass(slots=True)
@@ -63,9 +62,9 @@ class StrategyBuilder:
     def build_model_strategies(self, model: type[BaseModel]) -> Mapping[str, StrategyResult]:
         summaries = summarize_model_fields(model)
         strategies: dict[str, StrategyResult] = {}
-        for name, field in model.model_fields.items():
+        for name, model_field in model.model_fields.items():
             summary = summaries[name]
-            strategies[name] = self.build_field_strategy(name, field.annotation, summary)
+            strategies[name] = self.build_field_strategy(name, model_field.annotation, summary)
         return strategies
 
     def build_field_strategy(
@@ -88,7 +87,12 @@ class StrategyBuilder:
             choices.append(self._build_single_strategy(field_name, summary, ann))
         return UnionStrategy(field_name=field_name, choices=choices, policy=self.union_policy)
 
-    def _build_single_strategy(self, field_name: str, summary: FieldSummary, annotation: Any) -> Strategy:
+    def _build_single_strategy(
+        self,
+        field_name: str,
+        summary: FieldSummary,
+        annotation: Any,
+    ) -> Strategy:
         if summary.enum_values:
             return Strategy(
                 field_name=field_name,
@@ -120,7 +124,9 @@ class StrategyBuilder:
         if provider is None and summary.type == "string":
             provider = self.registry.get("string")
         if provider is None:
-            raise ValueError(f"No provider registered for field '{field_name}' with type '{summary.type}'.")
+            raise ValueError(
+                f"No provider registered for field '{field_name}' with type '{summary.type}'."
+            )
 
         p_none = self.default_p_none
         if summary.is_optional:

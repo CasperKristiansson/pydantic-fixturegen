@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from pydantic import BaseModel, Field
-
 from pydantic_fixturegen.emitters.pytest_codegen import PytestEmitConfig, emit_pytest_fixtures
 
 

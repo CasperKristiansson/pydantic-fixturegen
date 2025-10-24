@@ -11,6 +11,7 @@ from pydantic_fixturegen.core.config import ConfigError, load_config
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, PFGError
 from pydantic_fixturegen.core.seed import SeedManager
 from pydantic_fixturegen.emitters.pytest_codegen import PytestEmitConfig, emit_pytest_fixtures
+
 from ._common import (
     JSON_ERRORS_OPTION,
     clear_module_cache,
@@ -24,65 +25,85 @@ STYLE_CHOICES = {"functions", "factory", "class"}
 SCOPE_CHOICES = {"function", "module", "session"}
 RETURN_CHOICES = {"model", "dict"}
 
+TARGET_ARGUMENT = typer.Argument(
+    ...,
+    help="Path to a Python module containing Pydantic models.",
+)
+
+OUT_OPTION = typer.Option(
+    ...,
+    "--out",
+    "-o",
+    help="Output file path for generated fixtures.",
+)
+
+STYLE_OPTION = typer.Option(
+    None,
+    "--style",
+    help="Fixture style (functions, factory, class).",
+)
+
+SCOPE_OPTION = typer.Option(
+    None,
+    "--scope",
+    help="Fixture scope (function, module, session).",
+)
+
+CASES_OPTION = typer.Option(
+    1,
+    "--cases",
+    min=1,
+    help="Number of cases per fixture (parametrization size).",
+)
+
+RETURN_OPTION = typer.Option(
+    None,
+    "--return-type",
+    help="Return type: model or dict.",
+)
+
+SEED_OPTION = typer.Option(
+    None,
+    "--seed",
+    help="Seed override for deterministic generation.",
+)
+
+P_NONE_OPTION = typer.Option(
+    None,
+    "--p-none",
+    min=0.0,
+    max=1.0,
+    help="Probability of None for optional fields.",
+)
+
+INCLUDE_OPTION = typer.Option(
+    None,
+    "--include",
+    "-i",
+    help="Comma-separated pattern(s) of fully-qualified model names to include.",
+)
+
+EXCLUDE_OPTION = typer.Option(
+    None,
+    "--exclude",
+    "-e",
+    help="Comma-separated pattern(s) of fully-qualified model names to exclude.",
+)
+
 
 def register(app: typer.Typer) -> None:
     @app.command("fixtures")
     def gen_fixtures(  # noqa: PLR0915 - CLI mirrors documented parameters
-        target: str = typer.Argument(
-            ...,
-            help="Path to a Python module containing Pydantic models.",
-        ),
-        out: Path = typer.Option(
-            ...,
-            "--out",
-            "-o",
-            help="Output file path for generated fixtures.",
-        ),
-        style: str | None = typer.Option(
-            None,
-            "--style",
-            help="Fixture style (functions, factory, class).",
-        ),
-        scope: str | None = typer.Option(
-            None,
-            "--scope",
-            help="Fixture scope (function, module, session).",
-        ),
-        cases: int = typer.Option(
-            1,
-            "--cases",
-            min=1,
-            help="Number of cases per fixture (parametrization size).",
-        ),
-        return_type: str | None = typer.Option(
-            None,
-            "--return-type",
-            help="Return type: model or dict.",
-        ),
-        seed: int | None = typer.Option(
-            None,
-            "--seed",
-            help="Seed override for deterministic generation.",
-        ),
-        p_none: float | None = typer.Option(
-            None,
-            "--p-none",
-            min=0.0,
-            max=1.0,
-            help="Probability of None for optional fields.",
-        ),
-        include: str | None = typer.Option(
-            None,
-            "--include",
-            "-i",
-            help="Comma-separated pattern(s) of fully-qualified model names to include.",
-        ),
-        exclude: str | None = typer.Option(
-            None,
-            "--exclude",
-            "-e",
-            help="Comma-separated pattern(s) of fully-qualified model names to exclude.",
-        ),
+        target: str = TARGET_ARGUMENT,
+        out: Path = OUT_OPTION,
+        style: str | None = STYLE_OPTION,
+        scope: str | None = SCOPE_OPTION,
+        cases: int = CASES_OPTION,
+        return_type: str | None = RETURN_OPTION,
+        seed: int | None = SEED_OPTION,
+        p_none: float | None = P_NONE_OPTION,
+        include: str | None = INCLUDE_OPTION,
+        exclude: str | None = EXCLUDE_OPTION,
         json_errors: bool = JSON_ERRORS_OPTION,
     ) -> None:
         try:
@@ -135,7 +156,10 @@ def _execute_fixtures_command(
 
     return_type_value = return_type.lower() if return_type else None
     if return_type_value and return_type_value not in RETURN_CHOICES:
-        raise DiscoveryError(f"Invalid return type '{return_type}'.", details={"return_type": return_type})
+        raise DiscoveryError(
+            f"Invalid return type '{return_type}'.",
+            details={"return_type": return_type},
+        )
 
     clear_module_cache()
 

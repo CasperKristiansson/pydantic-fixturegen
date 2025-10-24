@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import IntEnum
-from typing import Any, Mapping
+from typing import Any
 
 
 class ErrorCode(IntEnum):
@@ -52,7 +53,13 @@ class PFGError(Exception):
 class DiscoveryError(PFGError):
     """Raised when discovery or configuration fails."""
 
-    def __init__(self, message: str, *, details: Mapping[str, Any] | None = None, hint: str | None = None):
+    def __init__(
+        self,
+        message: str,
+        *,
+        details: Mapping[str, Any] | None = None,
+        hint: str | None = None,
+    ) -> None:
         super().__init__(
             message,
             code=ErrorCode.DISCOVERY,
@@ -65,7 +72,13 @@ class DiscoveryError(PFGError):
 class MappingError(PFGError):
     """Raised when model mapping or generation cannot be satisfied."""
 
-    def __init__(self, message: str, *, details: Mapping[str, Any] | None = None, hint: str | None = None):
+    def __init__(
+        self,
+        message: str,
+        *,
+        details: Mapping[str, Any] | None = None,
+        hint: str | None = None,
+    ) -> None:
         super().__init__(
             message,
             code=ErrorCode.MAPPING,
@@ -78,7 +91,13 @@ class MappingError(PFGError):
 class EmitError(PFGError):
     """Raised when emitting artifacts fails."""
 
-    def __init__(self, message: str, *, details: Mapping[str, Any] | None = None, hint: str | None = None):
+    def __init__(
+        self,
+        message: str,
+        *,
+        details: Mapping[str, Any] | None = None,
+        hint: str | None = None,
+    ) -> None:
         super().__init__(
             message,
             code=ErrorCode.EMIT,
@@ -91,7 +110,13 @@ class EmitError(PFGError):
 class UnsafeImportError(PFGError):
     """Raised when the safe importer detects a security violation."""
 
-    def __init__(self, message: str, *, details: Mapping[str, Any] | None = None, hint: str | None = None):
+    def __init__(
+        self,
+        message: str,
+        *,
+        details: Mapping[str, Any] | None = None,
+        hint: str | None = None,
+    ) -> None:
         super().__init__(
             message,
             code=ErrorCode.UNSAFE_IMPORT,
@@ -105,7 +130,6 @@ __all__ = [
     "EmitError",
     "DiscoveryError",
     "ErrorCode",
-    "ErrorPayload",
     "MappingError",
     "PFGError",
     "UnsafeImportError",

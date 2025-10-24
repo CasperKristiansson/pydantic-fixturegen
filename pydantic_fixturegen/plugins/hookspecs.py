@@ -14,7 +14,7 @@ hookimpl = pluggy.HookimplMarker("pfg")
 
 
 @hookspec
-def pfg_register_providers(registry: ProviderRegistry) -> None:  # pragma: no cover - declaration only
+def pfg_register_providers(registry: ProviderRegistry) -> None:  # pragma: no cover
     """Register additional providers with the given registry."""
 
 

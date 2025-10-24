@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from importlib import metadata
-from typing import Any, Iterable, cast
+from typing import Any, cast
 
 import pluggy
 

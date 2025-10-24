@@ -1,11 +1,11 @@
 """Provider registry and built-in providers."""
 
+from .collections import register_collection_providers
+from .identifiers import register_identifier_providers
+from .numbers import register_numeric_providers
 from .registry import ProviderRef, ProviderRegistry
 from .strings import register_string_providers
-from .numbers import register_numeric_providers
-from .collections import register_collection_providers
 from .temporal import register_temporal_providers
-from .identifiers import register_identifier_providers
 
 
 def create_default_registry(load_plugins: bool = True) -> ProviderRegistry:

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
-import sys
 import json
+import sys
+from collections.abc import Sequence
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Sequence
 
 import typer
 from pydantic import BaseModel
@@ -68,7 +68,8 @@ def load_model_class(model_info: IntrospectedModel) -> type[BaseModel]:
     attr = getattr(module, model_info.name, None)
     if not isinstance(attr, type) or not issubclass(attr, BaseModel):
         raise RuntimeError(
-            f"Attribute {model_info.name!r} in module {module.__name__} is not a Pydantic BaseModel."
+            f"Attribute {model_info.name!r} in module "
+            f"{module.__name__} is not a Pydantic BaseModel."
         )
     return attr
 

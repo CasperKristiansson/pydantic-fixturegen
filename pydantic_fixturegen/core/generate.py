@@ -6,15 +6,17 @@ import dataclasses
 import enum
 import inspect
 import random
-from dataclasses import dataclass, fields as dataclass_fields, is_dataclass
-from typing import Any, Iterable, get_type_hints
+from collections.abc import Iterable
+from dataclasses import dataclass, is_dataclass
+from dataclasses import fields as dataclass_fields
+from typing import Any, get_type_hints
 
 from faker import Faker
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from pydantic_fixturegen.core.providers import ProviderRegistry, create_default_registry
 from pydantic_fixturegen.core import schema as schema_module
+from pydantic_fixturegen.core.providers import ProviderRegistry, create_default_registry
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary, extract_constraints
 from pydantic_fixturegen.core.strategies import (
     Strategy,
@@ -110,10 +112,11 @@ class InstanceGenerator:
         if not choices:
             return None
 
-        if strategy.policy == "random":
-            selected = self.random.choice(choices)
-        else:  # default to first
-            selected = choices[0]
+        selected = (
+            self.random.choice(choices)
+            if strategy.policy == "random"
+            else choices[0]
+        )
         return self._evaluate_single(selected, depth)
 
     def _evaluate_single(self, strategy: Strategy, depth: int) -> Any:
@@ -168,7 +171,12 @@ class InstanceGenerator:
                 return set()
         return base_value
 
-    def _build_mapping_collection(self, base_value: Any, annotation: Any, depth: int) -> dict[str, Any]:
+    def _build_mapping_collection(
+        self,
+        base_value: Any,
+        annotation: Any,
+        depth: int,
+    ) -> dict[str, Any]:
         if isinstance(base_value, dict) and base_value:
             keys: Iterable[str] = base_value.keys()
         else:
@@ -219,7 +227,11 @@ class InstanceGenerator:
             )
         return strategies
 
-    def _summarize_dataclass_field(self, field: dataclasses.Field[Any], annotation: Any) -> FieldSummary:
+    def _summarize_dataclass_field(
+        self,
+        field: dataclasses.Field[Any],
+        annotation: Any,
+    ) -> FieldSummary:
         field_info = self._extract_field_info(field)
         if field_info is not None:
             constraints = extract_constraints(field_info)
@@ -244,10 +256,11 @@ class InstanceGenerator:
             return None
 
         policy = strategy.enum_policy or self.config.enum_policy
-        if policy == "random":
-            selection = self.random.choice(enum_values)
-        else:
-            selection = enum_values[0]
+        selection = (
+            self.random.choice(enum_values)
+            if policy == "random"
+            else enum_values[0]
+        )
 
         annotation = strategy.annotation
         if isinstance(annotation, type) and issubclass(annotation, enum.Enum):

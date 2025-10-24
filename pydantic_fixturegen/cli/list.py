@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Sequence
 
 import typer
 
 from pydantic_fixturegen.core.errors import DiscoveryError, PFGError, UnsafeImportError
 from pydantic_fixturegen.core.introspect import DiscoveryMethod, IntrospectionResult, discover
-from pydantic_fixturegen.core.safe_import import EXIT_TIMEOUT
-from .gen._common import JSON_ERRORS_OPTION, render_cli_error, split_patterns
 
+from .gen._common import JSON_ERRORS_OPTION, render_cli_error, split_patterns
 
 PATH_ARGUMENT = typer.Argument(
     ...,
