@@ -11,6 +11,7 @@ from pydantic_fixturegen.core.errors import DiscoveryError, PFGError
 from pydantic_fixturegen.core.providers import create_default_registry
 from pydantic_fixturegen.core.schema import summarize_model_fields
 from pydantic_fixturegen.core.strategies import StrategyBuilder, StrategyResult, UnionStrategy
+from pydantic_fixturegen.plugins.loader import get_plugin_manager
 
 from ._common import (
     JSON_ERRORS_OPTION,
@@ -91,7 +92,7 @@ def _execute_explain(*, target: str, include: str | None, exclude: str | None) -
         return
 
     registry = create_default_registry(load_plugins=True)
-    builder = StrategyBuilder(registry)
+    builder = StrategyBuilder(registry, plugin_manager=get_plugin_manager())
 
     for model_info in discovery.models:
         model_cls = load_model_class(model_info)

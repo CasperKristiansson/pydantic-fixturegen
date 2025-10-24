@@ -272,7 +272,7 @@ A) Backlog
   - Dependencies: T-09, T-18, T-28.
   - Estimate: 75m.
 
-- [ ] T-pydantic-fixturegen-product-spec-31: `--explain` diagnostics (per-field strategies) (45m)
+- [x] T-pydantic-fixturegen-product-spec-31: `--explain` diagnostics (per-field strategies) (45m)
 
   - Goal: Add `--explain` to print chosen strategies/providers per field.
   - Files/paths: `pydantic_fixturegen/cli/common.py`, `tests/cli/test_explain.py`.
@@ -281,7 +281,7 @@ A) Backlog
   - Dependencies: T-18.
   - Estimate: 45m.
 
-- [ ] T-pydantic-fixturegen-product-spec-32: Performance worker pool for JSON emission (60m)
+- [x] T-pydantic-fixturegen-product-spec-32: Performance worker pool for JSON emission (60m)
 
   - Goal: Add worker pool; bound by CPU; measure throughput.
   - Files/paths: `pydantic_fixturegen/emitters/json_out.py`, `tests/perf/test_json_workers.py`.

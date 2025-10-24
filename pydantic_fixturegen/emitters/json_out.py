@@ -89,7 +89,9 @@ def emit_json_samples(
     config.output_path.parent.mkdir(parents=True, exist_ok=True)
 
     results: list[Path] = []
-    with ThreadPoolExecutor(max_workers=_worker_count(config.max_workers, len(shards))) as executor:
+    with ThreadPoolExecutor(
+        max_workers=_worker_count(config.max_workers, len(shards))
+    ) as executor:
         futures: list[Future[Path]] = []
         for index, chunk in enumerate(shards, start=1):
             futures.append(
@@ -101,6 +103,7 @@ def emit_json_samples(
                     len(shards),
                     config.jsonl,
                     encoder,
+                    config.max_workers,
                 )
             )
         for future in futures:
@@ -185,9 +188,15 @@ def _write_shard(
     shard_count: int,
     jsonl: bool,
     encoder: _JsonEncoder,
+    max_workers: int | None,
 ) -> Path:
     path = _shard_path(base_path, shard_index, shard_count, jsonl)
-    payload = _prepare_payload(chunk, jsonl, encoder)
+    payload = _prepare_payload(
+        chunk,
+        jsonl=jsonl,
+        encoder=encoder,
+        workers=_worker_count(max_workers, len(chunk)),
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(payload, encoding="utf-8")
     return path
@@ -205,11 +214,22 @@ def _write_empty_shard(
     return path
 
 
-def _prepare_payload(chunk: Sequence[Any], jsonl: bool, encoder: _JsonEncoder) -> str:
-    if jsonl:
+def _prepare_payload(
+    chunk: Sequence[Any],
+    *,
+    jsonl: bool,
+    encoder: _JsonEncoder,
+    workers: int,
+) -> str:
+    if not jsonl:
+        return encoder.encode(list(chunk))
+
+    if workers <= 1:
         lines = [encoder.encode(item) for item in chunk]
-        return "\n".join(lines) + ("\n" if lines else "")
-    return encoder.encode(list(chunk))
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            lines = list(executor.map(encoder.encode, chunk))
+    return "\n".join(lines) + ("\n" if lines else "")
 
 
 def _shard_path(base_path: Path, shard_index: int, shard_count: int, jsonl: bool) -> Path:
