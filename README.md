@@ -1,21 +1,6 @@
----
-title: "pydantic-fixturegen — Deterministic Pydantic fixtures and CLI"
-description: "Deterministic test data and pytest fixtures for Pydantic v2 with a secure safe-import sandbox and Pluggy-powered providers."
-keywords:
-  - "pydantic fixtures"
-  - "deterministic test data"
-  - "pytest fixture generator"
-  - "pydantic automation tooling"
-  - "test data orchestration"
-  - "generate deterministic JSON from Pydantic models"
-  - "secure safe-import sandbox for Pydantic"
-  - "Pluggy-powered data providers"
-last_updated: "2025-01-01"
----
-
 # pydantic-fixturegen: Deterministic Pydantic fixtures for fast, safe tests (pydantic-fixturegen)
 
-> _Meta Description_: Deterministic Pydantic fixtures and JSON generation via a secure sandboxed CLI and Pluggy plugins.
+> Deterministic Pydantic fixtures and JSON generation via a secure sandboxed CLI and Pluggy plugins.
 
 [![PyPI version](https://img.shields.io/pypi/v/pydantic-fixturegen.svg "PyPI")](https://pypi.org/project/pydantic-fixturegen/)
 ![Python versions](https://img.shields.io/pypi/pyversions/pydantic-fixturegen.svg "Python 3.10–3.13")
