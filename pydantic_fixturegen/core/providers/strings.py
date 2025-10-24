@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import os
 import random
+from types import ModuleType
 
 try:  # Optional dependency for regex generation
-    import rstr  # type: ignore
+    import rstr as _rstr
 except ImportError:  # pragma: no cover - optional extra not installed
-    rstr = None
+    rstr: ModuleType | None = None
+else:
+    rstr = _rstr
 
 from faker import Faker
 
