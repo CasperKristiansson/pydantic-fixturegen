@@ -209,7 +209,7 @@ A) Backlog
   - Dependencies: T-19, T-22.
   - Estimate: 90m.
 
-- [ ] T-pydantic-fixturegen-product-spec-24: Fixture scopes/styles and formatting (60m)
+- [x] T-pydantic-fixturegen-product-spec-24: Fixture scopes/styles and formatting (60m)
 
   - Goal: Add factory/class styles, scopes (`function|module|session`), format via Ruff/Black.
   - Files/paths: `pydantic_fixturegen/emitters/pytest_codegen.py`, `pydantic_fixturegen/templates/factory_module.j2`, `tests/emitters/test_pytest_codegen_styles.py`.

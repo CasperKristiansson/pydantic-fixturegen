@@ -53,7 +53,8 @@ def test_emit_pytest_fixtures_dict_return(tmp_path: Path) -> None:
     assert result.wrote is True
     text = output.read_text(encoding="utf-8")
     assert "-> dict[str, Any]" in text
-    assert "return data" in text
+    assert "from typing import Any" in text
+    assert "return dict(" in text
 
 
 def test_emit_pytest_fixtures_multiple_cases(tmp_path: Path) -> None:
