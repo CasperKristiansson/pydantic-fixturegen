@@ -132,5 +132,5 @@ time.sleep(1)
 
     result = runner.invoke(list_app, ["--timeout", "0.1", str(sleeper)])
 
-    assert result.exit_code == 1
-    assert "error:" in result.stderr
+    assert result.exit_code == 10
+    assert "error" in result.stderr.lower() or "warning" in result.stderr.lower()

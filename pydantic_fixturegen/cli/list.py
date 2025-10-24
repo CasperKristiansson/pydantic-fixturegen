@@ -3,18 +3,19 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Sequence
 
 import typer
 
+from pydantic_fixturegen.core.errors import DiscoveryError, PFGError, UnsafeImportError
 from pydantic_fixturegen.core.introspect import DiscoveryMethod, IntrospectionResult, discover
+from pydantic_fixturegen.core.safe_import import EXIT_TIMEOUT
+from .gen._common import JSON_ERRORS_OPTION, render_cli_error, split_patterns
+
 
 PATH_ARGUMENT = typer.Argument(
     ...,
-    exists=True,
-    file_okay=True,
-    dir_okay=False,
-    readable=True,
-    help="Python module file(s) to inspect.",
+    help="Python module file to inspect.",
 )
 
 INCLUDE_OPTION = typer.Option(
@@ -34,7 +35,7 @@ EXCLUDE_OPTION = typer.Option(
 PUBLIC_OPTION = typer.Option(
     False,
     "--public-only",
-    help="Only list public models (respects __all__ when defined).",
+    help="Only list public models (respects __all__).",
 )
 
 AST_OPTION = typer.Option(
@@ -67,10 +68,9 @@ MEMORY_LIMIT_OPTION = typer.Option(
 app = typer.Typer(invoke_without_command=True, subcommand_metavar="")
 
 
-
 def _resolve_method(ast_mode: bool, hybrid_mode: bool) -> DiscoveryMethod:
     if ast_mode and hybrid_mode:
-        raise typer.BadParameter("Choose only one of --ast or --hybrid.")
+        raise DiscoveryError("Choose only one of --ast or --hybrid.")
     if hybrid_mode:
         return "hybrid"
     if ast_mode:
@@ -78,8 +78,40 @@ def _resolve_method(ast_mode: bool, hybrid_mode: bool) -> DiscoveryMethod:
     return "import"
 
 
+def list_models(  # noqa: D401 - Typer callback
+    ctx: typer.Context,
+    path: str = PATH_ARGUMENT,
+    include: str | None = INCLUDE_OPTION,
+    exclude: str | None = EXCLUDE_OPTION,
+    public_only: bool = PUBLIC_OPTION,
+    ast_mode: bool = AST_OPTION,
+    hybrid_mode: bool = HYBRID_OPTION,
+    timeout: float = TIMEOUT_OPTION,
+    memory_limit_mb: int = MEMORY_LIMIT_OPTION,
+    json_errors: bool = JSON_ERRORS_OPTION,
+) -> None:
+    _ = ctx  # unused
+    try:
+        _execute_list_command(
+            target=path,
+            include=include,
+            exclude=exclude,
+            public_only=public_only,
+            ast_mode=ast_mode,
+            hybrid_mode=hybrid_mode,
+            timeout=timeout,
+            memory_limit_mb=memory_limit_mb,
+        )
+    except PFGError as exc:
+        render_cli_error(exc, json_errors=json_errors)
+
+
+app.callback(invoke_without_command=True)(list_models)
+
+
 def _execute_list_command(
-    path: Path,
+    *,
+    target: str,
     include: str | None,
     exclude: str | None,
     public_only: bool,
@@ -88,6 +120,12 @@ def _execute_list_command(
     timeout: float,
     memory_limit_mb: int,
 ) -> None:
+    path = Path(target)
+    if not path.exists():
+        raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
+    if not path.is_file():
+        raise DiscoveryError("Target must be a Python module file.", details={"path": target})
+
     method = _resolve_method(ast_mode, hybrid_mode)
 
     result = discover(
@@ -102,42 +140,16 @@ def _execute_list_command(
     _render_result(result)
 
 
-def list_models(  # noqa: D401 - Typer callback
-    ctx: typer.Context,
-    path: Path = PATH_ARGUMENT,
-    include: str | None = INCLUDE_OPTION,
-    exclude: str | None = EXCLUDE_OPTION,
-    public_only: bool = PUBLIC_OPTION,
-    ast_mode: bool = AST_OPTION,
-    hybrid_mode: bool = HYBRID_OPTION,
-    timeout: float = TIMEOUT_OPTION,
-    memory_limit_mb: int = MEMORY_LIMIT_OPTION,
-) -> None:
-    _ = ctx  # unused
-    _execute_list_command(
-        path=path,
-        include=include,
-        exclude=exclude,
-        public_only=public_only,
-        ast_mode=ast_mode,
-        hybrid_mode=hybrid_mode,
-        timeout=timeout,
-        memory_limit_mb=memory_limit_mb,
-    )
-
-
-app.callback(invoke_without_command=True)(list_models)
-
-
 def _render_result(result: IntrospectionResult) -> None:
     for warning in result.warnings:
         if warning.strip():
             typer.secho(f"warning: {warning.strip()}", err=True, fg=typer.colors.YELLOW)
 
     if result.errors:
-        for error in result.errors:
-            typer.secho(f"error: {error}", err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1)
+        message = "; ".join(result.errors)
+        if any("network" in error.lower() for error in result.errors):
+            raise UnsafeImportError(message)
+        raise DiscoveryError(message)
 
     if not result.models:
         typer.echo("No models discovered.")
@@ -148,6 +160,7 @@ def _render_result(result: IntrospectionResult) -> None:
 
 
 def _split_patterns(option_value: str | None) -> list[str]:
-    if not option_value:
-        return []
-    return [pattern.strip() for pattern in option_value.split(",") if pattern.strip()]
+    return split_patterns(option_value)
+
+
+__all__ = ["app"]

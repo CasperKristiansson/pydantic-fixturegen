@@ -245,7 +245,7 @@ A) Backlog
   - Dependencies: T-24, T-06.
   - Estimate: 75m.
 
-- [ ] T-pydantic-fixturegen-product-spec-28: Error taxonomy + JSON errors (60m)
+- [x] T-pydantic-fixturegen-product-spec-28: Error taxonomy + JSON errors (60m)
 
   - Goal: Implement error codes 10/20/30/40 and `--json-errors` output.
   - Files/paths: `pydantic_fixturegen/core/errors.py`, `tests/core/test_errors.py`, adapt CLI.

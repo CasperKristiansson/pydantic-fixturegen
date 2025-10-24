@@ -7,14 +7,22 @@ from typing import Any
 
 import typer
 
-from pydantic_fixturegen.core.config import load_config
+from pydantic_fixturegen.core.config import ConfigError, load_config
+from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, PFGError
 from pydantic_fixturegen.emitters.schema_out import emit_model_schema, emit_models_schema
-from ._common import clear_module_cache, discover_models, load_model_class, split_patterns
+from ._common import (
+    JSON_ERRORS_OPTION,
+    clear_module_cache,
+    discover_models,
+    load_model_class,
+    render_cli_error,
+    split_patterns,
+)
 
 
 def register(app: typer.Typer) -> None:
     @app.command("schema")
-    def gen_schema(  # noqa: PLR0913 - CLI mirrors documented parameters
+    def gen_schema(  # noqa: PLR0913
         target: str = typer.Argument(
             ...,
             help="Path to a Python module containing Pydantic models.",
@@ -43,72 +51,92 @@ def register(app: typer.Typer) -> None:
             "-e",
             help="Comma-separated pattern(s) of fully-qualified model names to exclude.",
         ),
+        json_errors: bool = JSON_ERRORS_OPTION,
     ) -> None:
-        path = Path(target)
-        if not path.exists():
-            raise typer.BadParameter(f"Target path '{target}' does not exist.", param_hint="target")
-        if not path.is_file():
-            raise typer.BadParameter("Target must be a Python module file.", param_hint="target")
-
-        clear_module_cache()
-
-        cli_overrides: dict[str, Any] = {}
-        if indent is not None:
-            cli_overrides.setdefault("json", {})["indent"] = indent
-        if include:
-            cli_overrides["include"] = split_patterns(include)
-        if exclude:
-            cli_overrides["exclude"] = split_patterns(exclude)
-
-        app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
-
-        discovery = discover_models(
-            path,
-            include=app_config.include,
-            exclude=app_config.exclude,
-        )
-
-        if discovery.errors:
-            for error in discovery.errors:
-                typer.secho(error, err=True, fg=typer.colors.RED)
-            raise typer.Exit(code=1)
-
-        for warning in discovery.warnings:
-            if warning.strip():
-                typer.secho(warning.strip(), err=True, fg=typer.colors.YELLOW)
-
-        if not discovery.models:
-            typer.secho("No models discovered.", err=True, fg=typer.colors.RED)
-            raise typer.Exit(code=1)
-
-        indent_value = indent if indent is not None else app_config.json.indent
-
         try:
-            model_classes = [load_model_class(model) for model in discovery.models]
-        except RuntimeError as exc:
-            typer.secho(str(exc), err=True, fg=typer.colors.RED)
-            raise typer.Exit(code=1) from exc
-
-        try:
-            if len(model_classes) == 1:
-                emitted_path = emit_model_schema(
-                    model_classes[0],
-                    output_path=out,
-                    indent=indent_value,
-                    ensure_ascii=False,
-                )
-            else:
-                emitted_path = emit_models_schema(
-                    model_classes,
-                    output_path=out,
-                    indent=indent_value,
-                    ensure_ascii=False,
-                )
+            _execute_schema_command(
+                target=target,
+                out=out,
+                indent=indent,
+                include=include,
+                exclude=exclude,
+            )
+        except PFGError as exc:
+            render_cli_error(exc, json_errors=json_errors)
+        except ConfigError as exc:
+            render_cli_error(DiscoveryError(str(exc)), json_errors=json_errors)
         except Exception as exc:  # pragma: no cover - defensive
-            typer.secho(str(exc), err=True, fg=typer.colors.RED)
-            raise typer.Exit(code=1) from exc
+            render_cli_error(EmitError(str(exc)), json_errors=json_errors)
 
-        typer.echo(str(emitted_path))
+
+def _execute_schema_command(
+    *,
+    target: str,
+    out: Path,
+    indent: int | None,
+    include: str | None,
+    exclude: str | None,
+) -> None:
+    path = Path(target)
+    if not path.exists():
+        raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
+    if not path.is_file():
+        raise DiscoveryError("Target must be a Python module file.", details={"path": target})
+
+    clear_module_cache()
+
+    cli_overrides: dict[str, Any] = {}
+    if indent is not None:
+        cli_overrides.setdefault("json", {})["indent"] = indent
+    if include:
+        cli_overrides["include"] = split_patterns(include)
+    if exclude:
+        cli_overrides["exclude"] = split_patterns(exclude)
+
+    app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
+
+    discovery = discover_models(
+        path,
+        include=app_config.include,
+        exclude=app_config.exclude,
+    )
+
+    if discovery.errors:
+        raise DiscoveryError("; ".join(discovery.errors))
+
+    for warning in discovery.warnings:
+        if warning.strip():
+            typer.secho(warning.strip(), err=True, fg=typer.colors.YELLOW)
+
+    if not discovery.models:
+        raise DiscoveryError("No models discovered.")
+
+    try:
+        model_classes = [load_model_class(model) for model in discovery.models]
+    except RuntimeError as exc:
+        raise DiscoveryError(str(exc)) from exc
+
+    indent_value = indent if indent is not None else app_config.json.indent
+
+    try:
+        if len(model_classes) == 1:
+            emitted_path = emit_model_schema(
+                model_classes[0],
+                output_path=out,
+                indent=indent_value,
+                ensure_ascii=False,
+            )
+        else:
+            emitted_path = emit_models_schema(
+                model_classes,
+                output_path=out,
+                indent=indent_value,
+                ensure_ascii=False,
+            )
+    except Exception as exc:
+        raise EmitError(str(exc)) from exc
+
+    typer.echo(str(emitted_path))
 
 
 __all__ = ["register"]

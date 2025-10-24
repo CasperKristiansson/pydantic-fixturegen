@@ -40,6 +40,14 @@ from .schema import (
 from .strategies import Strategy, StrategyBuilder, UnionStrategy
 from .seed import SeedManager
 from .version import build_artifact_header, get_tool_version
+from .errors import (
+    DiscoveryError,
+    EmitError,
+    ErrorCode,
+    MappingError,
+    PFGError,
+    UnsafeImportError,
+)
 
 __all__ = [
     "AppConfig",
@@ -86,4 +94,10 @@ __all__ = [
     "safe_import_models",
     "write_atomic_text",
     "write_atomic_bytes",
+    "PFGError",
+    "DiscoveryError",
+    "MappingError",
+    "EmitError",
+    "UnsafeImportError",
+    "ErrorCode",
 ]

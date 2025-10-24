@@ -5,23 +5,35 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import sys
+import json
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Sequence
 
+import typer
 from pydantic import BaseModel
 
+from pydantic_fixturegen.core.errors import PFGError
 from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult, discover
 
 __all__ = [
+    "JSON_ERRORS_OPTION",
     "clear_module_cache",
     "discover_models",
     "load_model_class",
+    "render_cli_error",
     "split_patterns",
 ]
 
 
 _module_cache: dict[str, ModuleType] = {}
+
+
+JSON_ERRORS_OPTION = typer.Option(
+    False,
+    "--json-errors",
+    help="Emit structured JSON errors to stdout.",
+)
 
 
 def clear_module_cache() -> None:
@@ -59,6 +71,17 @@ def load_model_class(model_info: IntrospectedModel) -> type[BaseModel]:
             f"Attribute {model_info.name!r} in module {module.__name__} is not a Pydantic BaseModel."
         )
     return attr
+
+
+def render_cli_error(error: PFGError, *, json_errors: bool) -> None:
+    if json_errors:
+        payload = {"error": error.to_payload()}
+        typer.echo(json.dumps(payload, indent=2))
+    else:
+        typer.secho(f"{error.kind}: {error}", err=True, fg=typer.colors.RED)
+        if error.hint:
+            typer.secho(f"hint: {error.hint}", err=True, fg=typer.colors.YELLOW)
+    raise typer.Exit(code=int(error.code))
 
 
 def _load_module(module_name: str, locator: Path) -> ModuleType:
