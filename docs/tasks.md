@@ -173,7 +173,7 @@ A) Backlog
   - Dependencies: T-18.
   - Estimate: 90m.
 
-- [ ] T-pydantic-fixturegen-product-spec-20: JSON/JSONL emitter with sharding (75m)
+- [x] T-pydantic-fixturegen-product-spec-20: JSON/JSONL emitter with sharding (75m)
 
   - Goal: Stream write JSON/JSONL; `--n`, `--jsonl`, `--indent 0|2`, `--orjson`; shard by `--shard-size`.
   - Files/paths: `pydantic_fixturegen/emitters/json_out.py`, `tests/emitters/test_json_out.py`.
