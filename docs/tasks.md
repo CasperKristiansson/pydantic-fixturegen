@@ -182,7 +182,7 @@ A) Backlog
   - Dependencies: T-19.
   - Estimate: 75m.
 
-- [ ] T-pydantic-fixturegen-product-spec-21: Schema emitter (model_json_schema) (30m)
+- [x] T-pydantic-fixturegen-product-spec-21: Schema emitter (model_json_schema) (30m)
 
   - Goal: Export JSON schema for a model to file.
   - Files/paths: `pydantic_fixturegen/emitters/schema_out.py`, `tests/emitters/test_schema_out.py`.
