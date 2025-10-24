@@ -14,6 +14,8 @@ from pydantic_fixturegen.core.config import (
 )
 from pydantic_fixturegen.core.seed import DEFAULT_LOCALE
 
+HAS_YAML = config_mod.yaml is not None
+
 
 def test_default_configuration(tmp_path: Path) -> None:
     config = load_config(root=tmp_path)
@@ -68,6 +70,7 @@ def test_load_from_pyproject(tmp_path: Path) -> None:
     assert config.overrides["app.models.User"]["email"]["provider"] == "email"
 
 
+@pytest.mark.skipif(not HAS_YAML, reason="PyYAML not installed")
 def test_yaml_merges_pyproject(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PFG_LOCALE", raising=False)
 
