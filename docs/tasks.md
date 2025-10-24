@@ -218,7 +218,7 @@ A) Backlog
   - Dependencies: T-23.
   - Estimate: 60m.
 
-- [ ] T-pydantic-fixturegen-product-spec-25: CLI `gen json` command (60m)
+- [x] T-pydantic-fixturegen-product-spec-25: CLI `gen json` command (60m)
 
   - Goal: Wire emitter to CLI with flags and config precedence.
   - Files/paths: `pydantic_fixturegen/cli/gen_json.py`, `tests/cli/test_gen_json.py`.
@@ -227,7 +227,7 @@ A) Backlog
   - Dependencies: T-20, T-06.
   - Estimate: 60m.
 
-- [ ] T-pydantic-fixturegen-product-spec-26: CLI `gen schema` command (30m)
+- [x] T-pydantic-fixturegen-product-spec-26: CLI `gen schema` command (30m)
 
   - Goal: Wire schema emitter to CLI with `--out`.
   - Files/paths: `pydantic_fixturegen/cli/gen_schema.py`, `tests/cli/test_gen_schema.py`.

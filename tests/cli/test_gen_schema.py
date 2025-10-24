@@ -26,84 +26,77 @@ class User(BaseModel):
     name: str
     age: int
     address: Address
+
+
+class Product(BaseModel):
+    sku: str
+    price: float
 """,
         encoding="utf-8",
     )
     return module_path
 
 
-def test_gen_json_basic(tmp_path: Path) -> None:
+def test_gen_schema_single_model(tmp_path: Path) -> None:
     module_path = _write_module(tmp_path)
-    output = tmp_path / "users.json"
+    output = tmp_path / "user_schema.json"
 
     result = runner.invoke(
         cli_app,
         [
             "gen",
-            "json",
+            "schema",
             str(module_path),
             "--out",
             str(output),
-            "--n",
-            "2",
             "--include",
             "models.User",
         ],
     )
 
     assert result.exit_code == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
-    data = json.loads(output.read_text(encoding="utf-8"))
-    assert isinstance(data, list)
-    assert len(data) == 2
-    assert "address" in data[0]
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["title"] == "User"
+    assert "properties" in payload
 
 
-def test_gen_json_jsonl_shards(tmp_path: Path) -> None:
+def test_gen_schema_combined_models(tmp_path: Path) -> None:
     module_path = _write_module(tmp_path)
-    output = tmp_path / "samples.jsonl"
+    output = tmp_path / "bundle.json"
 
     result = runner.invoke(
         cli_app,
         [
             "gen",
-            "json",
+            "schema",
             str(module_path),
             "--out",
             str(output),
-            "--jsonl",
-            "--shard-size",
-            "2",
-            "--n",
-            "5",
-            "--include",
-            "models.User",
         ],
     )
 
     assert result.exit_code == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
-    shard_paths = sorted(tmp_path.glob("samples-*.jsonl"))
-    assert len(shard_paths) == 3
-    line_counts = [len(path.read_text(encoding="utf-8").splitlines()) for path in shard_paths]
-    assert line_counts == [2, 2, 1]
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert set(payload.keys()) == {"Address", "Product", "User"}
 
 
-def test_gen_json_respects_config_env(tmp_path: Path) -> None:
+def test_gen_schema_indent_override(tmp_path: Path) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "compact.json"
 
-    env = {"PFG_JSON__INDENT": "0"}
     result = runner.invoke(
         cli_app,
         [
             "gen",
-            "json",
+            "schema",
             str(module_path),
             "--out",
             str(output),
             "--include",
-            "models.User",
+            "models.Address",
+            "--indent",
+            "0",
         ],
-        env=env,
     )
 
     assert result.exit_code == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
