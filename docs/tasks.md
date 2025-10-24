@@ -236,7 +236,7 @@ A) Backlog
   - Dependencies: T-21, T-06.
   - Estimate: 30m.
 
-- [ ] T-pydantic-fixturegen-product-spec-27: CLI `gen fixtures` command (75m)
+- [x] T-pydantic-fixturegen-product-spec-27: CLI `gen fixtures` command (75m)
 
   - Goal: Wire pytest codegen; flags: `--out`, `--style`, `--scope`, `--seed`, `--p-none`, `--cases`, `--return-type`.
   - Files/paths: `pydantic_fixturegen/cli/gen_fixtures.py`, `tests/cli/test_gen_fixtures.py`.

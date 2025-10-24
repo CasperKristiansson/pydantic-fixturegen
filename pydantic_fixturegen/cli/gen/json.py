@@ -6,8 +6,6 @@ from pathlib import Path
 from typing import Any
 
 import typer
-from pydantic import BaseModel
-
 from pydantic_fixturegen.core.config import AppConfig, load_config
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.seed import SeedManager
@@ -165,19 +163,6 @@ def register(app: typer.Typer) -> None:
             typer.echo(str(emitted_path))
 
 
-def _discover_models(path: Path, *, app_config: AppConfig) -> IntrospectionResult:
-    include_patterns = list(app_config.include)
-    exclude_patterns = list(app_config.exclude)
-
-    return discover(
-        [path],
-        method="import",
-        include=include_patterns,
-        exclude=exclude_patterns,
-        public_only=False,
-    )
-
-
 def _build_instance_generator(app_config: AppConfig) -> InstanceGenerator:
     seed_value: int | None = None
     if app_config.seed is not None:
@@ -192,8 +177,3 @@ def _build_instance_generator(app_config: AppConfig) -> InstanceGenerator:
         optional_p_none=p_none,
     )
     return InstanceGenerator(config=gen_config)
-
-
-def _split_patterns(raw: str) -> list[str]:
-    return [part.strip() for part in raw.split(",") if part.strip()]
-
