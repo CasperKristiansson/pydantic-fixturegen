@@ -12,6 +12,8 @@ from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingEr
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.seed import SeedManager
 from pydantic_fixturegen.emitters.json_out import emit_json_samples
+from pydantic_fixturegen.plugins.hookspecs import EmitterContext
+from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
 
 from ._common import (
     JSON_ERRORS_OPTION,
@@ -145,6 +147,7 @@ def _execute_json_command(
         raise DiscoveryError("Target must be a Python module file.", details={"path": target})
 
     clear_module_cache()
+    load_entrypoint_plugins()
 
     cli_overrides: dict[str, Any] = {}
     if seed is not None:
@@ -206,6 +209,20 @@ def _execute_json_command(
 
     indent_value = indent if indent is not None else app_config.json.indent
     use_orjson_value = use_orjson if use_orjson is not None else app_config.json.orjson
+
+    context = EmitterContext(
+        models=(model_cls,),
+        output=out,
+        parameters={
+            "count": count,
+            "jsonl": jsonl,
+            "indent": indent_value,
+            "shard_size": shard_size,
+            "use_orjson": use_orjson_value,
+        },
+    )
+    if emit_artifact("json", context):
+        return
 
     try:
         paths = emit_json_samples(

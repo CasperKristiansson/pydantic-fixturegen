@@ -254,7 +254,7 @@ A) Backlog
   - Dependencies: T-10, T-25–T-27.
   - Estimate: 60m.
 
-- [ ] T-pydantic-fixturegen-product-spec-29: Plugin hooks (providers, strategy, emitters) (75m)
+- [x] T-pydantic-fixturegen-product-spec-29: Plugin hooks (providers, strategy, emitters) (75m)
 
   - Goal: Implement `pfg_modify_strategy` and `pfg_emit_artifact`; entry points for providers/emitters.
   - Files/paths: `pydantic_fixturegen/plugins/hookspecs.py`, `pydantic_fixturegen/plugins/loader.py`, `tests/plugins/test_hooks.py`.

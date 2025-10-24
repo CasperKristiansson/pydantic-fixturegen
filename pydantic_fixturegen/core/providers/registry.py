@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from importlib import metadata
-from typing import Any, cast
+from typing import Any
 
-import pluggy
-
-from pydantic_fixturegen.plugins import hookspecs
+from pydantic_fixturegen.plugins.loader import (
+    get_plugin_manager,
+    load_entrypoint_plugins,
+    register_plugin,
+)
 
 ProviderFunc = Callable[..., Any]
 
@@ -30,8 +31,7 @@ class ProviderRegistry:
 
     def __init__(self) -> None:
         self._providers: dict[tuple[str, str | None], ProviderRef] = {}
-        self._plugin_manager = pluggy.PluginManager("pfg")
-        self._plugin_manager.add_hookspecs(hookspecs)
+        self._plugin_manager = get_plugin_manager()
 
     # ------------------------------------------------------------------ registration
     def register(
@@ -78,22 +78,21 @@ class ProviderRegistry:
     def register_plugin(self, plugin: Any) -> None:
         """Register a plugin object and invoke its provider hook."""
 
-        self._plugin_manager.register(plugin)
+        register_plugin(plugin)
         self._plugin_manager.hook.pfg_register_providers(registry=self)
 
-    def load_entrypoint_plugins(self, group: str = "pydantic_fixturegen") -> None:
+    def load_entrypoint_plugins(
+        self,
+        group: str = "pydantic_fixturegen",
+        *,
+        force: bool = False,
+    ) -> None:
         """Load plugins defined via Python entry points and invoke hooks."""
 
-        entry_points = metadata.entry_points()
-        selector = getattr(entry_points, "select", None)
-        if selector is not None:
-            entries: Iterable[Any] = selector(group=group)
-        else:  # pragma: no cover - Python <3.10 fallback
-            entries = cast(Iterable[Any], entry_points.get(group, []))
-
-        for entry in entries:
-            plugin = entry.load()
-            self.register_plugin(plugin)
+        plugins = load_entrypoint_plugins(group, force=force)
+        if not plugins:
+            return
+        self._plugin_manager.hook.pfg_register_providers(registry=self)
 
 
 __all__ = ["ProviderRegistry", "ProviderRef", "ProviderFunc"]

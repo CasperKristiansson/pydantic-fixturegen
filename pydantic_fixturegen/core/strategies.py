@@ -7,11 +7,13 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Union, get_args, get_origin
 
+import pluggy
 from pydantic import BaseModel
 
 from pydantic_fixturegen.core import schema as schema_module
 from pydantic_fixturegen.core.providers import ProviderRef, ProviderRegistry
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary, summarize_model_fields
+from pydantic_fixturegen.plugins.loader import get_plugin_manager
 
 
 @dataclass(slots=True)
@@ -52,23 +54,31 @@ class StrategyBuilder:
         union_policy: str = "first",
         default_p_none: float = 0.0,
         optional_p_none: float | None = None,
+        plugin_manager: pluggy.PluginManager | None = None,
     ) -> None:
         self.registry = registry
         self.enum_policy = enum_policy
         self.union_policy = union_policy
         self.default_p_none = default_p_none
         self.optional_p_none = optional_p_none if optional_p_none is not None else default_p_none
+        self._plugin_manager = plugin_manager or get_plugin_manager()
 
     def build_model_strategies(self, model: type[BaseModel]) -> Mapping[str, StrategyResult]:
         summaries = summarize_model_fields(model)
         strategies: dict[str, StrategyResult] = {}
         for name, model_field in model.model_fields.items():
             summary = summaries[name]
-            strategies[name] = self.build_field_strategy(name, model_field.annotation, summary)
+            strategies[name] = self.build_field_strategy(
+                model,
+                name,
+                model_field.annotation,
+                summary,
+            )
         return strategies
 
     def build_field_strategy(
         self,
+        model: type[BaseModel],
         field_name: str,
         annotation: Any,
         summary: FieldSummary,
@@ -76,19 +86,25 @@ class StrategyBuilder:
         base_annotation, _ = schema_module._strip_optional(annotation)
         union_args = self._extract_union_args(base_annotation)
         if union_args:
-            return self._build_union_strategy(field_name, union_args)
-        return self._build_single_strategy(field_name, summary, base_annotation)
+            return self._build_union_strategy(model, field_name, union_args)
+        return self._build_single_strategy(model, field_name, summary, base_annotation)
 
     # ------------------------------------------------------------------ helpers
-    def _build_union_strategy(self, field_name: str, union_args: Sequence[Any]) -> UnionStrategy:
+    def _build_union_strategy(
+        self,
+        model: type[BaseModel],
+        field_name: str,
+        union_args: Sequence[Any],
+    ) -> UnionStrategy:
         choices: list[Strategy] = []
         for ann in union_args:
             summary = self._summarize_inline(ann)
-            choices.append(self._build_single_strategy(field_name, summary, ann))
+            choices.append(self._build_single_strategy(model, field_name, summary, ann))
         return UnionStrategy(field_name=field_name, choices=choices, policy=self.union_policy)
 
     def _build_single_strategy(
         self,
+        model: type[BaseModel],
         field_name: str,
         summary: FieldSummary,
         annotation: Any,
@@ -141,7 +157,7 @@ class StrategyBuilder:
             provider_kwargs={},
             p_none=p_none,
         )
-        return strategy
+        return self._apply_strategy_plugins(model, field_name, strategy)
 
     # ------------------------------------------------------------------ utilities
     def _extract_union_args(self, annotation: Any) -> Sequence[Any]:
@@ -156,6 +172,22 @@ class StrategyBuilder:
 
     def _summarize_inline(self, annotation: Any) -> FieldSummary:
         return schema_module._summarize_annotation(annotation, FieldConstraints())
+
+    def _apply_strategy_plugins(
+        self,
+        model: type[BaseModel],
+        field_name: str,
+        strategy: Strategy,
+    ) -> Strategy:
+        results = self._plugin_manager.hook.pfg_modify_strategy(
+            model=model,
+            field_name=field_name,
+            strategy=strategy,
+        )
+        for result in results:
+            if isinstance(result, Strategy):
+                strategy = result
+        return strategy
 
 
 __all__ = ["Strategy", "UnionStrategy", "StrategyBuilder", "StrategyResult"]

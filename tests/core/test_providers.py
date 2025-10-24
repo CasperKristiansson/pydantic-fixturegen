@@ -99,7 +99,7 @@ def test_load_entrypoint_plugins_handles_missing_group(monkeypatch) -> None:
 
     monkeypatch.setattr("importlib.metadata.entry_points", lambda: DummyEntryPoints())
 
-    registry.load_entrypoint_plugins()
+    registry.load_entrypoint_plugins(force=True)
     assert registry.get("bool").func(None) is True
 
 

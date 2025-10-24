@@ -24,6 +24,7 @@ from pydantic_fixturegen.core.strategies import (
     StrategyResult,
     UnionStrategy,
 )
+from pydantic_fixturegen.plugins.loader import get_plugin_manager, load_entrypoint_plugins
 
 
 @dataclass(slots=True)
@@ -54,12 +55,19 @@ class InstanceGenerator:
             Faker.seed(self.config.seed)
             self.faker.seed_instance(self.config.seed)
 
+        load_entrypoint_plugins()
+        self._plugin_manager = get_plugin_manager()
+
+        if registry is None:
+            self.registry.load_entrypoint_plugins()
+
         self.builder = StrategyBuilder(
             self.registry,
             enum_policy=self.config.enum_policy,
             union_policy=self.config.union_policy,
             default_p_none=self.config.default_p_none,
             optional_p_none=self.config.optional_p_none,
+            plugin_manager=self._plugin_manager,
         )
         self._strategy_cache: dict[type[Any], dict[str, StrategyResult]] = {}
 
@@ -221,6 +229,7 @@ class InstanceGenerator:
             annotation = type_hints.get(field.name, field.type)
             summary = self._summarize_dataclass_field(field, annotation)
             strategies[field.name] = self.builder.build_field_strategy(
+                cls,
                 field.name,
                 annotation,
                 summary,

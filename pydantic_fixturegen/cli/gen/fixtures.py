@@ -11,6 +11,8 @@ from pydantic_fixturegen.core.config import ConfigError, load_config
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, PFGError
 from pydantic_fixturegen.core.seed import SeedManager
 from pydantic_fixturegen.emitters.pytest_codegen import PytestEmitConfig, emit_pytest_fixtures
+from pydantic_fixturegen.plugins.hookspecs import EmitterContext
+from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
 
 from ._common import (
     JSON_ERRORS_OPTION,
@@ -162,6 +164,7 @@ def _execute_fixtures_command(
         )
 
     clear_module_cache()
+    load_entrypoint_plugins()
 
     cli_overrides: dict[str, Any] = {}
     if seed is not None:
@@ -219,6 +222,19 @@ def _execute_fixtures_command(
         seed=seed_value,
         optional_p_none=app_config.p_none,
     )
+
+    context = EmitterContext(
+        models=tuple(model_classes),
+        output=out,
+        parameters={
+            "style": style_final,
+            "scope": scope_final,
+            "cases": cases,
+            "return_type": return_type_final,
+        },
+    )
+    if emit_artifact("fixtures", context):
+        return
 
     try:
         result = emit_pytest_fixtures(

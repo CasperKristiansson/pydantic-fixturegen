@@ -10,6 +10,8 @@ import typer
 from pydantic_fixturegen.core.config import ConfigError, load_config
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, PFGError
 from pydantic_fixturegen.emitters.schema_out import emit_model_schema, emit_models_schema
+from pydantic_fixturegen.plugins.hookspecs import EmitterContext
+from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
 
 from ._common import (
     JSON_ERRORS_OPTION,
@@ -95,6 +97,7 @@ def _execute_schema_command(
         raise DiscoveryError("Target must be a Python module file.", details={"path": target})
 
     clear_module_cache()
+    load_entrypoint_plugins()
 
     cli_overrides: dict[str, Any] = {}
     if indent is not None:
@@ -128,6 +131,14 @@ def _execute_schema_command(
         raise DiscoveryError(str(exc)) from exc
 
     indent_value = indent if indent is not None else app_config.json.indent
+
+    context = EmitterContext(
+        models=tuple(model_classes),
+        output=out,
+        parameters={"indent": indent_value},
+    )
+    if emit_artifact("schema", context):
+        return
 
     try:
         if len(model_classes) == 1:
