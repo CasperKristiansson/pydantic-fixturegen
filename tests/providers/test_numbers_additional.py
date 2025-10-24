@@ -42,3 +42,16 @@ def test_generate_numeric_unsupported() -> None:
     summary = _summary("custom")
     with pytest.raises(ValueError):
         numbers.generate_numeric(summary)
+
+
+def test_generate_numeric_float_bounds_adjustment() -> None:
+    summary = _summary("float", ge=1.5, lt=1.6)
+    value = numbers.generate_numeric(summary, random_generator=random.Random(0))
+    assert 1.5 <= value < 1.6
+
+
+def test_generate_numeric_decimal_min_greater_than_max() -> None:
+    constraints = FieldConstraints(ge=decimal.Decimal("5"), le=decimal.Decimal("1"))
+    summary = FieldSummary(type="decimal", constraints=constraints)
+    value = numbers.generate_numeric(summary, random_generator=random.Random(0))
+    assert value == decimal.Decimal("1")

@@ -8,6 +8,8 @@ from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.cli import doctor as doctor_mod
 from pydantic_fixturegen.core.errors import DiscoveryError
 from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult
+from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
+from pydantic_fixturegen.core.strategies import Strategy
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -144,6 +146,12 @@ def test_doctor_resolve_method_conflict() -> None:
         doctor_mod._resolve_method(ast_mode=True, hybrid_mode=True)
 
 
+def test_doctor_resolve_method_variants() -> None:
+    assert doctor_mod._resolve_method(ast_mode=False, hybrid_mode=True) == "hybrid"
+    assert doctor_mod._resolve_method(ast_mode=True, hybrid_mode=False) == "ast"
+    assert doctor_mod._resolve_method(ast_mode=False, hybrid_mode=False) == "import"
+
+
 def test_doctor_load_model_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     module = tmp_path / "models.py"
     module.write_text("", encoding="utf-8")
@@ -196,3 +204,19 @@ def test_doctor_render_report_with_issues(capsys: pytest.CaptureFixture[str]) ->
     captured = capsys.readouterr()
     assert "Coverage: 1/2" in captured.out
     assert "problem" in captured.out
+
+
+def test_doctor_strategy_status_any_type() -> None:
+    summary = FieldSummary(type="any", constraints=FieldConstraints())
+    strategy = Strategy(
+        field_name="sample",
+        summary=summary,
+        annotation=object,
+        provider_ref=object(),
+        provider_name="generic",
+        provider_kwargs={},
+        p_none=0.0,
+    )
+    covered, issues = doctor_mod._strategy_status(summary, strategy)
+    assert covered is True
+    assert issues == ["falls back to generic type"]
