@@ -290,7 +290,7 @@ A) Backlog
   - Dependencies: T-20.
   - Estimate: 60m.
 
-- [ ] T-pydantic-fixturegen-product-spec-33: Memory budget and streaming safeguards (45m)
+- [x] T-pydantic-fixturegen-product-spec-33: Memory budget and streaming safeguards (45m)
 
   - Goal: Ensure peak RSS ≤300MB for 10k medium objects.
   - Files/paths: `pydantic_fixturegen/emitters/json_out.py`, `tests/perf/test_memory_budget.py`.

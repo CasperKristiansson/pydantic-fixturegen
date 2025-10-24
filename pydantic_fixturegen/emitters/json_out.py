@@ -5,8 +5,9 @@ from __future__ import annotations
 import dataclasses
 import json
 from collections.abc import Callable, Iterable, Iterator, Sequence
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from itertools import islice
 from pathlib import Path
 from typing import Any
 
@@ -84,41 +85,25 @@ def emit_json_samples(
         use_orjson=config.use_orjson,
     )
 
-    records = list(_collect_samples(samples, config.count))
-    shards = _split_into_shards(records, config.shard_size)
-    config.output_path.parent.mkdir(parents=True, exist_ok=True)
+    samples_iter = _collect_samples(samples, config.count)
 
-    results: list[Path] = []
-    with ThreadPoolExecutor(
-        max_workers=_worker_count(config.max_workers, len(shards))
-    ) as executor:
-        futures: list[Future[Path]] = []
-        for index, chunk in enumerate(shards, start=1):
-            futures.append(
-                executor.submit(
-                    _write_shard,
-                    chunk,
-                    config.output_path,
-                    index,
-                    len(shards),
-                    config.jsonl,
-                    encoder,
-                    config.max_workers,
-                )
-            )
-        for future in futures:
-            results.append(future.result())
-
-    if not results:
-        # Ensure at least one file is produced even when there are no records.
-        results.append(
-            _write_empty_shard(
+    if config.shard_size is None:
+        if config.jsonl:
+            path = _stream_jsonl(
+                samples_iter,
                 config.output_path,
-                config.jsonl,
                 encoder,
             )
-        )
-    return results
+        else:
+            path = _stream_json_array(
+                samples_iter,
+                config.output_path,
+                encoder,
+                indent=config.indent,
+            )
+        return [path]
+
+    return _write_chunked_samples(samples_iter, config, encoder)
 
 
 # --------------------------------------------------------------------------- helpers
@@ -161,45 +146,12 @@ def _normalise_shard_size(shard_size: int | None, count: int) -> int | None:
     return max(1, min(shard_size, count)) if count > 0 else shard_size
 
 
-def _split_into_shards(records: Sequence[Any], shard_size: int | None) -> list[list[Any]]:
-    if not records:
-        return []
-    if shard_size is None:
-        return [list(records)]
-
-    shards: list[list[Any]] = []
-    for start in range(0, len(records), shard_size):
-        shards.append(list(records[start : start + shard_size]))
-    return shards
-
-
 def _worker_count(max_workers: int | None, shard_count: int) -> int:
     if shard_count <= 1:
         return 1
     if max_workers is not None:
         return max(1, min(max_workers, shard_count))
     return min(shard_count, (os_cpu_count() or 1) * 2)
-
-
-def _write_shard(
-    chunk: Sequence[Any],
-    base_path: Path,
-    shard_index: int,
-    shard_count: int,
-    jsonl: bool,
-    encoder: _JsonEncoder,
-    max_workers: int | None,
-) -> Path:
-    path = _shard_path(base_path, shard_index, shard_count, jsonl)
-    payload = _prepare_payload(
-        chunk,
-        jsonl=jsonl,
-        encoder=encoder,
-        workers=_worker_count(max_workers, len(chunk)),
-    )
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(payload, encoding="utf-8")
-    return path
 
 
 def _write_empty_shard(
@@ -230,6 +182,114 @@ def _prepare_payload(
         with ThreadPoolExecutor(max_workers=workers) as executor:
             lines = list(executor.map(encoder.encode, chunk))
     return "\n".join(lines) + ("\n" if lines else "")
+
+
+def _stream_jsonl(
+    iterator: Iterator[Any],
+    base_path: Path,
+    encoder: _JsonEncoder,
+) -> Path:
+    path = _ensure_suffix(base_path, ".jsonl")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as stream:
+        for record in iterator:
+            stream.write(encoder.encode(record))
+            stream.write("\n")
+    return path
+
+
+def _stream_json_array(
+    iterator: Iterator[Any],
+    base_path: Path,
+    encoder: _JsonEncoder,
+    *,
+    indent: int | None,
+) -> Path:
+    path = _ensure_suffix(base_path, ".json")
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if indent is None:
+        with path.open("w", encoding="utf-8") as stream:
+            first = True
+            stream.write("[")
+            for record in iterator:
+                if not first:
+                    stream.write(",")
+                stream.write(encoder.encode(record))
+                first = False
+            stream.write("]")
+        return path
+
+    spacing = " " * indent
+    with path.open("w", encoding="utf-8") as stream:
+        written = False
+        for record in iterator:
+            encoded = encoder.encode(record)
+            if not written:
+                stream.write("[\n")
+            else:
+                stream.write(",\n")
+            stream.write(f"{spacing}{encoded}")
+            written = True
+        if not written:
+            stream.write("[]")
+        else:
+            stream.write("\n]")
+    return path
+
+
+def _write_chunked_samples(
+    iterator: Iterator[Any],
+    config: JsonEmitConfig,
+    encoder: _JsonEncoder,
+) -> list[Path]:
+    chunk_size = max(1, config.shard_size or 1)
+    results: list[Path] = []
+
+    chunk = list(islice(iterator, chunk_size))
+    if not chunk:
+        results.append(_write_empty_shard(config.output_path, config.jsonl, encoder))
+        return results
+
+    index = 1
+    while chunk:
+        next_chunk = list(islice(iterator, chunk_size))
+        is_last = not next_chunk
+        path = _chunk_path(
+            config.output_path,
+            index=index,
+            is_last=is_last,
+            jsonl=config.jsonl,
+        )
+        payload = _prepare_payload(
+            chunk,
+            jsonl=config.jsonl,
+            encoder=encoder,
+            workers=_worker_count(config.max_workers, len(chunk)),
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(payload, encoding="utf-8")
+        results.append(path)
+
+        chunk = next_chunk
+        index += 1
+
+    return results
+
+
+def _chunk_path(
+    base_path: Path,
+    *,
+    index: int,
+    is_last: bool,
+    jsonl: bool,
+) -> Path:
+    suffix = ".jsonl" if jsonl else ".json"
+    if is_last and index == 1:
+        return _ensure_suffix(base_path, suffix)
+
+    shard_total = 2 if (index > 1 or not is_last) else 1
+    return _shard_path(base_path, index, shard_total, jsonl)
 
 
 def _shard_path(base_path: Path, shard_index: int, shard_count: int, jsonl: bool) -> Path:
