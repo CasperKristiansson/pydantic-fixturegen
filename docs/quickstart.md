@@ -72,7 +72,7 @@ pfg gen json ./models.py --include models.User --n 2 --indent 2 --out ./out/User
 Example excerpt:
 
 ```json
-/* seed=42 version=0.0.1 digest=<sha256> */
+/* seed=42 version=1.0.0 digest=<sha256> */
 [
   {
     "id": 1,
@@ -101,7 +101,7 @@ pfg gen fixtures ./models.py \
 **Representative output snippet**:
 
 ```python
-# pydantic-fixturegen v0.0.1  seed=42  digest=<sha256>
+# pydantic-fixturegen v1.0.0  seed=42  digest=<sha256>
 import pytest
 from models import User, Address
 
