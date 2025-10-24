@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import types
 from pathlib import Path
 
+import pytest
+from pydantic import BaseModel
 from pydantic_fixturegen.cli import app as cli_app
+from pydantic_fixturegen.cli.gen import fixtures as fixtures_mod
+from pydantic_fixturegen.core.config import ConfigError
+from pydantic_fixturegen.core.errors import DiscoveryError, EmitError
+from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -125,3 +132,260 @@ def test_gen_fixtures_class_style_scope(tmp_path: Path) -> None:
     text = output.read_text(encoding="utf-8")
     assert "class AddressFactory" in text
     assert '@pytest.fixture(scope="module")' in text
+
+
+def test_gen_fixtures_emit_artifact_short_circuit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "fixtures.py"
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.gen.fixtures.emit_artifact",
+        lambda *a, **k: True,
+    )
+
+    def fail_emit(*args, **kwargs):  # noqa: ANN001, ANN002
+        raise AssertionError("emit_pytest_fixtures should not be called")
+
+    monkeypatch.setattr("pydantic_fixturegen.cli.gen.fixtures.emit_pytest_fixtures", fail_emit)
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "fixtures",
+            str(module_path),
+            "--out",
+            str(output),
+            "--include",
+            "models.User",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert not output.exists()
+
+
+def test_gen_fixtures_emit_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "fixtures.py"
+
+    def bad_emit(*args, **kwargs):  # noqa: ANN001, ANN002
+        raise RuntimeError("fail")
+
+    monkeypatch.setattr("pydantic_fixturegen.cli.gen.fixtures.emit_pytest_fixtures", bad_emit)
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "fixtures",
+            str(module_path),
+            "--out",
+            str(output),
+            "--include",
+            "models.User",
+        ],
+    )
+
+    assert result.exit_code == 30
+    assert "fail" in result.stderr
+
+
+def test_gen_fixtures_config_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "fixtures.py"
+
+    def bad_config(**_: object):  # noqa: ANN003
+        raise ConfigError("broken")
+
+    monkeypatch.setattr("pydantic_fixturegen.cli.gen.fixtures.load_config", bad_config)
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "fixtures",
+            str(module_path),
+            "--out",
+            str(output),
+            "--include",
+            "models.User",
+        ],
+    )
+
+    assert result.exit_code == 10
+    assert "broken" in result.stderr
+
+
+def test_execute_fixtures_command_warnings(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module_path = _write_module(tmp_path)
+    info = IntrospectedModel(
+        module="pkg",
+        name="User",
+        qualname="pkg.User",
+        locator=str(module_path),
+        lineno=1,
+        discovery="import",
+        is_public=True,
+    )
+
+    class DemoModel(BaseModel):
+        id: int
+
+    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
+        assert path == module_path
+        return IntrospectionResult(models=[info], warnings=["warn"], errors=[])
+
+    monkeypatch.setattr(fixtures_mod, "discover_models", fake_discover)
+    monkeypatch.setattr(fixtures_mod, "load_model_class", lambda _: DemoModel)
+    monkeypatch.setattr(fixtures_mod, "clear_module_cache", lambda: None)
+    monkeypatch.setattr(fixtures_mod, "load_entrypoint_plugins", lambda: None)
+    monkeypatch.setattr(fixtures_mod, "emit_artifact", lambda *a, **k: False)
+
+    result_obj = types.SimpleNamespace(skipped=True)
+
+    monkeypatch.setattr(
+        fixtures_mod,
+        "emit_pytest_fixtures",
+        lambda *a, **k: result_obj,
+    )
+
+    out_path = tmp_path / "fixtures.py"
+
+    fixtures_mod._execute_fixtures_command(
+        target=str(module_path),
+        out=out_path,
+        style="factory",
+        scope="module",
+        cases=2,
+        return_type="model",
+        seed=123,
+        p_none=0.2,
+        include="pkg.User",
+        exclude=None,
+    )
+
+    captured = capsys.readouterr()
+    assert "warn" in captured.err
+    assert str(out_path) + " (unchanged)" in captured.out
+
+
+def test_execute_fixtures_command_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+    info = IntrospectedModel(
+        module="pkg",
+        name="User",
+        qualname="pkg.User",
+        locator=str(module_path),
+        lineno=1,
+        discovery="import",
+        is_public=True,
+    )
+
+    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
+        assert path == module_path
+        return IntrospectionResult(models=[info], warnings=[], errors=["boom"])
+
+    monkeypatch.setattr(fixtures_mod, "discover_models", fake_discover)
+    monkeypatch.setattr(fixtures_mod, "clear_module_cache", lambda: None)
+    monkeypatch.setattr(fixtures_mod, "load_entrypoint_plugins", lambda: None)
+
+    with pytest.raises(DiscoveryError):
+        fixtures_mod._execute_fixtures_command(
+            target=str(module_path),
+            out=module_path,
+            style=None,
+            scope=None,
+            cases=1,
+            return_type=None,
+            seed=None,
+            p_none=None,
+            include=None,
+            exclude=None,
+        )
+
+
+def test_execute_fixtures_command_path_checks(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.py"
+    with pytest.raises(DiscoveryError):
+        fixtures_mod._execute_fixtures_command(
+            target=str(missing),
+            out=missing,
+            style=None,
+            scope=None,
+            cases=1,
+            return_type=None,
+            seed=None,
+            p_none=None,
+            include=None,
+            exclude=None,
+        )
+
+    directory = tmp_path / "dir"
+    directory.mkdir()
+    with pytest.raises(DiscoveryError):
+        fixtures_mod._execute_fixtures_command(
+            target=str(directory),
+            out=directory,
+            style=None,
+            scope=None,
+            cases=1,
+            return_type=None,
+            seed=None,
+            p_none=None,
+            include=None,
+            exclude=None,
+        )
+
+
+def test_execute_fixtures_command_emit_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module_path = _write_module(tmp_path)
+    info = IntrospectedModel(
+        module="pkg",
+        name="User",
+        qualname="pkg.User",
+        locator=str(module_path),
+        lineno=1,
+        discovery="import",
+        is_public=True,
+    )
+
+    class DemoModel(BaseModel):
+        id: int
+
+    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
+        assert path == module_path
+        return IntrospectionResult(models=[info], warnings=[], errors=[])
+
+    monkeypatch.setattr(fixtures_mod, "discover_models", fake_discover)
+    monkeypatch.setattr(fixtures_mod, "load_model_class", lambda _: DemoModel)
+    monkeypatch.setattr(fixtures_mod, "clear_module_cache", lambda: None)
+    monkeypatch.setattr(fixtures_mod, "load_entrypoint_plugins", lambda: None)
+    monkeypatch.setattr(fixtures_mod, "emit_artifact", lambda *a, **k: False)
+
+    def boom_emit(*args, **kwargs):  # noqa: ANN001, ANN002
+        raise RuntimeError("fail")
+
+    monkeypatch.setattr(fixtures_mod, "emit_pytest_fixtures", boom_emit)
+
+    with pytest.raises(EmitError):
+        fixtures_mod._execute_fixtures_command(
+            target=str(module_path),
+            out=module_path,
+            style=None,
+            scope=None,
+            cases=1,
+            return_type=None,
+            seed=None,
+            p_none=None,
+            include=None,
+            exclude=None,
+        )

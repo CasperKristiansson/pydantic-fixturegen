@@ -5,6 +5,10 @@ from pathlib import Path
 
 import pytest
 from pydantic_fixturegen.cli import app as cli_app
+from pydantic_fixturegen.cli.gen import schema as schema_mod
+from pydantic_fixturegen.core.config import ConfigError
+from pydantic_fixturegen.core.errors import DiscoveryError
+from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -182,3 +186,123 @@ def test_gen_schema_emit_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
 
     assert result.exit_code == 30
     assert "bad" in result.stderr
+
+
+def test_gen_schema_config_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "schema.json"
+
+    def bad_config(**_: object):  # noqa: ANN003
+        raise ConfigError("broken")
+
+    monkeypatch.setattr("pydantic_fixturegen.cli.gen.schema.load_config", bad_config)
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "schema",
+            str(module_path),
+            "--out",
+            str(output),
+            "--include",
+            "models.User",
+        ],
+    )
+
+    assert result.exit_code == 10
+    assert "broken" in result.stderr
+
+
+def test_execute_schema_command_warnings(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module_path = _write_module(tmp_path)
+
+    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
+        assert path == module_path
+        return IntrospectionResult(models=[], warnings=["warn"], errors=[])
+
+    monkeypatch.setattr(schema_mod, "discover_models", fake_discover)
+    monkeypatch.setattr(schema_mod, "clear_module_cache", lambda: None)
+    monkeypatch.setattr(schema_mod, "load_entrypoint_plugins", lambda: None)
+
+    with pytest.raises(DiscoveryError):
+        schema_mod._execute_schema_command(
+            target=str(module_path),
+            out=module_path,
+            indent=None,
+            include=None,
+            exclude=None,
+        )
+
+    captured = capsys.readouterr()
+    assert "warn" in captured.err
+
+
+def test_execute_schema_command_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+
+    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
+        assert path == module_path
+        return IntrospectionResult(models=[IntrospectedModel(
+            module="pkg",
+            name="User",
+            qualname="pkg.User",
+            locator=str(module_path),
+            lineno=1,
+            discovery="import",
+            is_public=True,
+        )], warnings=[], errors=["boom"])
+
+    monkeypatch.setattr(schema_mod, "discover_models", fake_discover)
+    monkeypatch.setattr(schema_mod, "clear_module_cache", lambda: None)
+    monkeypatch.setattr(schema_mod, "load_entrypoint_plugins", lambda: None)
+
+    with pytest.raises(DiscoveryError):
+        schema_mod._execute_schema_command(
+            target=str(module_path),
+            out=module_path,
+            indent=None,
+            include=None,
+            exclude=None,
+        )
+
+
+def test_execute_schema_command_load_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module_path = _write_module(tmp_path)
+    info = IntrospectedModel(
+        module="pkg",
+        name="User",
+        qualname="pkg.User",
+        locator=str(module_path),
+        lineno=1,
+        discovery="import",
+        is_public=True,
+    )
+
+    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
+        assert path == module_path
+        return IntrospectionResult(models=[info], warnings=[], errors=[])
+
+    monkeypatch.setattr(schema_mod, "discover_models", fake_discover)
+    monkeypatch.setattr(schema_mod, "clear_module_cache", lambda: None)
+    monkeypatch.setattr(schema_mod, "load_entrypoint_plugins", lambda: None)
+    monkeypatch.setattr(
+        schema_mod,
+        "load_model_class",
+        lambda _: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+
+    with pytest.raises(DiscoveryError):
+        schema_mod._execute_schema_command(
+            target=str(module_path),
+            out=module_path,
+            indent=None,
+            include=None,
+            exclude=None,
+        )
