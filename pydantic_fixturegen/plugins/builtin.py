@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from pydantic_fixturegen.core.providers import (
     register_collection_providers,
     register_identifier_providers,
@@ -21,7 +23,10 @@ _SENTINEL_KEYS = {
 }
 
 
-def _ensure_registered(registry: ProviderRegistry, key: str, register_func) -> None:
+RegisterFunc = Callable[[ProviderRegistry], None]
+
+
+def _ensure_registered(registry: ProviderRegistry, key: str, register_func: RegisterFunc) -> None:
     if registry.get(key) is None:
         register_func(registry)
 

@@ -131,4 +131,3 @@ def _quantizer(constraints: FieldConstraints) -> decimal.Decimal:
 
 
 __all__ = ["generate_numeric", "register_numeric_providers"]
-

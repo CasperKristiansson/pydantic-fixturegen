@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import typer
+from pydantic import BaseModel
 
 from pydantic_fixturegen.core.config import AppConfig, ConfigError, load_config
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError, PFGError
@@ -198,7 +199,7 @@ def _execute_json_command(
 
     generator = _build_instance_generator(app_config)
 
-    def sample_factory():
+    def sample_factory() -> BaseModel:
         instance = generator.generate_one(model_cls)
         if instance is None:
             raise MappingError(

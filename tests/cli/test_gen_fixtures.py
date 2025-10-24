@@ -124,4 +124,4 @@ def test_gen_fixtures_class_style_scope(tmp_path: Path) -> None:
     assert result.exit_code == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
     text = output.read_text(encoding="utf-8")
     assert "class AddressFactory" in text
-    assert "@pytest.fixture(scope=\"module\")" in text
+    assert '@pytest.fixture(scope="module")' in text

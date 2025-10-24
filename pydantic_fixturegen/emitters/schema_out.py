@@ -74,7 +74,7 @@ def emit_models_schema(
 
 
 def _normalise_indent(indent: int | None) -> int | None:
-    if indent in (None, 0):
+    if indent is None or indent == 0:
         return None
     if indent < 0:
         raise ValueError("indent must be >= 0")

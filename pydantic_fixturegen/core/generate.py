@@ -6,7 +6,7 @@ import dataclasses
 import enum
 import inspect
 import random
-from collections.abc import Iterable
+from collections.abc import Iterable, Sized
 from dataclasses import dataclass, is_dataclass
 from dataclasses import fields as dataclass_fields
 from typing import Any, get_type_hints
@@ -120,11 +120,7 @@ class InstanceGenerator:
         if not choices:
             return None
 
-        selected = (
-            self.random.choice(choices)
-            if strategy.policy == "random"
-            else choices[0]
-        )
+        selected = self.random.choice(choices) if strategy.policy == "random" else choices[0]
         return self._evaluate_single(selected, depth)
 
     def _evaluate_single(self, strategy: Strategy, depth: int) -> Any:
@@ -265,11 +261,7 @@ class InstanceGenerator:
             return None
 
         policy = strategy.enum_policy or self.config.enum_policy
-        selection = (
-            self.random.choice(enum_values)
-            if policy == "random"
-            else enum_values[0]
-        )
+        selection = self.random.choice(enum_values) if policy == "random" else enum_values[0]
 
         annotation = strategy.annotation
         if isinstance(annotation, type) and issubclass(annotation, enum.Enum):
@@ -283,10 +275,9 @@ class InstanceGenerator:
     def _collection_length_from_value(value: Any) -> int:
         if value is None:
             return 0
-        try:
-            return len(value)  # type: ignore[arg-type]
-        except TypeError:
-            return 0
+        if isinstance(value, Sized):
+            return len(value)
+        return 0
 
     @staticmethod
     def _is_model_like(annotation: Any) -> bool:

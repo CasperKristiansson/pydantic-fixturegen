@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 import typer
 
@@ -26,6 +26,9 @@ from ._common import (
 STYLE_CHOICES = {"functions", "factory", "class"}
 SCOPE_CHOICES = {"function", "module", "session"}
 RETURN_CHOICES = {"model", "dict"}
+
+StyleLiteral = Literal["functions", "factory", "class"]
+ReturnLiteral = Literal["model", "dict"]
 
 TARGET_ARGUMENT = typer.Argument(
     ...,
@@ -148,20 +151,9 @@ def _execute_fixtures_command(
     if not path.is_file():
         raise DiscoveryError("Target must be a Python module file.", details={"path": target})
 
-    style_value = style.lower() if style else None
-    if style_value and style_value not in STYLE_CHOICES:
-        raise DiscoveryError(f"Invalid style '{style}'.", details={"style": style})
-
-    scope_value = scope.lower() if scope else None
-    if scope_value and scope_value not in SCOPE_CHOICES:
-        raise DiscoveryError(f"Invalid scope '{scope}'.", details={"scope": scope})
-
-    return_type_value = return_type.lower() if return_type else None
-    if return_type_value and return_type_value not in RETURN_CHOICES:
-        raise DiscoveryError(
-            f"Invalid return type '{return_type}'.",
-            details={"return_type": return_type},
-        )
+    style_value = _coerce_style(style)
+    scope_value = _coerce_scope(scope)
+    return_type_value = _coerce_return_type(return_type)
 
     clear_module_cache()
     load_entrypoint_plugins()
@@ -210,9 +202,9 @@ def _execute_fixtures_command(
     if app_config.seed is not None:
         seed_value = SeedManager(seed=app_config.seed).normalized_seed
 
-    style_final = style_value or app_config.emitters.pytest.style
+    style_final = style_value or cast(StyleLiteral, app_config.emitters.pytest.style)
     scope_final = scope_value or app_config.emitters.pytest.scope
-    return_type_final = return_type_value or "model"
+    return_type_final = return_type_value or cast(ReturnLiteral, "model")
 
     pytest_config = PytestEmitConfig(
         scope=scope_final,
@@ -252,3 +244,30 @@ def _execute_fixtures_command(
 
 
 __all__ = ["register"]
+
+
+def _coerce_style(value: str | None) -> StyleLiteral | None:
+    if value is None:
+        return None
+    lowered = value.strip().lower()
+    if lowered not in STYLE_CHOICES:
+        raise DiscoveryError(f"Unsupported fixture style: {value!r}.")
+    return cast(StyleLiteral, lowered)
+
+
+def _coerce_scope(value: str | None) -> str | None:
+    if value is None:
+        return None
+    lowered = value.strip().lower()
+    if lowered not in SCOPE_CHOICES:
+        raise DiscoveryError(f"Unsupported fixture scope: {value!r}.")
+    return lowered
+
+
+def _coerce_return_type(value: str | None) -> ReturnLiteral | None:
+    if value is None:
+        return None
+    lowered = value.strip().lower()
+    if lowered not in RETURN_CHOICES:
+        raise DiscoveryError(f"Unsupported return type: {value!r}.")
+    return cast(ReturnLiteral, lowered)

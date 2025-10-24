@@ -9,12 +9,17 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 from types import ModuleType
+from typing import Literal
 
 import typer
 from pydantic import BaseModel
 
 from pydantic_fixturegen.core.errors import PFGError
-from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult, discover
+from pydantic_fixturegen.core.introspect import (
+    IntrospectedModel,
+    IntrospectionResult,
+    discover,
+)
 
 __all__ = [
     "JSON_ERRORS_OPTION",
@@ -48,12 +53,15 @@ def split_patterns(raw: str | None) -> list[str]:
     return [part.strip() for part in raw.split(",") if part.strip()]
 
 
+DiscoveryMethod = Literal["ast", "import", "hybrid"]
+
+
 def discover_models(
     path: Path,
     *,
     include: Sequence[str] | None = None,
     exclude: Sequence[str] | None = None,
-    method: str = "import",
+    method: DiscoveryMethod = "import",
     timeout: float = 5.0,
     memory_limit_mb: int = 256,
 ) -> IntrospectionResult:

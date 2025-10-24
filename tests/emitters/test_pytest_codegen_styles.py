@@ -27,7 +27,7 @@ def test_factory_style_emits_callable_fixture(tmp_path: Path) -> None:
     assert result.wrote is True
     text = output.read_text(encoding="utf-8")
     assert "from typing import Any, Callable" in text or "from typing import Callable, Any" in text
-    assert "@pytest.fixture(scope=\"module\")" in text
+    assert '@pytest.fixture(scope="module")' in text
     assert "def order_factory(" in text
     assert "def builder(" in text
     assert "return builder" in text
@@ -45,7 +45,7 @@ def test_class_style_emits_factory_class(tmp_path: Path) -> None:
     text = output.read_text(encoding="utf-8")
     assert "class OrderFactory" in text
     assert "def build(self, **overrides: Any)" in text
-    assert "@pytest.fixture(scope=\"session\")" in text
+    assert '@pytest.fixture(scope="session")' in text
     assert "return OrderFactory(base_data)" in text
 
 

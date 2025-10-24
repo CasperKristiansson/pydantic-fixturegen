@@ -10,7 +10,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel
 
@@ -187,9 +187,9 @@ def _render_functions_fixture(entry: _ModelEntry, *, config: PytestEmitConfig) -
 
     lines: list[str] = []
     if has_params:
-        lines.append(f"@pytest.fixture(scope=\"{config.scope}\", params={params_literal})")
+        lines.append(f'@pytest.fixture(scope="{config.scope}", params={params_literal})')
     else:
-        lines.append(f"@pytest.fixture(scope=\"{config.scope}\")")
+        lines.append(f'@pytest.fixture(scope="{config.scope}")')
 
     arglist = "request" if has_params else ""
     signature = f"def {entry.fixture_name}({arglist}) -> {annotation}:"
@@ -217,9 +217,9 @@ def _render_factory_fixture(entry: _ModelEntry, *, config: PytestEmitConfig) -> 
 
     lines: list[str] = []
     if has_params:
-        lines.append(f"@pytest.fixture(scope=\"{config.scope}\", params={params_literal})")
+        lines.append(f'@pytest.fixture(scope="{config.scope}", params={params_literal})')
     else:
-        lines.append(f"@pytest.fixture(scope=\"{config.scope}\")")
+        lines.append(f'@pytest.fixture(scope="{config.scope}")')
 
     arglist = "request" if has_params else ""
     signature = f"def {entry.fixture_name}({arglist}) -> {fixture_annotation}:"
@@ -274,9 +274,9 @@ def _render_class_fixture(entry: _ModelEntry, *, config: PytestEmitConfig) -> li
 
     lines: list[str] = []
     if has_params:
-        lines.append(f"@pytest.fixture(scope=\"{config.scope}\", params={params_literal})")
+        lines.append(f'@pytest.fixture(scope="{config.scope}", params={params_literal})')
     else:
-        lines.append(f"@pytest.fixture(scope=\"{config.scope}\")")
+        lines.append(f'@pytest.fixture(scope="{config.scope}")')
 
     arglist = "request" if has_params else ""
     signature = f"def {entry.fixture_name}({arglist}) -> {annotation}:"
@@ -338,7 +338,7 @@ def _to_snake_case(name: str) -> str:
 def _model_to_literal(instance: BaseModel) -> dict[str, Any]:
     raw = instance.model_dump(mode="json")
     serialized = json.dumps(raw, sort_keys=True, ensure_ascii=False)
-    return json.loads(serialized)
+    return cast(dict[str, Any], json.loads(serialized))
 
 
 def _format_code(source: str) -> str:

@@ -9,14 +9,18 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from itertools import islice
 from pathlib import Path
-from typing import Any
+from types import ModuleType
+from typing import Any, Callable as TypingCallable, cast
 
 from pydantic import BaseModel
 
+orjson: ModuleType | None
 try:  # Optional dependency
-    import orjson  # type: ignore
+    import orjson as _orjson
 except ImportError:  # pragma: no cover - optional extra not installed
-    orjson = None  # type: ignore[assignment]
+    orjson = None
+else:
+    orjson = _orjson
 
 DEFAULT_INDENT = 2
 DEFAULT_SHARD_PAD = 5
@@ -115,6 +119,7 @@ def _collect_samples(
         return iter(())
 
     if callable(samples):
+
         def factory_iterator() -> Iterator[Any]:
             for _ in range(count):
                 yield _normalise_record(samples())
@@ -133,7 +138,7 @@ def _collect_samples(
 def _normalise_indent(indent: int | None, *, jsonl: bool) -> int | None:
     if jsonl:
         return None
-    if indent in (None, 0):
+    if indent is None or indent == 0:
         return None
     if indent < 0:
         raise ValueError("indent must be >= 0")
@@ -308,12 +313,14 @@ def _ensure_suffix(path: Path, suffix: str) -> Path:
 
 
 def _normalise_record(record: Any) -> Any:
-    if dataclasses.is_dataclass(record):
+    if dataclasses.is_dataclass(record) and not isinstance(record, type):
         return dataclasses.asdict(record)
     if isinstance(record, BaseModel):
         return record.model_dump()
-    if hasattr(record, "model_dump"):
-        return record.model_dump()  # type: ignore[no-any-return]
+    model_dump = getattr(record, "model_dump", None)
+    if callable(model_dump):
+        dump_call = cast(TypingCallable[[], Any], model_dump)
+        return dump_call()
     return record
 
 
@@ -322,20 +329,19 @@ class _JsonEncoder:
         self.indent = indent
         self.ensure_ascii = ensure_ascii
         self.use_orjson = use_orjson
+        self._options: int | None = None
         if use_orjson:
             if orjson is None:
                 raise RuntimeError("orjson is not installed but use_orjson was requested.")
             self._options = _orjson_options(indent)
-        else:
-            self._options = None
 
     def encode(self, obj: Any) -> str:
         normalized = _normalise_record(obj)
         if self.use_orjson:
-            return orjson.dumps(  # type: ignore[union-attr, no-any-return]
-                normalized,
-                option=self._options,
-            ).decode("utf-8")
+            assert orjson is not None  # for type checkers
+            options = self._options if self._options is not None else 0
+            bytes_payload = orjson.dumps(normalized, option=options)
+            return cast(bytes, bytes_payload).decode("utf-8")
         return json.dumps(
             normalized,
             ensure_ascii=self.ensure_ascii,
@@ -345,11 +351,13 @@ class _JsonEncoder:
 
 
 def _orjson_options(indent: int | None) -> int:
-    options = orjson.OPT_SORT_KEYS  # type: ignore[union-attr]
+    if orjson is None:  # pragma: no cover - defensive
+        raise RuntimeError("orjson is not available")
+    options = cast(int, orjson.OPT_SORT_KEYS)
     if indent:
         if indent != 2:
             raise ValueError("orjson only supports indent=2.")
-        options |= orjson.OPT_INDENT_2  # type: ignore[union-attr]
+        options |= cast(int, orjson.OPT_INDENT_2)
     return options
 
 

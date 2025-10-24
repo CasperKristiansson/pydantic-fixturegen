@@ -72,4 +72,3 @@ def _basic_value(item_type: str | None, faker: Faker, rng: random.Random) -> Any
 
 
 __all__ = ["generate_collection", "register_collection_providers"]
-

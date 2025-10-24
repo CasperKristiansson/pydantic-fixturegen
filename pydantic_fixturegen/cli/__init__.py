@@ -3,19 +3,19 @@
 from __future__ import annotations
 
 import builtins
-from collections.abc import Callable
 from importlib import import_module
 
 import typer
 from typer.main import get_command
 
-Loader = Callable[[], typer.Typer]
-
 
 def _load_typer(import_path: str) -> typer.Typer:
     module_name, attr = import_path.split(":", 1)
     module = import_module(module_name)
-    return getattr(module, attr)
+    loaded = getattr(module, attr)
+    if not isinstance(loaded, typer.Typer):
+        raise TypeError(f"Attribute {attr!r} in module {module_name!r} is not a Typer app.")
+    return loaded
 
 
 def _invoke(import_path: str, ctx: typer.Context) -> None:
@@ -55,7 +55,7 @@ def _proxy(name: str, import_path: str, help_text: str) -> None:
     }
 
     @app.command(name, context_settings=context_settings)
-    def command(ctx: typer.Context) -> None:  # type: ignore[misc]
+    def command(ctx: typer.Context) -> None:
         _invoke(import_path, ctx)
 
     command.__doc__ = help_text
