@@ -40,7 +40,7 @@
 
 ---
 
-## Install (install)
+## Install
 
 ### pip
 
