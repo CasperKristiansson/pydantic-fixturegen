@@ -1,0 +1,166 @@
+{
+  "$defs": {
+    "EmittersSchema": {
+      "additionalProperties": false,
+      "description": "Schema for emitter configuration sections.",
+      "properties": {
+        "pytest": {
+          "$ref": "#/$defs/PytestEmitterSchema",
+          "description": "Configuration for the built-in pytest fixture emitter."
+        }
+      },
+      "title": "EmittersSchema",
+      "type": "object"
+    },
+    "JsonSchema": {
+      "additionalProperties": false,
+      "description": "Schema for JSON emitter settings.",
+      "properties": {
+        "indent": {
+          "default": 2,
+          "description": "Indentation level for JSON output (0 for compact).",
+          "minimum": 0,
+          "title": "Indent",
+          "type": "integer"
+        },
+        "orjson": {
+          "default": false,
+          "description": "Use orjson for serialization when available.",
+          "title": "Orjson",
+          "type": "boolean"
+        }
+      },
+      "title": "JsonSchema",
+      "type": "object"
+    },
+    "PytestEmitterSchema": {
+      "additionalProperties": false,
+      "description": "Schema for pytest emitter settings.",
+      "properties": {
+        "scope": {
+          "default": "function",
+          "description": "Default pytest fixture scope.",
+          "enum": [
+            "function",
+            "module",
+            "session"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "style": {
+          "default": "functions",
+          "description": "How emitted pytest fixtures are structured.",
+          "enum": [
+            "functions",
+            "factory",
+            "class"
+          ],
+          "title": "Style",
+          "type": "string"
+        }
+      },
+      "title": "PytestEmitterSchema",
+      "type": "object"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/CasperKristiansson/pydantic-fixturegen/main/pydantic_fixturegen/schemas/config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "description": "Authoritative schema for `[tool.pydantic_fixturegen]` configuration.",
+  "properties": {
+    "emitters": {
+      "$ref": "#/$defs/EmittersSchema",
+      "description": "Emitter-specific configuration sections."
+    },
+    "enum_policy": {
+      "default": "first",
+      "description": "Strategy for selecting enum members.",
+      "enum": [
+        "first",
+        "random"
+      ],
+      "title": "Enum Policy",
+      "type": "string"
+    },
+    "exclude": {
+      "description": "Glob patterns of fully-qualified model names to exclude by default.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Exclude",
+      "type": "array"
+    },
+    "include": {
+      "description": "Glob patterns of fully-qualified model names to include by default.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Include",
+      "type": "array"
+    },
+    "json": {
+      "$ref": "#/$defs/JsonSchema",
+      "description": "Settings shared by JSON-based emitters."
+    },
+    "locale": {
+      "default": "en_US",
+      "description": "Default Faker locale used when generating data.",
+      "title": "Locale",
+      "type": "string"
+    },
+    "overrides": {
+      "additionalProperties": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "description": "Per-model overrides keyed by fully-qualified model name.",
+      "title": "Overrides",
+      "type": "object"
+    },
+    "p_none": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Probability of sampling `None` for optional fields when unspecified.",
+      "title": "P None"
+    },
+    "seed": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Global seed controlling deterministic generation. Accepts int or string.",
+      "title": "Seed"
+    },
+    "union_policy": {
+      "default": "first",
+      "description": "Strategy for selecting branches of `typing.Union`.",
+      "enum": [
+        "first",
+        "random",
+        "weighted"
+      ],
+      "title": "Union Policy",
+      "type": "string"
+    }
+  },
+  "title": "pydantic-fixturegen configuration",
+  "type": "object"
+}

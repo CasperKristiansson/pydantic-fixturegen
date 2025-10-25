@@ -156,6 +156,9 @@ orjson = false
 style = "functions"
 scope = "module"
 
+# Editor tooling: opt into validation/autocomplete
+$schema = "https://raw.githubusercontent.com/CasperKristiansson/pydantic-fixturegen/main/pydantic_fixturegen/schemas/config.schema.json"
+
 Prefer running `pfg init` in a fresh repository to generate this snippet automatically:
 
 ```bash
@@ -218,6 +221,9 @@ pfg init  # add --yaml to emit YAML alongside pyproject.toml
 
 # Diff regenerated artifacts against stored output
 pfg diff models.py --json-out /tmp/sample.json --show-diff
+
+# Export the authoritative configuration schema
+pfg schema config --out schema/config.schema.json
 
 # Validate configuration and discovery without generating artifacts
 pfg check models.py --json-out /tmp/sample.json --fixtures-out tests/fixtures/generated.py

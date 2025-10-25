@@ -182,6 +182,9 @@ orjson = false
 [tool.pydantic_fixturegen.emitters.pytest]
 style = "functions"
 scope = "module"
+
+# Optional: reference the published schema for editor tooling
+$schema = "https://raw.githubusercontent.com/CasperKristiansson/pydantic-fixturegen/main/pydantic_fixturegen/schemas/config.schema.json"
 ```
 
 Environment variables mirror keys using `PFG_` (e.g., `PFG_SEED=99`). **CLI flags override everything**.
@@ -193,6 +196,7 @@ Environment variables mirror keys using `PFG_` (e.g., `PFG_SEED=99`). **CLI flag
 - `pfg init [path]` — scaffold config files and a fixtures directory for new projects (`--yaml`, `--force`, `--json-indent`, etc.).
 - `pfg diff <module_or_path>` — regenerate artifacts in a temp sandbox and compare against existing outputs (`--json-out`, `--fixtures-out`, `--schema-out`, `--show-diff`).
 - `pfg check <module_or_path>` — dry-run validation of configuration, discovery, and emitter destinations (`--json-out`, `--fixtures-out`, `--schema-out`, `--json-errors`).
+- `pfg schema config [--out FILE]` — print or write the JSON Schema that documents configuration options.
 - `pfg list <module_or_path>` — enumerate models (AST and/or sandboxed import).
 - `pfg gen json <target>` — deterministic JSON/JSONL (`--n`, `--jsonl`, `--indent`, `--orjson/--no-orjson`, `--shard-size`, `--out`, `--seed`).
 - `pfg gen schema <target>` — emit JSON Schema (`--out` required; atomic writes; `--json-errors`).

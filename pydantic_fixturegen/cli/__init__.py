@@ -87,6 +87,11 @@ _proxy(
     "Scaffold configuration and directories for new projects.",
 )
 _proxy(
+    "schema",
+    "pydantic_fixturegen.cli.schema:app",
+    "Inspect available JSON Schemas (e.g. configuration metadata).",
+)
+_proxy(
     "doctor",
     "pydantic_fixturegen.cli.doctor:app",
     "Inspect models for coverage and risks.",
