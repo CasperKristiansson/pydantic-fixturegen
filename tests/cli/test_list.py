@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import textwrap
 from pathlib import Path
 
 from pydantic_fixturegen.cli.list import app as list_app
@@ -12,6 +14,58 @@ def _write_source(tmp_path: Path, name: str, content: str) -> Path:
     module_path = tmp_path / f"{name}.py"
     module_path.write_text(content, encoding="utf-8")
     return module_path
+
+
+def _write_relative_import_package(tmp_path: Path) -> Path:
+    package_root = tmp_path / "lib" / "models"
+    package_root.mkdir(parents=True)
+
+    (tmp_path / "lib" / "__init__.py").write_text("", encoding="utf-8")
+    (package_root / "__init__.py").write_text("", encoding="utf-8")
+
+    (package_root / "shared_model.py").write_text(
+        textwrap.dedent(
+            """
+            from pydantic import BaseModel
+
+            class RangeModel(BaseModel):
+                lower: float
+                upper: float
+
+            class FileRefModel(BaseModel):
+                path: str
+                label: str
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    target_module = package_root / "example_model.py"
+    target_module.write_text(
+        textwrap.dedent(
+            """
+            from typing import Literal
+
+            from pydantic import BaseModel
+
+            from .shared_model import FileRefModel, RangeModel
+
+
+            class ExampleInputs(BaseModel):
+                axis_unit: Literal["a", "b", "c"]
+                region: RangeModel
+
+
+            class ExampleRequest(BaseModel):
+                project_id: str
+                files: list[FileRefModel]
+                inputs: ExampleInputs
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    return target_module
 
 
 def test_list_ast_mode(tmp_path: Path) -> None:
@@ -134,3 +188,29 @@ time.sleep(1)
 
     assert result.exit_code == 10
     assert "error" in result.stderr.lower() or "warning" in result.stderr.lower()
+
+
+def test_list_handles_relative_imports(tmp_path: Path) -> None:
+    target_module = _write_relative_import_package(tmp_path)
+
+    result = runner.invoke(list_app, [str(target_module)])
+
+    assert result.exit_code == 0
+    assert "lib.models.example_model.ExampleInputs [import]" in result.stdout
+    assert "lib.models.example_model.ExampleRequest [import]" in result.stdout
+
+
+def test_list_handles_relative_imports_from_package_directory(tmp_path: Path) -> None:
+    target_module = _write_relative_import_package(tmp_path)
+    package_dir = target_module.parent
+
+    original_cwd = os.getcwd()
+    os.chdir(package_dir)
+    try:
+        result = runner.invoke(list_app, [target_module.name])
+    finally:
+        os.chdir(original_cwd)
+
+    assert result.exit_code == 0
+    assert "lib.models.example_model.ExampleInputs [import]" in result.stdout
+    assert "lib.models.example_model.ExampleRequest [import]" in result.stdout
