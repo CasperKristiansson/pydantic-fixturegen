@@ -118,3 +118,9 @@ def test_run_with_watch_executes_multiple_times(
 
     # initial call + one per change event
     assert len(run_calls) == 3
+
+
+def test_gather_watch_paths_requires_existing_targets(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.py"
+    with pytest.raises(WatchError):
+        watch_mod.gather_default_watch_paths(missing)

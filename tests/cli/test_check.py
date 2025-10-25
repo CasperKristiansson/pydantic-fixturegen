@@ -96,6 +96,27 @@ def test_check_emits_warnings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     assert "warn" in result.stderr
 
 
+def test_validate_output_path_conditions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    directory_issue = check_mod._validate_output_path(tmp_path, "JSON output")
+    assert "points to a directory" in directory_issue[0]
+
+    missing_parent = check_mod._validate_output_path(
+        tmp_path / "missing" / "file.json", "JSON output"
+    )
+    assert "does not exist" in missing_parent[0]
+
+    parent_file = tmp_path / "file.txt"
+    parent_file.write_text("content", encoding="utf-8")
+    not_dir = check_mod._validate_output_path(parent_file / "child.json", "JSON output")
+    assert "not a directory" in not_dir[0]
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.check.os.access", lambda *_args, **_kwargs: False
+    )
+    not_writable = check_mod._validate_output_path(tmp_path / "file.json", "JSON output")
+    assert "not writable" in not_writable[0]
+
+
 def test_check_validates_output_paths(tmp_path: Path) -> None:
     module_path = _write_module(tmp_path)
     json_out = tmp_path / "artifacts" / "items.json"

@@ -77,3 +77,52 @@ def test_init_can_emit_yaml_only(tmp_path: Path) -> None:
     content = _read(yaml_path)
     assert "seed: 42" in content
     assert "emitters:" in content
+
+
+def test_init_errors_without_outputs(tmp_path: Path) -> None:
+    result = runner.invoke(init_app, ["--no-pyproject", "--no-yaml", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "Nothing to scaffold" in (result.stdout + result.stderr)
+
+
+def test_init_custom_options(tmp_path: Path) -> None:
+    custom_yaml = tmp_path / "config" / "pfg.yaml"
+    fixtures_dir = tmp_path / "custom" / "fixtures"
+
+    result = runner.invoke(
+        init_app,
+        [
+            "--yaml",
+            "--yaml-path",
+            str(custom_yaml),
+            "--fixtures-dir",
+            str(fixtures_dir),
+            "--no-gitkeep",
+            "--seed",
+            "-1",
+            "--locale",
+            "sv_SE",
+            str(tmp_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+
+    pyproject = tmp_path / "pyproject.toml"
+    content = _read(pyproject)
+    assert "seed" not in content
+    assert "locale = \"sv_SE\"" in content
+
+    yaml_content = _read(custom_yaml)
+    assert "locale: sv_SE" in yaml_content
+
+    assert fixtures_dir.is_dir()
+    assert not (fixtures_dir / ".gitkeep").exists()
+
+
+def test_init_invalid_style(tmp_path: Path) -> None:
+    result = runner.invoke(init_app, ["--style", "invalid", str(tmp_path)])
+
+    assert result.exit_code != 0
+    assert "Invalid style" in (result.stdout + result.stderr)
