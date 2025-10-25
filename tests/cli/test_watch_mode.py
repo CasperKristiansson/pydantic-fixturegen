@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+import sys
 from pathlib import Path
 
 import pytest
@@ -89,6 +90,8 @@ def test_gather_default_watch_paths(tmp_path: Path) -> None:
     config = tmp_path / "pyproject.toml"
     config.write_text("[project]\nname='demo'\n", encoding="utf-8")
     output = tmp_path / "generated" / "out.json"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("{}", encoding="utf-8")
     extra = tmp_path / "additional.cfg"
     extra.write_text("", encoding="utf-8")
 
@@ -125,3 +128,88 @@ def test_gather_watch_paths_handles_missing_target(tmp_path: Path) -> None:
     paths = watch_mod.gather_default_watch_paths(missing)
     resolved = {path.resolve() for path in paths}
     assert missing.parent.resolve() in resolved
+
+
+def test_gather_watch_paths_handles_missing_extra(tmp_path: Path) -> None:
+    module = _write_model(tmp_path)
+    missing_extra = tmp_path / "missing" / "config.cfg"
+
+    paths = watch_mod.gather_default_watch_paths(module, extra=[missing_extra])
+
+    resolved = {path.resolve() for path in paths}
+    assert module.parent.resolve() in resolved
+
+
+def test_gather_watch_paths_no_valid_entries(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    module = _write_model(tmp_path)
+    monkeypatch.setattr(watch_mod, "_normalize_watch_paths", lambda _paths: [])
+
+    with pytest.raises(WatchError):
+        watch_mod.gather_default_watch_paths(module)
+
+
+def test_run_with_watch_requires_paths(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    module = _write_model(tmp_path)
+    monkeypatch.setattr(watch_mod, "_import_watch_backend", lambda: lambda *args, **kwargs: iter(()))
+    monkeypatch.setattr(watch_mod, "_normalize_watch_paths", lambda _paths: [])
+
+    with pytest.raises(WatchError):
+        watch_mod.run_with_watch(lambda: None, [module], debounce=0.1)
+
+
+def test_run_with_watch_handles_keyboard_interrupt(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    module = _write_model(tmp_path)
+
+    def interrupting_backend(*paths: Path, debounce: float):  # type: ignore[override]
+        yield {(0, paths[0])}
+        raise KeyboardInterrupt
+
+    events: list[int] = []
+
+    monkeypatch.setattr(watch_mod, "_import_watch_backend", lambda: interrupting_backend)
+    monkeypatch.setattr(watch_mod, "_normalize_watch_paths", watch_mod._normalize_watch_paths)
+
+    watch_mod.run_with_watch(lambda: events.append(1), [module], debounce=0.1)
+
+    # initial run + iteration before interrupt
+    assert len(events) == 2
+
+
+def test_normalize_watch_paths_skips_missing(tmp_path: Path) -> None:
+    missing = tmp_path / "missing" / "file.py"
+    normalized = watch_mod._normalize_watch_paths([missing])
+    assert normalized == []
+
+
+def test_import_watch_backend_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delitem(sys.modules, "watchfiles", raising=False)
+
+    original_import = __import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "watchfiles":
+            raise ModuleNotFoundError("watchfiles not installed")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", fake_import)
+
+    with pytest.raises(WatchError):
+        watch_mod._import_watch_backend()
+
+
+def test_import_watch_backend_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    class StubWatch:
+        def __call__(self, *paths: Path, debounce: float):  # type: ignore[override]
+            yield {(0, Path("."))}
+
+    class StubModule:
+        watch = StubWatch()
+
+    monkeypatch.setitem(sys.modules, "watchfiles", StubModule())
+
+    backend = watch_mod._import_watch_backend()
+    iterator = backend(Path("."), debounce=0.1)
+    first = next(iterator)
+    assert isinstance(first, set)

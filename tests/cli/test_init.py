@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+import typer
+
+from pydantic_fixturegen.cli import init as init_mod
 from pydantic_fixturegen.cli.init import app as init_app
+from pydantic_fixturegen.core.io_utils import WriteResult
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -126,3 +131,134 @@ def test_init_invalid_style(tmp_path: Path) -> None:
 
     assert result.exit_code != 0
     assert "Invalid value" in (result.stdout + result.stderr)
+
+
+def test_strip_pyproject_section_removes_config() -> None:
+    original = (
+        "[tool.other]\nvalue = 1\n\n\n"
+        "[tool.pydantic_fixturegen]\nseed = 1\n\n\n"
+        "[tool.more]\nvalue = 2\n"
+    )
+
+    cleaned = init_mod._strip_pyproject_section(original)
+
+    assert "pydantic_fixturegen" not in cleaned
+    assert "tool.other" in cleaned and "tool.more" in cleaned
+    assert "\n\n\n" not in cleaned
+
+
+def test_validate_choice_behaviour() -> None:
+    assert init_mod._validate_choice("FACTORY", init_mod.PYTEST_STYLES, "pytest_style") == "factory"
+
+    with pytest.raises(typer.BadParameter):
+        init_mod._validate_choice("unknown", init_mod.PYTEST_STYLES, "pytest_style")
+
+
+def test_ensure_directory_raises_on_file(tmp_path: Path) -> None:
+    file_path = tmp_path / "existing"
+    file_path.write_text("", encoding="utf-8")
+
+    with pytest.raises(typer.BadParameter):
+        init_mod._ensure_directory(file_path)
+
+
+def test_format_relative_when_outside(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    outside = tmp_path.parent / "external"
+
+    assert init_mod._format_relative(outside, root) == str(outside)
+
+
+def test_write_pyproject_rejects_directory(tmp_path: Path) -> None:
+    target = tmp_path / "pyproject.toml"
+    target.mkdir()
+
+    config = init_mod.InitConfig(
+        seed=1,
+        locale="en_US",
+        union_policy="weighted",
+        enum_policy="random",
+        json_indent=2,
+        json_orjson=False,
+        pytest_style="functions",
+        pytest_scope="function",
+    )
+
+    with pytest.raises(typer.BadParameter):
+        init_mod._write_pyproject(tmp_path, config, force=False)
+
+
+def test_write_yaml_rejects_directory(tmp_path: Path) -> None:
+    target = tmp_path / "config.yaml"
+    target.mkdir()
+
+    config = init_mod.InitConfig(
+        seed=1,
+        locale="en_US",
+        union_policy="weighted",
+        enum_policy="random",
+        json_indent=2,
+        json_orjson=False,
+        pytest_style="functions",
+        pytest_scope="function",
+    )
+
+    with pytest.raises(typer.BadParameter):
+        init_mod._write_yaml(target, config, force=False)
+
+
+def test_write_yaml_skips_existing(tmp_path: Path) -> None:
+    target = tmp_path / "config.yaml"
+    target.write_text("seed: 1\n", encoding="utf-8")
+
+    config = init_mod.InitConfig(
+        seed=1,
+        locale="en_US",
+        union_policy="weighted",
+        enum_policy="random",
+        json_indent=2,
+        json_orjson=False,
+        pytest_style="functions",
+        pytest_scope="function",
+    )
+
+    result = init_mod._write_yaml(target, config, force=False)
+    assert result is not None
+    assert result.skipped and not result.wrote
+
+
+def test_init_relative_yaml_path(tmp_path: Path) -> None:
+    rel_yaml = Path("config/pfg.yaml")
+
+    result = runner.invoke(
+        init_app,
+        ["--yaml", "--yaml-path", str(rel_yaml), str(tmp_path)],
+    )
+
+    assert result.exit_code == 0
+    assert (tmp_path / rel_yaml).is_file()
+
+
+def test_init_gitkeep_ensured(tmp_path: Path) -> None:
+    fixtures_dir = tmp_path / "tests" / "fixtures"
+    fixtures_dir.mkdir(parents=True)
+    gitkeep = fixtures_dir / ".gitkeep"
+    gitkeep.write_text("", encoding="utf-8")
+
+    result = runner.invoke(init_app, [str(tmp_path)])
+
+    assert result.exit_code == 0
+    assert "Ensured tests/fixtures/.gitkeep" in result.stdout
+
+
+def test_init_no_actions(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    fixtures_dir = tmp_path / "tests" / "fixtures"
+    fixtures_dir.mkdir(parents=True)
+
+    monkeypatch.setattr(init_mod, "_write_pyproject", lambda *args, **kwargs: None)
+
+    result = runner.invoke(init_app, ["--no-gitkeep", str(tmp_path)])
+
+    assert result.exit_code == 0
+    assert "No changes were necessary." in result.stdout
