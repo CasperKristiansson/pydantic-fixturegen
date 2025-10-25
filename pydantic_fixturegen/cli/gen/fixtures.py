@@ -14,6 +14,7 @@ from pydantic_fixturegen.emitters.pytest_codegen import PytestEmitConfig, emit_p
 from pydantic_fixturegen.plugins.hookspecs import EmitterContext
 from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
 
+from ..watch import gather_default_watch_paths, run_with_watch
 from ._common import (
     JSON_ERRORS_OPTION,
     clear_module_cache,
@@ -96,6 +97,19 @@ EXCLUDE_OPTION = typer.Option(
     help="Comma-separated pattern(s) of fully-qualified model names to exclude.",
 )
 
+WATCH_OPTION = typer.Option(
+    False,
+    "--watch",
+    help="Watch source files and regenerate when changes are detected.",
+)
+
+WATCH_DEBOUNCE_OPTION = typer.Option(
+    0.5,
+    "--watch-debounce",
+    min=0.1,
+    help="Debounce interval in seconds for filesystem events.",
+)
+
 
 def register(app: typer.Typer) -> None:
     @app.command("fixtures")
@@ -111,26 +125,46 @@ def register(app: typer.Typer) -> None:
         include: str | None = INCLUDE_OPTION,
         exclude: str | None = EXCLUDE_OPTION,
         json_errors: bool = JSON_ERRORS_OPTION,
+        watch: bool = WATCH_OPTION,
+        watch_debounce: float = WATCH_DEBOUNCE_OPTION,
     ) -> None:
-        try:
-            _execute_fixtures_command(
-                target=target,
-                out=out,
-                style=style,
-                scope=scope,
-                cases=cases,
-                return_type=return_type,
-                seed=seed,
-                p_none=p_none,
-                include=include,
-                exclude=exclude,
-            )
-        except PFGError as exc:
-            render_cli_error(exc, json_errors=json_errors)
-        except ConfigError as exc:
-            render_cli_error(DiscoveryError(str(exc)), json_errors=json_errors)
-        except Exception as exc:  # pragma: no cover - defensive
-            render_cli_error(EmitError(str(exc)), json_errors=json_errors)
+        def invoke(exit_app: bool) -> None:
+            try:
+                _execute_fixtures_command(
+                    target=target,
+                    out=out,
+                    style=style,
+                    scope=scope,
+                    cases=cases,
+                    return_type=return_type,
+                    seed=seed,
+                    p_none=p_none,
+                    include=include,
+                    exclude=exclude,
+                )
+            except PFGError as exc:
+                render_cli_error(exc, json_errors=json_errors, exit_app=exit_app)
+            except ConfigError as exc:
+                render_cli_error(
+                    DiscoveryError(str(exc)),
+                    json_errors=json_errors,
+                    exit_app=exit_app,
+                )
+            except Exception as exc:  # pragma: no cover - defensive
+                render_cli_error(
+                    EmitError(str(exc)),
+                    json_errors=json_errors,
+                    exit_app=exit_app,
+                )
+
+        if watch:
+            watch_paths = gather_default_watch_paths(Path(target), output=out)
+            try:
+                run_with_watch(lambda: invoke(exit_app=False), watch_paths, debounce=watch_debounce)
+            except PFGError as exc:
+                render_cli_error(exc, json_errors=json_errors)
+        else:
+            invoke(exit_app=True)
 
 
 def _execute_fixtures_command(

@@ -16,6 +16,7 @@ from pydantic_fixturegen.emitters.json_out import emit_json_samples
 from pydantic_fixturegen.plugins.hookspecs import EmitterContext
 from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
 
+from ..watch import gather_default_watch_paths, run_with_watch
 from ._common import (
     JSON_ERRORS_OPTION,
     clear_module_cache,
@@ -91,6 +92,19 @@ SEED_OPTION = typer.Option(
     help="Seed override for deterministic generation.",
 )
 
+WATCH_OPTION = typer.Option(
+    False,
+    "--watch",
+    help="Watch source files and regenerate when changes are detected.",
+)
+
+WATCH_DEBOUNCE_OPTION = typer.Option(
+    0.5,
+    "--watch-debounce",
+    min=0.1,
+    help="Debounce interval in seconds for filesystem events.",
+)
+
 
 def register(app: typer.Typer) -> None:
     @app.command("json")
@@ -106,26 +120,46 @@ def register(app: typer.Typer) -> None:
         exclude: str | None = EXCLUDE_OPTION,
         seed: int | None = SEED_OPTION,
         json_errors: bool = JSON_ERRORS_OPTION,
+        watch: bool = WATCH_OPTION,
+        watch_debounce: float = WATCH_DEBOUNCE_OPTION,
     ) -> None:
-        try:
-            _execute_json_command(
-                target=target,
-                out=out,
-                count=count,
-                jsonl=jsonl,
-                indent=indent,
-                use_orjson=use_orjson,
-                shard_size=shard_size,
-                include=include,
-                exclude=exclude,
-                seed=seed,
-            )
-        except PFGError as exc:
-            render_cli_error(exc, json_errors=json_errors)
-        except ConfigError as exc:
-            render_cli_error(DiscoveryError(str(exc)), json_errors=json_errors)
-        except Exception as exc:  # pragma: no cover - defensive
-            render_cli_error(EmitError(str(exc)), json_errors=json_errors)
+        def invoke(exit_app: bool) -> None:
+            try:
+                _execute_json_command(
+                    target=target,
+                    out=out,
+                    count=count,
+                    jsonl=jsonl,
+                    indent=indent,
+                    use_orjson=use_orjson,
+                    shard_size=shard_size,
+                    include=include,
+                    exclude=exclude,
+                    seed=seed,
+                )
+            except PFGError as exc:
+                render_cli_error(exc, json_errors=json_errors, exit_app=exit_app)
+            except ConfigError as exc:
+                render_cli_error(
+                    DiscoveryError(str(exc)),
+                    json_errors=json_errors,
+                    exit_app=exit_app,
+                )
+            except Exception as exc:  # pragma: no cover - defensive
+                render_cli_error(
+                    EmitError(str(exc)),
+                    json_errors=json_errors,
+                    exit_app=exit_app,
+                )
+
+        if watch:
+            watch_paths = gather_default_watch_paths(Path(target), output=out)
+            try:
+                run_with_watch(lambda: invoke(exit_app=False), watch_paths, debounce=watch_debounce)
+            except PFGError as exc:
+                render_cli_error(exc, json_errors=json_errors)
+        else:
+            invoke(exit_app=True)
 
 
 def _execute_json_command(

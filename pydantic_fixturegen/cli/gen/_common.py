@@ -87,7 +87,7 @@ def load_model_class(model_info: IntrospectedModel) -> type[BaseModel]:
     return attr
 
 
-def render_cli_error(error: PFGError, *, json_errors: bool) -> None:
+def render_cli_error(error: PFGError, *, json_errors: bool, exit_app: bool = True) -> None:
     if json_errors:
         payload = {"error": error.to_payload()}
         typer.echo(json.dumps(payload, indent=2))
@@ -95,7 +95,8 @@ def render_cli_error(error: PFGError, *, json_errors: bool) -> None:
         typer.secho(f"{error.kind}: {error}", err=True, fg=typer.colors.RED)
         if error.hint:
             typer.secho(f"hint: {error.hint}", err=True, fg=typer.colors.YELLOW)
-    raise typer.Exit(code=int(error.code))
+    if exit_app:
+        raise typer.Exit(code=int(error.code))
 
 
 def _load_module(module_name: str, locator: Path) -> ModuleType:

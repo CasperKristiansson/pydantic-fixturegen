@@ -15,6 +15,7 @@ class ErrorCode(IntEnum):
     EMIT = 30
     UNSAFE_IMPORT = 40
     DIFF = 50
+    WATCH = 60
 
 
 class PFGError(Exception):
@@ -146,6 +147,25 @@ class DiffError(PFGError):
         )
 
 
+class WatchError(PFGError):
+    """Raised when watch mode cannot be started."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        details: Mapping[str, Any] | None = None,
+        hint: str | None = None,
+    ) -> None:
+        super().__init__(
+            message,
+            code=ErrorCode.WATCH,
+            kind="WatchError",
+            details=details,
+            hint=hint,
+        )
+
+
 __all__ = [
     "EmitError",
     "DiffError",
@@ -153,5 +173,6 @@ __all__ = [
     "ErrorCode",
     "MappingError",
     "PFGError",
+    "WatchError",
     "UnsafeImportError",
 ]

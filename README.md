@@ -198,11 +198,13 @@ Environment variables mirror keys using `PFG_` (e.g., `PFG_SEED=99`). **CLI flag
 - `pfg check <module_or_path>` — dry-run validation of configuration, discovery, and emitter destinations (`--json-out`, `--fixtures-out`, `--schema-out`, `--json-errors`).
 - `pfg schema config [--out FILE]` — print or write the JSON Schema that documents configuration options.
 - `pfg list <module_or_path>` — enumerate models (AST and/or sandboxed import).
-- `pfg gen json <target>` — deterministic JSON/JSONL (`--n`, `--jsonl`, `--indent`, `--orjson/--no-orjson`, `--shard-size`, `--out`, `--seed`).
-- `pfg gen schema <target>` — emit JSON Schema (`--out` required; atomic writes; `--json-errors`).
-- `pfg gen fixtures <target>` — emit pytest fixtures (`--style {functions,factory,class}`, `--scope {function,module,session}`, `--p-none`, `--cases`, `--return-type {model,dict}`).
+- `pfg gen json <target>` — deterministic JSON/JSONL (`--n`, `--jsonl`, `--indent`, `--orjson/--no-orjson`, `--shard-size`, `--out`, `--seed`, `--watch`).
+- `pfg gen schema <target>` — emit JSON Schema (`--out` required; atomic writes; `--json-errors`, `--watch`).
+- `pfg gen fixtures <target>` — emit pytest fixtures (`--style {functions,factory,class}`, `--scope {function,module,session}`, `--p-none`, `--cases`, `--return-type {model,dict}`, `--watch`).
 - `pfg gen explain <target>` — print provider/strategy tree per field; optional `--json` if exposed.
 - `pfg doctor <target>` — audit coverage, constraints, risky imports (`--fail-on-warn`, `--json-errors`).
+
+> **Watch mode** requires the optional `watch` extra: `pip install pydantic-fixturegen[watch]`.
 
 ---
 

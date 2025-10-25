@@ -222,6 +222,9 @@ pfg init  # add --yaml to emit YAML alongside pyproject.toml
 # Diff regenerated artifacts against stored output
 pfg diff models.py --json-out /tmp/sample.json --show-diff
 
+# Regenerate JSON automatically when files change (requires `pip install pydantic-fixturegen[watch]`)
+pfg gen json models.py --out out/models.json --watch
+
 # Export the authoritative configuration schema
 pfg schema config --out schema/config.schema.json
 

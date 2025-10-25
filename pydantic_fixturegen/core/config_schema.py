@@ -16,8 +16,14 @@ SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 UnionPolicyLiteral = Literal["first", "random", "weighted"]
 EnumPolicyLiteral = Literal["first", "random"]
 
-DEFAULT_PYTEST_STYLE = cast(Literal["functions", "factory", "class"], DEFAULT_CONFIG.emitters.pytest.style)
-DEFAULT_PYTEST_SCOPE = cast(Literal["function", "module", "session"], DEFAULT_CONFIG.emitters.pytest.scope)
+DEFAULT_PYTEST_STYLE = cast(
+    Literal["functions", "factory", "class"],
+    DEFAULT_CONFIG.emitters.pytest.style,
+)
+DEFAULT_PYTEST_SCOPE = cast(
+    Literal["function", "module", "session"],
+    DEFAULT_CONFIG.emitters.pytest.scope,
+)
 DEFAULT_UNION_POLICY = cast(UnionPolicyLiteral, DEFAULT_CONFIG.union_policy)
 DEFAULT_ENUM_POLICY = cast(EnumPolicyLiteral, DEFAULT_CONFIG.enum_policy)
 
