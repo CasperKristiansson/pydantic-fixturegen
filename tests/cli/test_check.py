@@ -93,4 +93,4 @@ def test_check_emits_warnings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     result = runner.invoke(cli_app, ["check", str(module_path)])
 
     assert result.exit_code == 0
-    assert "warn" in result.stdout
+    assert "warn" in result.stderr
