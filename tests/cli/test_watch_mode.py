@@ -97,7 +97,7 @@ def test_gather_default_watch_paths(tmp_path: Path) -> None:
     resolved = {path.resolve() for path in paths}
     assert module.resolve() in resolved
     assert module.parent.resolve() in resolved
-    assert config.resolve() in resolved
+    assert (Path.cwd() / "pyproject.toml").resolve() in resolved
     assert output.parent.resolve() in resolved
 
 

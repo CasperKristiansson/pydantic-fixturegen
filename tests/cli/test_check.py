@@ -94,3 +94,31 @@ def test_check_emits_warnings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
     assert result.exit_code == 0
     assert "warn" in result.stderr
+
+
+def test_check_validates_output_paths(tmp_path: Path) -> None:
+    module_path = _write_module(tmp_path)
+    json_out = tmp_path / "artifacts" / "items.json"
+    fixtures_out = tmp_path / "fixtures" / "test_items.py"
+    schema_out = tmp_path / "schema" / "items.json"
+
+    (tmp_path / "artifacts").mkdir()
+    fixtures_out.parent.mkdir()
+    schema_out.parent.mkdir()
+    json_out.write_text("[]", encoding="utf-8")
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "check",
+            "--json-out",
+            str(json_out),
+            "--fixtures-out",
+            str(fixtures_out),
+            "--schema-out",
+            str(schema_out),
+            str(module_path),
+        ],
+    )
+
+    assert result.exit_code == 0
