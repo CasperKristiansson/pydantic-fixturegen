@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+from pydantic import BaseModel
 from pydantic_fixturegen.cli import app as cli_app
+from pydantic_fixturegen.cli import check as check_mod
+from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -61,3 +65,32 @@ def test_check_json_errors(tmp_path: Path) -> None:
     assert result.exit_code == 10
     assert "DiscoveryError" in result.stdout
     assert "missing.py" in result.stdout
+
+
+def test_check_emits_warnings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+    info = IntrospectedModel(
+        module="pkg",
+        name="Item",
+        qualname="pkg.Item",
+        locator=str(module_path),
+        lineno=1,
+        discovery="import",
+        is_public=True,
+    )
+
+    class Dummy(BaseModel):
+        value: int
+
+    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
+        assert Path(path) == module_path
+        return IntrospectionResult(models=[info], warnings=["warn"], errors=[])
+
+    monkeypatch.setattr(check_mod, "discover_models", fake_discover)
+    monkeypatch.setattr(check_mod, "clear_module_cache", lambda: None)
+    monkeypatch.setattr(check_mod, "load_model_class", lambda _: Dummy)
+
+    result = runner.invoke(cli_app, ["check", str(module_path)])
+
+    assert result.exit_code == 0
+    assert "warn" in result.stdout

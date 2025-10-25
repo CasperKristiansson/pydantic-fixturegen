@@ -278,8 +278,7 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
                     "checked": [str(path) for path in report.checked_paths],
                     "messages": report.messages,
                     "diffs": [
-                        {"path": path, "diff": diff_text}
-                        for path, diff_text in report.diff_outputs
+                        {"path": path, "diff": diff_text} for path, diff_text in report.diff_outputs
                     ],
                 }
                 for report in reports

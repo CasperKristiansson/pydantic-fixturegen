@@ -119,3 +119,67 @@ def test_diff_fixtures_missing_file(tmp_path: Path) -> None:
 
     assert result.exit_code == 1
     assert "Missing fixtures module" in result.stdout
+
+
+def test_diff_fixtures_matches(tmp_path: Path) -> None:
+    module_path = _write_module(tmp_path)
+    fixtures_out = tmp_path / "fixtures" / "test_products.py"
+
+    gen_result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "fixtures",
+            str(module_path),
+            "--out",
+            str(fixtures_out),
+            "--seed",
+            "123",
+        ],
+    )
+    assert gen_result.exit_code == 0
+
+    diff_result = runner.invoke(
+        cli_app,
+        [
+            "diff",
+            "--fixtures-out",
+            str(fixtures_out),
+            "--seed",
+            "123",
+            str(module_path),
+        ],
+    )
+
+    assert diff_result.exit_code == 0
+    assert "Fixtures artifact matches" in diff_result.stdout
+
+
+def test_diff_schema_matches(tmp_path: Path) -> None:
+    module_path = _write_module(tmp_path)
+    schema_out = tmp_path / "schema" / "product.json"
+
+    gen_result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "schema",
+            str(module_path),
+            "--out",
+            str(schema_out),
+        ],
+    )
+    assert gen_result.exit_code == 0
+
+    diff_result = runner.invoke(
+        cli_app,
+        [
+            "diff",
+            "--schema-out",
+            str(schema_out),
+            str(module_path),
+        ],
+    )
+
+    assert diff_result.exit_code == 0
+    assert "Schema artifact matches" in diff_result.stdout

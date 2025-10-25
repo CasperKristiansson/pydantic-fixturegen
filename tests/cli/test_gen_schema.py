@@ -239,7 +239,7 @@ def test_execute_schema_command_warnings(
         )
 
     captured = capsys.readouterr()
-    assert "warn" in captured.err
+    assert "warn" in captured.out
 
 
 def test_execute_schema_command_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

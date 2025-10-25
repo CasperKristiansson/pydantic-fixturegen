@@ -137,13 +137,13 @@ class InitConfig:
     def as_yaml(self) -> str:
         content = textwrap.dedent(
             f"""
-            seed: {self.seed if self.seed is not None else 'null'}
+            seed: {self.seed if self.seed is not None else "null"}
             locale: {self.locale}
             union_policy: {self.union_policy}
             enum_policy: {self.enum_policy}
             json:
               indent: {self.json_indent}
-              orjson: {'true' if self.json_orjson else 'false'}
+              orjson: {"true" if self.json_orjson else "false"}
             emitters:
               pytest:
                 style: {self.pytest_style}

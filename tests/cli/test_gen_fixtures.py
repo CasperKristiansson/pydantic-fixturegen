@@ -272,7 +272,7 @@ def test_execute_fixtures_command_warnings(
     )
 
     captured = capsys.readouterr()
-    assert "warn" in captured.err
+    assert "warn" in captured.out
     assert str(out_path) + " (unchanged)" in captured.out
 
 

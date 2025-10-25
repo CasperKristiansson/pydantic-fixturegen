@@ -12,7 +12,7 @@ def test_schema_config_stdout() -> None:
     result = runner.invoke(cli_app, ["schema", "config", "--compact"])
 
     assert result.exit_code == 0
-    assert "\"$schema\"" in result.stdout
+    assert '"$schema"' in result.stdout
     assert "pydantic-fixturegen configuration" in result.stdout
 
 
