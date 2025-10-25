@@ -4,7 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.1]
+## [1.0.1] - 2025-10-25
+
+### Added
+
+- Introduced `pfg init` to scaffold recommended configuration (pyproject or YAML) and create fixture directories with atomic writes.
 
 ### Fixed
 
@@ -12,7 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Tests
 
-- Added regression coverage for relative import discovery at both the core safe-import layer and the CLI list command.
+- Added regression coverage for relative import discovery and the new CLI scaffolding workflow.
 
 ## [1.0.0] - 2025-10-24
 

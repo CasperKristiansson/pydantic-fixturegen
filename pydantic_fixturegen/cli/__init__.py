@@ -72,6 +72,11 @@ _proxy(
     "Generate artifacts for discovered models.",
 )
 _proxy(
+    "init",
+    "pydantic_fixturegen.cli.init:app",
+    "Scaffold configuration and directories for new projects.",
+)
+_proxy(
     "doctor",
     "pydantic_fixturegen.cli.doctor:app",
     "Inspect models for coverage and risks.",

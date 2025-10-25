@@ -147,10 +147,21 @@ seed = 42
 locale = "en_US"
 union_policy = "weighted"
 enum_policy = "random"
-emitters.json.indent = 2
-emitters.json.orjson = false
-fixtures.style = "functions"
-fixtures.scope = "module"
+
+[tool.pydantic_fixturegen.json]
+indent = 2
+orjson = false
+
+[tool.pydantic_fixturegen.emitters.pytest]
+style = "functions"
+scope = "module"
+
+Prefer running `pfg init` in a fresh repository to generate this snippet automatically:
+
+```bash
+pfg init
+# add --yaml to emit pydantic-fixturegen.yaml alongside pyproject.toml
+```
 ```
 
 **Environment variables**: Mirror keys with `PFG_` prefix, e.g.:
@@ -202,6 +213,9 @@ pfg gen json ./models.py --seed 777 --indent 0
 ## Quick Reference (quick-reference)
 
 ```bash
+# Scaffold config and directories
+pfg init  # add --yaml to emit YAML alongside pyproject.toml
+
 # List models
 pfg list <module_or_path>
 

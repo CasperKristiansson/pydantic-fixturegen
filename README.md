@@ -153,6 +153,16 @@ def user(request) -> User:
     ...
 ```
 
+**Optional: scaffold configuration and directories**
+
+```bash
+pfg init
+# creates pyproject.toml configuration (or updates an existing file)
+# and a tests/fixtures/ directory with a .gitkeep placeholder
+
+pfg init --no-pyproject --yaml --yaml-path config/pfg.yaml
+```
+
 ---
 
 ## Configuration precedence (configuration-precedence)
@@ -164,10 +174,14 @@ seed = 42
 locale = "en_US"
 union_policy = "weighted"
 enum_policy = "random"
-emitters.json.indent = 2
-emitters.json.orjson = false
-fixtures.style = "functions"
-fixtures.scope = "module"
+
+[tool.pydantic_fixturegen.json]
+indent = 2
+orjson = false
+
+[tool.pydantic_fixturegen.emitters.pytest]
+style = "functions"
+scope = "module"
 ```
 
 Environment variables mirror keys using `PFG_` (e.g., `PFG_SEED=99`). **CLI flags override everything**.
@@ -176,6 +190,7 @@ Environment variables mirror keys using `PFG_` (e.g., `PFG_SEED=99`). **CLI flag
 
 ## CLI overview (cli)
 
+- `pfg init [path]` — scaffold config files and a fixtures directory for new projects (`--yaml`, `--force`, `--json-indent`, etc.).
 - `pfg list <module_or_path>` — enumerate models (AST and/or sandboxed import).
 - `pfg gen json <target>` — deterministic JSON/JSONL (`--n`, `--jsonl`, `--indent`, `--orjson/--no-orjson`, `--shard-size`, `--out`, `--seed`).
 - `pfg gen schema <target>` — emit JSON Schema (`--out` required; atomic writes; `--json-errors`).
