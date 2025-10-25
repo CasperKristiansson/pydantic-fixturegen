@@ -32,7 +32,7 @@ def _stub_config() -> SimpleNamespace:
         json=SimpleNamespace(indent=None, orjson=False),
         enum_policy="name",
         union_policy="smart",
-        emitters=SimpleNamespace(pytest=SimpleNamespace(style="function", scope="function")),
+        emitters=SimpleNamespace(pytest=SimpleNamespace(style="functions", scope="function")),
     )
 
 
@@ -68,7 +68,7 @@ def test_diff_requires_artifact_path(tmp_path: Path) -> None:
     result = runner.invoke(cli_package.app, ["diff", str(module_path)])
 
     assert result.exit_code == 10
-    assert "Provide at least one artifact path to diff." in result.stdout
+    assert "Provide at least one artifact path to diff." in result.stderr
 
 
 def test_diff_rejects_missing_target(tmp_path: Path) -> None:
@@ -78,7 +78,7 @@ def test_diff_rejects_missing_target(tmp_path: Path) -> None:
     result = runner.invoke(cli_package.app, ["diff", "--json-out", str(json_out), str(missing)])
 
     assert result.exit_code == 10
-    assert "does not exist" in result.stdout
+    assert "does not exist" in result.stderr
 
 
 def test_diff_rejects_directory_target(tmp_path: Path) -> None:
@@ -89,7 +89,7 @@ def test_diff_rejects_directory_target(tmp_path: Path) -> None:
     result = runner.invoke(cli_package.app, ["diff", "--json-out", str(json_out), str(package_dir)])
 
     assert result.exit_code == 10
-    assert "Target must be a Python module file" in result.stdout
+    assert "Target must be a Python module file" in result.stderr
 
 
 def test_execute_diff_surfaces_discovery_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -352,7 +352,7 @@ def test_diff_fixtures_require_output() -> None:
             model_classes=[AlphaModel],
             app_config_seed=None,
             app_config_p_none=None,
-            app_config_style="function",
+            app_config_style="functions",
             app_config_scope="function",
             options=_fixtures_options(None),
         )
@@ -362,6 +362,8 @@ def test_diff_fixtures_emit_artifact_success(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     output_path = tmp_path / "fixtures" / "test_models.py"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text("# stub", encoding="utf-8")
 
     def fake_emit_artifact(name, context):
         context.output.parent.mkdir(parents=True, exist_ok=True)
@@ -374,7 +376,7 @@ def test_diff_fixtures_emit_artifact_success(
         model_classes=[AlphaModel],
         app_config_seed=None,
         app_config_p_none=None,
-        app_config_style="function",
+        app_config_style="functions",
         app_config_scope="function",
         options=_fixtures_options(output_path),
     )
@@ -394,7 +396,7 @@ def test_diff_fixtures_emit_artifact_without_file(
             model_classes=[AlphaModel],
             app_config_seed=None,
             app_config_p_none=None,
-            app_config_style="function",
+            app_config_style="functions",
             app_config_scope="function",
             options=_fixtures_options(output_path),
         )
@@ -404,15 +406,16 @@ def test_diff_fixtures_detect_directory_target(tmp_path: Path) -> None:
     output_path = tmp_path / "fixtures" / "test_models.py"
     output_path.mkdir(parents=True, exist_ok=True)
 
-    with pytest.raises(diff_module.EmitError):
-        diff_module._diff_fixtures_artifact(
-            model_classes=[AlphaModel],
-            app_config_seed=None,
-            app_config_p_none=None,
-            app_config_style="function",
-            app_config_scope="function",
-            options=_fixtures_options(output_path),
-        )
+    report = diff_module._diff_fixtures_artifact(
+        model_classes=[AlphaModel],
+        app_config_seed=None,
+        app_config_p_none=None,
+        app_config_style="functions",
+        app_config_scope="function",
+        options=_fixtures_options(output_path),
+    )
+
+    assert "Fixtures path is a directory" in report.messages[0]
 
 
 def test_diff_schema_requires_output() -> None:
@@ -428,6 +431,8 @@ def test_diff_schema_emit_plugin_success(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     output_path = tmp_path / "schema" / "model.json"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text("{}", encoding="utf-8")
 
     def fake_emit_artifact(name, context):
         context.output.parent.mkdir(parents=True, exist_ok=True)
@@ -496,12 +501,13 @@ def test_diff_schema_detects_directory_target(tmp_path: Path) -> None:
     output_path = tmp_path / "schema" / "model.json"
     output_path.mkdir(parents=True, exist_ok=True)
 
-    with pytest.raises(diff_module.EmitError):
-        diff_module._diff_schema_artifact(
-            model_classes=[AlphaModel],
-            app_config_indent=None,
-            options=_schema_options(output_path),
-        )
+    report = diff_module._diff_schema_artifact(
+        model_classes=[AlphaModel],
+        app_config_indent=None,
+        options=_schema_options(output_path),
+    )
+
+    assert "Schema path is a directory" in report.messages[0]
 
 
 def test_resolve_method_variants() -> None:

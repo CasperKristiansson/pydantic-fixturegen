@@ -67,6 +67,30 @@ def test_check_json_errors(tmp_path: Path) -> None:
     assert "missing.py" in result.stdout
 
 
+def test_check_rejects_directory_target(tmp_path: Path) -> None:
+    directory = tmp_path / "package"
+    directory.mkdir()
+
+    result = runner.invoke(cli_app, ["check", str(directory)])
+
+    assert result.exit_code == 10
+    assert "Target must be a Python module file" in result.stderr
+
+
+def test_check_handles_config_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+
+    def broken_config(*, root: Path) -> None:  # noqa: ARG001 - signature matches target
+        raise check_mod.ConfigError("broken configuration")
+
+    monkeypatch.setattr(check_mod, "load_config", broken_config)
+
+    result = runner.invoke(cli_app, ["check", str(module_path)])
+
+    assert result.exit_code == 10
+    assert "broken configuration" in result.stderr
+
+
 def test_check_emits_warnings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     module_path = _write_module(tmp_path)
     info = IntrospectedModel(
@@ -94,6 +118,159 @@ def test_check_emits_warnings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
     assert result.exit_code == 0
     assert "warn" in result.stderr
+
+
+def test_execute_check_skips_blank_warnings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    module_path = _write_module(tmp_path)
+
+    monkeypatch.setattr(check_mod, "load_config", lambda **_: None)
+    monkeypatch.setattr(check_mod, "clear_module_cache", lambda: None)
+    monkeypatch.setattr(
+        check_mod,
+        "discover_models",
+        lambda *args, **kwargs: IntrospectionResult(models=[], warnings=["   "], errors=[]),
+    )
+
+    with pytest.raises(check_mod.DiscoveryError):
+        check_mod._execute_check(
+            target=str(module_path),
+            include=None,
+            exclude=None,
+            ast_mode=False,
+            hybrid_mode=False,
+            timeout=1.0,
+            memory_limit_mb=64,
+            json_out=None,
+            fixtures_out=None,
+            schema_out=None,
+        )
+
+    captured = capsys.readouterr()
+    assert "warning:" not in captured.err
+
+
+def test_execute_check_raises_discovery_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module_path = _write_module(tmp_path)
+
+    monkeypatch.setattr(check_mod, "load_config", lambda **_: None)
+    monkeypatch.setattr(check_mod, "clear_module_cache", lambda: None)
+    monkeypatch.setattr(
+        check_mod,
+        "discover_models",
+        lambda *args, **kwargs: IntrospectionResult(
+            models=[], warnings=[], errors=["failed to import"]
+        ),
+    )
+
+    with pytest.raises(check_mod.DiscoveryError) as exc_info:
+        check_mod._execute_check(
+            target=str(module_path),
+            include=None,
+            exclude=None,
+            ast_mode=False,
+            hybrid_mode=False,
+            timeout=1.0,
+            memory_limit_mb=64,
+            json_out=None,
+            fixtures_out=None,
+            schema_out=None,
+        )
+
+    assert "failed to import" in str(exc_info.value)
+
+
+def test_execute_check_requires_models(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    module_path = _write_module(tmp_path)
+
+    monkeypatch.setattr(check_mod, "load_config", lambda **_: None)
+    monkeypatch.setattr(check_mod, "clear_module_cache", lambda: None)
+    monkeypatch.setattr(
+        check_mod,
+        "discover_models",
+        lambda *args, **kwargs: IntrospectionResult(
+            models=[], warnings=["notice"], errors=[]
+        ),
+    )
+
+    with pytest.raises(check_mod.DiscoveryError):
+        check_mod._execute_check(
+            target=str(module_path),
+            include=None,
+            exclude=None,
+            ast_mode=False,
+            hybrid_mode=False,
+            timeout=1.0,
+            memory_limit_mb=64,
+            json_out=None,
+            fixtures_out=None,
+            schema_out=None,
+        )
+
+    assert "notice" in capsys.readouterr().err
+
+
+def test_execute_check_wraps_load_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+    info = IntrospectedModel(
+        module="pkg",
+        name="Item",
+        qualname="pkg.Item",
+        locator=str(module_path),
+        lineno=1,
+        discovery="import",
+        is_public=True,
+    )
+
+    monkeypatch.setattr(check_mod, "load_config", lambda **_: None)
+    monkeypatch.setattr(check_mod, "clear_module_cache", lambda: None)
+    monkeypatch.setattr(
+        check_mod,
+        "discover_models",
+        lambda *args, **kwargs: IntrospectionResult(
+            models=[info], warnings=[], errors=[]
+        ),
+    )
+    monkeypatch.setattr(
+        check_mod,
+        "load_model_class",
+        lambda _model: (_ for _ in ()).throw(RuntimeError("import failure")),
+    )
+
+    with pytest.raises(check_mod.DiscoveryError) as exc_info:
+        check_mod._execute_check(
+            target=str(module_path),
+            include=None,
+            exclude=None,
+            ast_mode=False,
+            hybrid_mode=False,
+            timeout=1.0,
+            memory_limit_mb=64,
+            json_out=None,
+            fixtures_out=None,
+            schema_out=None,
+        )
+
+    assert "import failure" in str(exc_info.value)
+
+
+def test_validate_output_targets_raises(tmp_path: Path) -> None:
+    with pytest.raises(check_mod.DiscoveryError):
+        check_mod._validate_output_targets([(tmp_path, "JSON output")])
+
+
+def test_resolve_method_variants() -> None:
+    with pytest.raises(check_mod.DiscoveryError):
+        check_mod._resolve_method(ast_mode=True, hybrid_mode=True)
+
+    assert check_mod._resolve_method(ast_mode=False, hybrid_mode=True) == "hybrid"
+    assert check_mod._resolve_method(ast_mode=True, hybrid_mode=False) == "ast"
+    assert check_mod._resolve_method(ast_mode=False, hybrid_mode=False) == "import"
 
 
 def test_validate_output_path_conditions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -143,3 +320,4 @@ def test_check_validates_output_paths(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0
+    assert "Emitter destinations verified." in result.stdout
