@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2025-10-25
+### Fixed
+- Resolved safe-import sandbox failures for modules that rely on package-relative imports, ensuring `pfg list` and related commands discover models inside packages.
+
+### Tests
+- Added regression coverage for relative import discovery at both the core safe-import layer and the CLI list command.
+
 ## [1.0.0] - 2025-10-24
 ### Added
 - Deterministic generation for Pydantic v2 models with cascading seeds across `random`, Faker, and optional NumPy providers.
