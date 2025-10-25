@@ -204,6 +204,8 @@ Environment variables mirror keys using `PFG_` (e.g., `PFG_SEED=99`). **CLI flag
 - `pfg gen explain <target>` — print provider/strategy tree per field; optional `--json` if exposed.
 - `pfg doctor <target>` — audit coverage, constraints, risky imports (`--fail-on-warn`, `--json-errors`).
 
+Global flags: `-v/--verbose` (repeatable), `-q/--quiet`, and `--log-json` for structured logs.
+
 > **Watch mode** requires the optional `watch` extra: `pip install pydantic-fixturegen[watch]`.
 
 ---

@@ -13,6 +13,7 @@ from pydantic_fixturegen.emitters.schema_out import emit_model_schema, emit_mode
 from pydantic_fixturegen.plugins.hookspecs import EmitterContext
 from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
 
+from ...logging import get_logger
 from ..watch import gather_default_watch_paths, run_with_watch
 from ._common import (
     JSON_ERRORS_OPTION,
@@ -82,6 +83,8 @@ def register(app: typer.Typer) -> None:
         watch: bool = WATCH_OPTION,
         watch_debounce: float = WATCH_DEBOUNCE_OPTION,
     ) -> None:
+        logger = get_logger()
+
         def invoke(exit_app: bool) -> None:
             try:
                 _execute_schema_command(
@@ -109,6 +112,12 @@ def register(app: typer.Typer) -> None:
         if watch:
             watch_paths = gather_default_watch_paths(Path(target), output=out)
             try:
+                logger.debug(
+                    "Entering watch loop",
+                    target=str(target),
+                    output=str(out),
+                    debounce=watch_debounce,
+                )
                 run_with_watch(lambda: invoke(exit_app=False), watch_paths, debounce=watch_debounce)
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors)
@@ -124,6 +133,7 @@ def _execute_schema_command(
     include: str | None,
     exclude: str | None,
 ) -> None:
+    logger = get_logger()
     path = Path(target)
     if not path.exists():
         raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
@@ -143,6 +153,13 @@ def _execute_schema_command(
 
     app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
 
+    logger.debug(
+        "Loaded configuration",
+        indent=indent,
+        include=list(app_config.include),
+        exclude=list(app_config.exclude),
+    )
+
     discovery = discover_models(
         path,
         include=app_config.include,
@@ -154,7 +171,7 @@ def _execute_schema_command(
 
     for warning in discovery.warnings:
         if warning.strip():
-            typer.secho(warning.strip(), err=True, fg=typer.colors.YELLOW)
+            logger.warn(warning.strip())
 
     if not discovery.models:
         raise DiscoveryError("No models discovered.")
@@ -172,6 +189,7 @@ def _execute_schema_command(
         parameters={"indent": indent_value},
     )
     if emit_artifact("schema", context):
+        logger.info("Schema generation handled by plugin", output=str(out))
         return
 
     try:
@@ -192,6 +210,11 @@ def _execute_schema_command(
     except Exception as exc:
         raise EmitError(str(exc)) from exc
 
+    logger.info(
+        "Schema generation complete",
+        output=str(emitted_path),
+        models=[model.__name__ for model in model_classes],
+    )
     typer.echo(str(emitted_path))
 
 

@@ -8,6 +8,9 @@ from importlib import import_module
 import typer
 from typer.main import get_command
 
+from pydantic_fixturegen.cli import schema as schema_cli
+from pydantic_fixturegen.logging import LOG_LEVEL_ORDER, get_logger
+
 
 def _load_typer(import_path: str) -> typer.Typer:
     module_name, attr = import_path.split(":", 1)
@@ -42,7 +45,18 @@ app = typer.Typer(
 
 
 @app.callback(invoke_without_command=True)
-def _root(ctx: typer.Context) -> None:  # noqa: D401
+def _root(
+    ctx: typer.Context,
+    verbose: int = typer.Option(0, "--verbose", "-v", count=True, help="Increase log verbosity."),
+    quiet: int = typer.Option(0, "--quiet", "-q", count=True, help="Decrease log verbosity."),
+    log_json: bool = typer.Option(False, "--log-json", help="Emit structured JSON logs."),
+) -> None:  # noqa: D401
+    logger = get_logger()
+    level_index = 2 + verbose - quiet  # base INFO
+    level_index = max(0, min(level_index, len(LOG_LEVEL_ORDER) - 1))
+    level_name = LOG_LEVEL_ORDER[level_index]
+    logger.configure(level=level_name, json_mode=log_json)
+
     if ctx.invoked_subcommand is None:
         _invoke("pydantic_fixturegen.cli.list:app", ctx)
         raise typer.Exit()
@@ -87,11 +101,6 @@ _proxy(
     "Scaffold configuration and directories for new projects.",
 )
 _proxy(
-    "schema",
-    "pydantic_fixturegen.cli.schema:app",
-    "Inspect available JSON Schemas (e.g. configuration metadata).",
-)
-_proxy(
     "doctor",
     "pydantic_fixturegen.cli.doctor:app",
     "Inspect models for coverage and risks.",
@@ -101,5 +110,7 @@ _proxy(
     "pydantic_fixturegen.cli.gen.explain:app",
     "Explain generation strategies per model field.",
 )
+
+app.add_typer(schema_cli.app, name="schema")
 
 __all__ = ["app"]

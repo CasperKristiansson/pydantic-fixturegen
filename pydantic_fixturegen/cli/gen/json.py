@@ -16,6 +16,7 @@ from pydantic_fixturegen.emitters.json_out import emit_json_samples
 from pydantic_fixturegen.plugins.hookspecs import EmitterContext
 from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
 
+from ...logging import get_logger
 from ..watch import gather_default_watch_paths, run_with_watch
 from ._common import (
     JSON_ERRORS_OPTION,
@@ -123,6 +124,8 @@ def register(app: typer.Typer) -> None:
         watch: bool = WATCH_OPTION,
         watch_debounce: float = WATCH_DEBOUNCE_OPTION,
     ) -> None:
+        logger = get_logger()
+
         def invoke(exit_app: bool) -> None:
             try:
                 _execute_json_command(
@@ -155,6 +158,12 @@ def register(app: typer.Typer) -> None:
         if watch:
             watch_paths = gather_default_watch_paths(Path(target), output=out)
             try:
+                logger.debug(
+                    "Entering watch loop",
+                    target=str(target),
+                    output=str(out),
+                    debounce=watch_debounce,
+                )
                 run_with_watch(lambda: invoke(exit_app=False), watch_paths, debounce=watch_debounce)
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors)
@@ -175,6 +184,7 @@ def _execute_json_command(
     exclude: str | None,
     seed: int | None,
 ) -> None:
+    logger = get_logger()
     path = Path(target)
     if not path.exists():
         raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
@@ -201,6 +211,13 @@ def _execute_json_command(
 
     app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
 
+    logger.debug(
+        "Loaded configuration",
+        seed=app_config.seed,
+        include=list(app_config.include),
+        exclude=list(app_config.exclude),
+    )
+
     discovery = discover_models(
         path,
         include=app_config.include,
@@ -212,7 +229,7 @@ def _execute_json_command(
 
     for warning in discovery.warnings:
         if warning.strip():
-            typer.secho(warning.strip(), err=True, fg=typer.colors.YELLOW)
+            logger.warn(warning.strip())
 
     if not discovery.models:
         raise DiscoveryError("No models discovered.")
@@ -257,6 +274,7 @@ def _execute_json_command(
         },
     )
     if emit_artifact("json", context):
+        logger.info("JSON generation handled by plugin", output=str(out))
         return
 
     try:
@@ -273,6 +291,8 @@ def _execute_json_command(
     except RuntimeError as exc:
         raise EmitError(str(exc)) from exc
 
+    path_strs = [str(emitted_path) for emitted_path in paths]
+    logger.info("JSON generation complete", files=path_strs, count=count)
     for emitted_path in paths:
         typer.echo(str(emitted_path))
 

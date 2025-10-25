@@ -6,9 +6,8 @@ from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 from typing import cast
 
-import typer
-
 from pydantic_fixturegen.core.errors import WatchError
+from pydantic_fixturegen.logging import get_logger
 
 _CONFIG_FILENAMES = (
     Path("pyproject.toml"),
@@ -77,15 +76,20 @@ def run_with_watch(
         raise WatchError("No valid paths available for watch mode.")
 
     run_once()
-    typer.secho("Watch mode active. Press Ctrl+C to stop.", fg=typer.colors.CYAN)
+    logger = get_logger()
+    logger.info(
+        "Watch mode active. Press Ctrl+C to stop.",
+        paths=[str(path) for path in normalized],
+        debounce=debounce,
+    )
 
     try:
         for changes in watch_fn(*normalized, debounce=debounce):
-            changed = ", ".join(sorted(str(path) for _, path in changes)) or "changes detected"
-            typer.secho(f"Detected changes: {changed}", fg=typer.colors.YELLOW)
+            changed_paths = sorted({str(path) for _, path in changes})
+            logger.info("Detected changes", paths=changed_paths)
             run_once()
     except KeyboardInterrupt:
-        typer.secho("Watch mode stopped.", fg=typer.colors.YELLOW)
+        logger.warn("Watch mode stopped.")
 
 
 def _normalize_watch_paths(paths: Iterable[Path]) -> list[Path]:

@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added `pfg diff` to regenerate artifacts in a sandbox and highlight drift across JSON, fixtures, and schema outputs.
 - Published an authoritative configuration JSON Schema (`pfg schema config`, bundled at `pydantic_fixturegen/schemas/config.schema.json`).
 - Added watch mode (`--watch`) to generation commands for automatic regeneration on file changes (requires the optional `watch` extra).
+- Introduced structured logging controls (`-v/-q` verbosity tiers and `--log-json` for machine-readable events).
 
 ### Fixed
 
