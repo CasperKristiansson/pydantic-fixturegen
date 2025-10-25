@@ -72,6 +72,11 @@ _proxy(
     "Generate artifacts for discovered models.",
 )
 _proxy(
+    "check",
+    "pydantic_fixturegen.cli.check:app",
+    "Validate configuration, discovery, and emitter destinations without generating artifacts.",
+)
+_proxy(
     "init",
     "pydantic_fixturegen.cli.init:app",
     "Scaffold configuration and directories for new projects.",

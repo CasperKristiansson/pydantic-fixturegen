@@ -216,6 +216,9 @@ pfg gen json ./models.py --seed 777 --indent 0
 # Scaffold config and directories
 pfg init  # add --yaml to emit YAML alongside pyproject.toml
 
+# Validate configuration and discovery without generating artifacts
+pfg check models.py --json-out /tmp/sample.json --fixtures-out tests/fixtures/generated.py
+
 # List models
 pfg list <module_or_path>
 
