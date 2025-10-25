@@ -120,7 +120,8 @@ def test_run_with_watch_executes_multiple_times(
     assert len(run_calls) == 3
 
 
-def test_gather_watch_paths_requires_existing_targets(tmp_path: Path) -> None:
+def test_gather_watch_paths_handles_missing_target(tmp_path: Path) -> None:
     missing = tmp_path / "missing.py"
-    with pytest.raises(WatchError):
-        watch_mod.gather_default_watch_paths(missing)
+    paths = watch_mod.gather_default_watch_paths(missing)
+    resolved = {path.resolve() for path in paths}
+    assert missing.parent.resolve() in resolved

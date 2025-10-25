@@ -122,7 +122,7 @@ def test_init_custom_options(tmp_path: Path) -> None:
 
 
 def test_init_invalid_style(tmp_path: Path) -> None:
-    result = runner.invoke(init_app, ["--style", "invalid", str(tmp_path)])
+    result = runner.invoke(init_app, ["--pytest-style", "invalid", str(tmp_path)])
 
     assert result.exit_code != 0
-    assert "Invalid style" in (result.stdout + result.stderr)
+    assert "Invalid value" in (result.stdout + result.stderr)
