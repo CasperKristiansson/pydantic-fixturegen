@@ -191,6 +191,7 @@ Environment variables mirror keys using `PFG_` (e.g., `PFG_SEED=99`). **CLI flag
 ## CLI overview (cli)
 
 - `pfg init [path]` — scaffold config files and a fixtures directory for new projects (`--yaml`, `--force`, `--json-indent`, etc.).
+- `pfg diff <module_or_path>` — regenerate artifacts in a temp sandbox and compare against existing outputs (`--json-out`, `--fixtures-out`, `--schema-out`, `--show-diff`).
 - `pfg check <module_or_path>` — dry-run validation of configuration, discovery, and emitter destinations (`--json-out`, `--fixtures-out`, `--schema-out`, `--json-errors`).
 - `pfg list <module_or_path>` — enumerate models (AST and/or sandboxed import).
 - `pfg gen json <target>` — deterministic JSON/JSONL (`--n`, `--jsonl`, `--indent`, `--orjson/--no-orjson`, `--shard-size`, `--out`, `--seed`).

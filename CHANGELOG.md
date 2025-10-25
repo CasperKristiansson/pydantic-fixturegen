@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 - Introduced `pfg init` to scaffold recommended configuration (pyproject or YAML) and create fixture directories with atomic writes.
 - Added `pfg check` for dry-run validation of configuration, discovery, and emitter destinations.
+- Added `pfg diff` to regenerate artifacts in a sandbox and highlight drift across JSON, fixtures, and schema outputs.
 
 ### Fixed
 
@@ -17,7 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Tests
 
-- Added regression coverage for relative import discovery and the new CLI scaffolding workflow.
+- Added regression coverage for relative import discovery, the new CLI scaffolding workflow, and artifact diff validation across JSON and fixtures.
 
 ## [1.0.0] - 2025-10-24
 

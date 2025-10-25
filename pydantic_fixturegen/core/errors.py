@@ -14,6 +14,7 @@ class ErrorCode(IntEnum):
     MAPPING = 20
     EMIT = 30
     UNSAFE_IMPORT = 40
+    DIFF = 50
 
 
 class PFGError(Exception):
@@ -126,8 +127,28 @@ class UnsafeImportError(PFGError):
         )
 
 
+class DiffError(PFGError):
+    """Raised when generated artifacts differ from expected output."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        details: Mapping[str, Any] | None = None,
+        hint: str | None = None,
+    ) -> None:
+        super().__init__(
+            message,
+            code=ErrorCode.DIFF,
+            kind="DiffError",
+            details=details,
+            hint=hint,
+        )
+
+
 __all__ = [
     "EmitError",
+    "DiffError",
     "DiscoveryError",
     "ErrorCode",
     "MappingError",
