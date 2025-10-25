@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Tests
 
 - Added regression coverage for relative import discovery, the new CLI scaffolding workflow, and artifact diff validation across JSON and fixtures.
+- Expanded tests for existing CLI functionality, covering diff error handling, check validations, init scaffolding branches, and watch mode fallbacks.
 
 ## [1.0.0] - 2025-10-24
 
