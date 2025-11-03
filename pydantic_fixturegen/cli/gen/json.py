@@ -160,6 +160,7 @@ def register(app: typer.Typer) -> None:
             try:
                 logger.debug(
                     "Entering watch loop",
+                    event="watch_loop_enter",
                     target=str(target),
                     output=str(out),
                     debounce=watch_debounce,
@@ -213,6 +214,7 @@ def _execute_json_command(
 
     logger.debug(
         "Loaded configuration",
+        event="config_loaded",
         seed=app_config.seed,
         include=list(app_config.include),
         exclude=list(app_config.exclude),
@@ -229,7 +231,11 @@ def _execute_json_command(
 
     for warning in discovery.warnings:
         if warning.strip():
-            logger.warn(warning.strip())
+            logger.warn(
+                warning.strip(),
+                event="discovery_warning",
+                warning=warning.strip(),
+            )
 
     if not discovery.models:
         raise DiscoveryError("No models discovered.")
@@ -274,7 +280,11 @@ def _execute_json_command(
         },
     )
     if emit_artifact("json", context):
-        logger.info("JSON generation handled by plugin", output=str(out))
+        logger.info(
+            "JSON generation handled by plugin",
+            event="json_generation_delegated",
+            output=str(out),
+        )
         return
 
     try:
@@ -292,7 +302,12 @@ def _execute_json_command(
         raise EmitError(str(exc)) from exc
 
     path_strs = [str(emitted_path) for emitted_path in paths]
-    logger.info("JSON generation complete", files=path_strs, count=count)
+    logger.info(
+        "JSON generation complete",
+        event="json_generation_complete",
+        files=path_strs,
+        count=count,
+    )
     for emitted_path in paths:
         typer.echo(str(emitted_path))
 

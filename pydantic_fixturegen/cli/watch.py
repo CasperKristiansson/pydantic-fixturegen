@@ -79,6 +79,7 @@ def run_with_watch(
     logger = get_logger()
     logger.info(
         "Watch mode active. Press Ctrl+C to stop.",
+        event="watch_started",
         paths=[str(path) for path in normalized],
         debounce=debounce,
     )
@@ -86,10 +87,14 @@ def run_with_watch(
     try:
         for changes in watch_fn(*normalized, debounce=debounce):
             changed_paths = sorted({str(path) for _, path in changes})
-            logger.info("Detected changes", paths=changed_paths)
+            logger.info(
+                "Detected changes",
+                event="watch_change_detected",
+                paths=changed_paths,
+            )
             run_once()
     except KeyboardInterrupt:
-        logger.warn("Watch mode stopped.")
+        logger.warn("Watch mode stopped.", event="watch_stopped")
 
 
 def _normalize_watch_paths(paths: Iterable[Path]) -> list[Path]:

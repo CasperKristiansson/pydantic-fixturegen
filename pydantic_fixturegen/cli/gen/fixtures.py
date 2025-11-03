@@ -165,6 +165,7 @@ def register(app: typer.Typer) -> None:
             try:
                 logger.debug(
                     "Entering watch loop",
+                    event="watch_loop_enter",
                     target=str(target),
                     output=str(out),
                     debounce=watch_debounce,
@@ -224,6 +225,7 @@ def _execute_fixtures_command(
 
     logger.debug(
         "Loaded configuration",
+        event="config_loaded",
         seed=app_config.seed,
         include=list(app_config.include),
         exclude=list(app_config.exclude),
@@ -240,7 +242,11 @@ def _execute_fixtures_command(
 
     for warning in discovery.warnings:
         if warning.strip():
-            logger.warn(warning.strip())
+            logger.warn(
+                warning.strip(),
+                event="discovery_warning",
+                warning=warning.strip(),
+            )
 
     if not discovery.models:
         raise DiscoveryError("No models discovered.")
@@ -280,6 +286,7 @@ def _execute_fixtures_command(
     if emit_artifact("fixtures", context):
         logger.info(
             "Fixture generation handled by plugin",
+            event="fixtures_generation_delegated",
             output=str(out),
             style=style_final,
             scope=scope_final,
@@ -298,10 +305,15 @@ def _execute_fixtures_command(
     message = str(out)
     if result.skipped:
         message += " (unchanged)"
-        logger.info("Fixtures unchanged", output=str(out))
+        logger.info(
+            "Fixtures unchanged",
+            event="fixtures_generation_unchanged",
+            output=str(out),
+        )
     else:
         logger.info(
             "Fixtures generation complete",
+            event="fixtures_generation_complete",
             output=str(result.path),
             style=style_final,
             scope=scope_final,

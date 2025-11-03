@@ -114,6 +114,7 @@ def register(app: typer.Typer) -> None:
             try:
                 logger.debug(
                     "Entering watch loop",
+                    event="watch_loop_enter",
                     target=str(target),
                     output=str(out),
                     debounce=watch_debounce,
@@ -155,6 +156,7 @@ def _execute_schema_command(
 
     logger.debug(
         "Loaded configuration",
+        event="config_loaded",
         indent=indent,
         include=list(app_config.include),
         exclude=list(app_config.exclude),
@@ -171,7 +173,11 @@ def _execute_schema_command(
 
     for warning in discovery.warnings:
         if warning.strip():
-            logger.warn(warning.strip())
+            logger.warn(
+                warning.strip(),
+                event="discovery_warning",
+                warning=warning.strip(),
+            )
 
     if not discovery.models:
         raise DiscoveryError("No models discovered.")
@@ -189,7 +195,11 @@ def _execute_schema_command(
         parameters={"indent": indent_value},
     )
     if emit_artifact("schema", context):
-        logger.info("Schema generation handled by plugin", output=str(out))
+        logger.info(
+            "Schema generation handled by plugin",
+            event="schema_generation_delegated",
+            output=str(out),
+        )
         return
 
     try:
@@ -212,6 +222,7 @@ def _execute_schema_command(
 
     logger.info(
         "Schema generation complete",
+        event="schema_generation_complete",
         output=str(emitted_path),
         models=[model.__name__ for model in model_classes],
     )

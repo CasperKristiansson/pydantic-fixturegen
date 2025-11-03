@@ -45,8 +45,9 @@ def test_log_json_emits_structured_output(tmp_path: Path) -> None:
     lines = [line for line in result.stdout.splitlines() if line.strip()]
     payload = json.loads(lines[0])
     assert payload["level"] == "info"
+    assert payload["event"] == "json_generation_complete"
     assert payload["message"] == "JSON generation complete"
-    assert Path(payload["details"]["files"][0]).exists()
+    assert Path(payload["context"]["files"][0]).exists()
 
 
 def test_quiet_suppresses_info_logs(tmp_path: Path) -> None:
@@ -91,8 +92,11 @@ def test_verbose_enables_debug_logs(tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     lines = [line for line in result.stdout.splitlines() if line.strip()]
-    levels = [json.loads(line)["level"] for line in lines[:-1]]
+    payloads = [json.loads(line) for line in lines[:-1]]
+    levels = [payload["level"] for payload in payloads]
     assert "debug" in levels
+    debug_events = {payload["event"] for payload in payloads if payload["level"] == "debug"}
+    assert "config_loaded" in debug_events
 
 
 def test_logger_configuration_errors() -> None:

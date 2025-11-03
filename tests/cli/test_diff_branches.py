@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
 from pydantic import BaseModel
+import pytest
 from typer.testing import CliRunner
 
 import pydantic_fixturegen.cli as cli_package

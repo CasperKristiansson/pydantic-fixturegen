@@ -9,7 +9,7 @@ import typer
 from typer.main import get_command
 
 from pydantic_fixturegen.cli import schema as schema_cli
-from pydantic_fixturegen.logging import LOG_LEVEL_ORDER, get_logger
+from pydantic_fixturegen.logging import DEFAULT_VERBOSITY_INDEX, LOG_LEVEL_ORDER, get_logger
 
 
 def _load_typer(import_path: str) -> typer.Typer:
@@ -52,7 +52,7 @@ def _root(
     log_json: bool = typer.Option(False, "--log-json", help="Emit structured JSON logs."),
 ) -> None:  # noqa: D401
     logger = get_logger()
-    level_index = 2 + verbose - quiet  # base INFO
+    level_index = DEFAULT_VERBOSITY_INDEX + verbose - quiet
     level_index = max(0, min(level_index, len(LOG_LEVEL_ORDER) - 1))
     level_name = LOG_LEVEL_ORDER[level_index]
     logger.configure(level=level_name, json_mode=log_json)

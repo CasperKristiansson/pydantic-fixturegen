@@ -206,6 +206,23 @@ Environment variables mirror keys using `PFG_` (e.g., `PFG_SEED=99`). **CLI flag
 
 Global flags: `-v/--verbose` (repeatable), `-q/--quiet`, and `--log-json` for structured logs.
 
+Verbosity tiers map to sensible defaults: `info` by default, `-v` enables debug insight, while `-q` and `-qq` reduce output to warnings/errors. A third `-q` switches the CLI to `silent` mode (logs off). When `--log-json` is supplied every log is emitted as a single JSON line with stable keys:
+
+```jsonc
+{
+  "timestamp": "2024-10-24T20:17:30",
+  "level": "info",
+  "event": "json_generation_complete",
+  "message": "JSON generation complete",
+  "context": {
+    "files": ["/tmp/out.json"],
+    "count": 3
+  }
+}
+```
+
+The `event` field is a machine-friendly identifier that remains stable even if human-facing `message` text changes. Additional metadata appears under `context`, making it easy to feed logs into structured processors.
+
 > **Watch mode** requires the optional `watch` extra: `pip install pydantic-fixturegen[watch]`.
 
 ---
