@@ -201,8 +201,28 @@ Environment variables mirror keys using `PFG_` (e.g., `PFG_SEED=99`). **CLI flag
 - `pfg gen json <target>` — deterministic JSON/JSONL (`--n`, `--jsonl`, `--indent`, `--orjson/--no-orjson`, `--shard-size`, `--out`, `--seed`, `--watch`).
 - `pfg gen schema <target>` — emit JSON Schema (`--out` required; atomic writes; `--json-errors`, `--watch`).
 - `pfg gen fixtures <target>` — emit pytest fixtures (`--style {functions,factory,class}`, `--scope {function,module,session}`, `--p-none`, `--cases`, `--return-type {model,dict}`, `--watch`).
-- `pfg gen explain <target>` — print provider/strategy tree per field; optional `--json` if exposed.
+- `pfg gen explain <target>` — inspect provider/strategy composition (`--json` for structured output, `--tree` for ASCII visualization, `--max-depth N` to cap nested expansion).
 - `pfg doctor <target>` — audit coverage, constraints, risky imports (`--fail-on-warn`, `--json-errors`).
+
+### Explain command examples
+
+````markdown
+```bash
+$ pfg gen explain --tree app/models.py --max-depth 1
+Model app.models.User
+|-- field profile [type=app.models.Profile]
+|   `-- provider model (p_none=0.0)
+|-- field role [type=Literal['admin', 'user']]
+|   `-- provider enum.static (p_none=0.0)
+|-- field settings [type=app.models.UserSettings]
+|   `-- nested app.models.UserSettings
+|       |-- field dark_mode [type=bool]
+|       `-- field preferences [type=app.models.Preferences]
+|           `-- ... (max depth reached)
+```
+````
+
+Use `--json` to emit a machine-readable summary that mirrors the tree structure, including constraint metadata, defaults, and nested dataclasses.
 
 Global flags: `-v/--verbose` (repeatable), `-q/--quiet`, and `--log-json` for structured logs.
 
