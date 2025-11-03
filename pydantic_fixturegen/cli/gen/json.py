@@ -126,6 +126,12 @@ FREEZE_FILE_OPTION = typer.Option(
     help="Seed freeze file path (defaults to `.pfg-seeds.json` in the project root).",
 )
 
+PRESET_OPTION = typer.Option(
+    None,
+    "--preset",
+    help="Apply a curated generation preset (e.g. 'boundary', 'boundary-max').",
+)
+
 
 def register(app: typer.Typer) -> None:
     @app.command("json")
@@ -145,6 +151,7 @@ def register(app: typer.Typer) -> None:
         watch_debounce: float = WATCH_DEBOUNCE_OPTION,
         freeze_seeds: bool = FREEZE_SEEDS_OPTION,
         freeze_seeds_file: Path | None = FREEZE_FILE_OPTION,
+        preset: str | None = PRESET_OPTION,
     ) -> None:
         logger = get_logger()
 
@@ -163,6 +170,7 @@ def register(app: typer.Typer) -> None:
                     seed=seed,
                     freeze_seeds=freeze_seeds,
                     freeze_seeds_file=freeze_seeds_file,
+                    preset=preset,
                 )
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors, exit_app=exit_app)
@@ -210,6 +218,7 @@ def _execute_json_command(
     seed: int | None,
     freeze_seeds: bool,
     freeze_seeds_file: Path | None,
+    preset: str | None,
 ) -> None:
     logger = get_logger()
     path = Path(target)
@@ -234,6 +243,8 @@ def _execute_json_command(
             )
 
     cli_overrides: dict[str, Any] = {}
+    if preset is not None:
+        cli_overrides["preset"] = preset
     if seed is not None:
         cli_overrides["seed"] = seed
     json_overrides: dict[str, Any] = {}

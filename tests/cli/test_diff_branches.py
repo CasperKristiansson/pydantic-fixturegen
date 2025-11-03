@@ -102,7 +102,7 @@ def test_execute_diff_surfaces_discovery_errors(
     module_path = tmp_path / "models.py"
     _write_simple_module(module_path)
 
-    monkeypatch.setattr(diff_module, "load_config", lambda root: _stub_config())
+    monkeypatch.setattr(diff_module, "load_config", lambda *a, **k: _stub_config())
     monkeypatch.setattr(diff_module, "load_entrypoint_plugins", lambda: None)
     monkeypatch.setattr(
         diff_module,
@@ -126,6 +126,7 @@ def test_execute_diff_surfaces_discovery_errors(
             schema_options=_schema_options(None),
             freeze_seeds=False,
             freeze_seeds_file=None,
+            preset=None,
         )
 
 
@@ -135,7 +136,7 @@ def test_execute_diff_reports_warnings_and_missing_models(
     module_path = tmp_path / "models.py"
     _write_simple_module(module_path)
 
-    monkeypatch.setattr(diff_module, "load_config", lambda root: _stub_config())
+    monkeypatch.setattr(diff_module, "load_config", lambda *a, **k: _stub_config())
     monkeypatch.setattr(diff_module, "load_entrypoint_plugins", lambda: None)
     monkeypatch.setattr(
         diff_module,
@@ -163,6 +164,7 @@ def test_execute_diff_reports_warnings_and_missing_models(
             schema_options=_schema_options(None),
             freeze_seeds=False,
             freeze_seeds_file=None,
+            preset=None,
         )
 
     err = capsys.readouterr().err
@@ -175,7 +177,7 @@ def test_execute_diff_wraps_load_errors(tmp_path: Path, monkeypatch: pytest.Monk
 
     discovery_model = SimpleNamespace(module="pkg", locator=str(module_path), name="Model")
 
-    monkeypatch.setattr(diff_module, "load_config", lambda root: _stub_config())
+    monkeypatch.setattr(diff_module, "load_config", lambda *a, **k: _stub_config())
     monkeypatch.setattr(diff_module, "load_entrypoint_plugins", lambda: None)
     monkeypatch.setattr(
         diff_module,
@@ -204,6 +206,7 @@ def test_execute_diff_wraps_load_errors(tmp_path: Path, monkeypatch: pytest.Monk
             schema_options=_schema_options(None),
             freeze_seeds=False,
             freeze_seeds_file=None,
+            preset=None,
         )
 
     assert "load failed" in str(exc_info.value)

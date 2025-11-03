@@ -197,6 +197,31 @@ def test_cli_invalid_json_options(tmp_path: Path) -> None:
         load_config(root=tmp_path, cli={"json": {"indent": -2}})
 
 
+def test_preset_applies_policies(tmp_path: Path) -> None:
+    config = load_config(root=tmp_path, cli={"preset": "boundary"})
+
+    assert config.preset == "boundary"
+    assert config.union_policy == "random"
+    assert config.enum_policy == "random"
+    assert config.p_none == pytest.approx(0.35)
+
+
+def test_preset_respects_overrides(tmp_path: Path) -> None:
+    config = load_config(
+        root=tmp_path,
+        cli={"preset": "boundary", "union_policy": "first", "p_none": 0.1},
+    )
+
+    assert config.preset == "boundary"
+    assert config.union_policy == "first"
+    assert config.p_none == pytest.approx(0.1)
+
+
+def test_unknown_preset_raises(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"preset": "does-not-exist"})
+
+
 def test_overrides_must_be_mapping(tmp_path: Path) -> None:
     with pytest.raises(ConfigError):
         load_config(root=tmp_path, cli={"overrides": ["not", "mapping"]})

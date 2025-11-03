@@ -79,6 +79,10 @@ class ConfigSchemaModel(BaseModel):
         title="pydantic-fixturegen configuration",
     )
 
+    preset: str | None = Field(
+        default=DEFAULT_CONFIG.preset,
+        description="Curated preset name applied before other configuration (e.g., 'boundary').",
+    )
     seed: int | str | None = Field(
         default=DEFAULT_CONFIG.seed,
         description="Global seed controlling deterministic generation. Accepts int or string.",

@@ -9,6 +9,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, TypeVar, cast
 
+from .presets import get_preset_spec, normalize_preset_name
 from .seed import DEFAULT_LOCALE
 
 
@@ -62,6 +63,7 @@ class EmittersConfig:
 
 @dataclass(frozen=True)
 class AppConfig:
+    preset: str | None = None
     seed: int | str | None = None
     locale: str = DEFAULT_LOCALE
     include: tuple[str, ...] = ()
@@ -96,19 +98,20 @@ def load_config(
     _deep_merge(data, _config_defaults_dict())
 
     file_config = _load_file_config(pyproject, yaml_file)
-    _deep_merge(data, file_config)
+    _merge_source_with_preset(data, file_config)
 
     env_config = _load_env_config(env or os.environ)
-    _deep_merge(data, env_config)
+    _merge_source_with_preset(data, env_config)
 
     if cli:
-        _deep_merge(data, cli)
+        _merge_source_with_preset(data, cli)
 
     return _build_app_config(data)
 
 
 def _config_defaults_dict() -> dict[str, Any]:
     return {
+        "preset": DEFAULT_CONFIG.preset,
         "seed": DEFAULT_CONFIG.seed,
         "locale": DEFAULT_CONFIG.locale,
         "include": list(DEFAULT_CONFIG.include),
@@ -233,6 +236,8 @@ def _coerce_env_value(value: str) -> Any:
 
 
 def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
+    preset_value = _coerce_preset_value(data.get("preset"))
+
     seed = data.get("seed")
     locale = _coerce_str(data.get("locale"), "locale")
     include = _normalize_sequence(data.get("include"))
@@ -265,6 +270,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         raise ConfigError("seed must be an int, str, or null.")
 
     config = AppConfig(
+        preset=preset_value,
         seed=seed_value,
         locale=locale,
         include=include,
@@ -409,6 +415,22 @@ def _coerce_optional_str(value: Any, field_name: str) -> str:
     return value
 
 
+def _coerce_preset_value(value: Any) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ConfigError("preset must be a string when specified.")
+    stripped = value.strip()
+    if not stripped:
+        return None
+    normalized = normalize_preset_name(stripped)
+    try:
+        spec = get_preset_spec(normalized)
+    except KeyError as exc:
+        raise ConfigError(f"Unknown preset '{value}'.") from exc
+    return spec.name
+
+
 def _ensure_mutable(mapping: Mapping[str, Any]) -> dict[str, Any]:
     mutable: dict[str, Any] = {}
     for key, value in mapping.items():
@@ -438,3 +460,28 @@ def _deep_merge(target: MutableMapping[str, Any], source: Mapping[str, Any]) -> 
                 target[key] = list(value)
             else:
                 target[key] = value
+
+
+def _merge_source_with_preset(data: MutableMapping[str, Any], source: Mapping[str, Any]) -> None:
+    if not source:
+        return
+
+    mutable = _ensure_mutable(source)
+
+    if "preset" in mutable:
+        preset_raw = mutable.pop("preset")
+        if preset_raw is None:
+            data["preset"] = None
+        else:
+            if not isinstance(preset_raw, str):
+                raise ConfigError("preset must be a string when specified.")
+            preset_name = normalize_preset_name(preset_raw)
+            try:
+                preset_spec = get_preset_spec(preset_name)
+            except KeyError as exc:
+                raise ConfigError(f"Unknown preset '{preset_raw}'.") from exc
+
+            _deep_merge(data, _ensure_mutable(preset_spec.settings))
+            data["preset"] = preset_spec.name
+
+    _deep_merge(data, mutable)

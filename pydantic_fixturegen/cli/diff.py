@@ -7,7 +7,7 @@ import tempfile
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import typer
 from pydantic import BaseModel
@@ -104,6 +104,12 @@ PNONE_OPTION = typer.Option(
     min=0.0,
     max=1.0,
     help="Override probability of None for optional fields.",
+)
+
+PRESET_OPTION = typer.Option(
+    None,
+    "--preset",
+    help="Apply a curated generation preset during diff regeneration.",
 )
 
 FREEZE_SEEDS_OPTION = typer.Option(
@@ -251,6 +257,7 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
     schema_indent: int | None = SCHEMA_INDENT_OPTION,
     show_diff: bool = SHOW_DIFF_OPTION,
     json_errors: bool = JSON_ERRORS_OPTION,
+    preset: str | None = PRESET_OPTION,
     freeze_seeds: bool = FREEZE_SEEDS_OPTION,
     freeze_seeds_file: Path | None = FREEZE_FILE_OPTION,
 ) -> None:
@@ -285,6 +292,7 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
                 out=schema_out,
                 indent=schema_indent,
             ),
+            preset=preset,
             freeze_seeds=freeze_seeds,
             freeze_seeds_file=freeze_seeds_file,
         )
@@ -363,6 +371,7 @@ def _execute_diff(
     schema_options: SchemaDiffOptions,
     freeze_seeds: bool,
     freeze_seeds_file: Path | None,
+    preset: str | None,
 ) -> list[DiffReport]:
     if not any((json_options.out, fixtures_options.out, schema_options.out)):
         raise DiscoveryError("Provide at least one artifact path to diff.")
@@ -390,7 +399,13 @@ def _execute_diff(
                 reason=message,
             )
 
-    app_config = load_config(root=Path.cwd())
+    config_cli_overrides: dict[str, Any] = {}
+    if preset is not None:
+        config_cli_overrides["preset"] = preset
+
+    app_config = load_config(
+        root=Path.cwd(), cli=config_cli_overrides if config_cli_overrides else None
+    )
 
     include_patterns = split_patterns(include) if include is not None else list(app_config.include)
     exclude_patterns = split_patterns(exclude) if exclude is not None else list(app_config.exclude)
@@ -435,9 +450,7 @@ def _execute_diff(
         selected_seed = default_seed
 
         if freeze_manager is not None:
-            stored_seed, status = freeze_manager.resolve_seed(
-                model_id, model_digest=digest
-            )
+            stored_seed, status = freeze_manager.resolve_seed(model_id, model_digest=digest)
             if status is FreezeStatus.VALID and stored_seed is not None:
                 selected_seed = stored_seed
             else:

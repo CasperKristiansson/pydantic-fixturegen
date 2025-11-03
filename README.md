@@ -223,6 +223,13 @@ Verbosity tiers map to sensible defaults: `info` by default, `-v` enables debug 
 
 The `event` field is a machine-friendly identifier that remains stable even if human-facing `message` text changes. Additional metadata appears under `context`, making it easy to feed logs into structured processors.
 
+Presets bundle opinionated policy tweaks for faster boundary-focused runs. Supply `--preset <name>` on `gen json`, `gen fixtures`, or `diff` to apply them without editing config files. Available presets:
+
+- `boundary` – randomizes union/enum selection and nudges optional fields towards `None` (35%).
+- `boundary-max` – aggressive edge exploration with 60% optional `None` probability and compact JSON output (`indent=0`).
+
+Aliases like `--preset edge` resolve to `boundary`. Explicit CLI/env/config overrides still take precedence over the preset values.
+
 Enforce deterministic regeneration across machines with the `--freeze-seeds` flag available on `gen json`, `gen fixtures`, and `diff`. When enabled the commands read and update a freeze file (defaults to `.pfg-seeds.json` in the project root) containing per-model seeds and model digests:
 
 ```json

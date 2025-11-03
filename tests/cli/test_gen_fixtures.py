@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import types
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import BaseModel
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.cli.gen import fixtures as fixtures_mod
-from pydantic_fixturegen.core.config import ConfigError
+from pydantic_fixturegen.core.config import AppConfig, ConfigError
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError
 from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult
 from typer.testing import CliRunner
@@ -271,6 +272,7 @@ def test_execute_fixtures_command_warnings(
         exclude=None,
         freeze_seeds=False,
         freeze_seeds_file=None,
+        preset=None,
     )
 
     captured = capsys.readouterr()
@@ -312,6 +314,7 @@ def test_execute_fixtures_command_errors(tmp_path: Path, monkeypatch: pytest.Mon
             exclude=None,
             freeze_seeds=False,
             freeze_seeds_file=None,
+            preset=None,
         )
 
 
@@ -331,6 +334,7 @@ def test_execute_fixtures_command_path_checks(tmp_path: Path) -> None:
             exclude=None,
             freeze_seeds=False,
             freeze_seeds_file=None,
+            preset=None,
         )
 
     directory = tmp_path / "dir"
@@ -349,6 +353,7 @@ def test_execute_fixtures_command_path_checks(tmp_path: Path) -> None:
             exclude=None,
             freeze_seeds=False,
             freeze_seeds_file=None,
+            preset=None,
         )
 
 
@@ -398,4 +403,63 @@ def test_execute_fixtures_command_emit_error(
             exclude=None,
             freeze_seeds=False,
             freeze_seeds_file=None,
+            preset=None,
         )
+
+
+def test_execute_fixtures_command_applies_preset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module_path = _write_module(tmp_path)
+    info = IntrospectedModel(
+        module="pkg",
+        name="User",
+        qualname="pkg.User",
+        locator=str(module_path),
+        lineno=1,
+        discovery="import",
+        is_public=True,
+    )
+
+    class DemoModel(BaseModel):
+        id: int
+
+    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
+        assert path == module_path
+        return IntrospectionResult(models=[info], warnings=[], errors=[])
+
+    captured: dict[str, Any] = {}
+
+    def fake_load_config(*, root: Path, cli: dict[str, Any] | None = None) -> AppConfig:
+        captured.update(cli or {})
+        return AppConfig()
+
+    monkeypatch.setattr(fixtures_mod, "discover_models", fake_discover)
+    monkeypatch.setattr(fixtures_mod, "load_model_class", lambda _: DemoModel)
+    monkeypatch.setattr(fixtures_mod, "clear_module_cache", lambda: None)
+    monkeypatch.setattr(fixtures_mod, "load_entrypoint_plugins", lambda: None)
+    monkeypatch.setattr(fixtures_mod, "load_config", fake_load_config)
+    monkeypatch.setattr(fixtures_mod, "emit_artifact", lambda *a, **k: False)
+
+    result_obj = types.SimpleNamespace(path=tmp_path / "fixtures.py", skipped=False)
+    result_obj.path.write_text("# fixtures", encoding="utf-8")
+
+    monkeypatch.setattr(fixtures_mod, "emit_pytest_fixtures", lambda *a, **k: result_obj)
+
+    fixtures_mod._execute_fixtures_command(
+        target=str(module_path),
+        out=result_obj.path,
+        style=None,
+        scope=None,
+        cases=1,
+        return_type=None,
+        seed=None,
+        p_none=None,
+        include=None,
+        exclude=None,
+        freeze_seeds=False,
+        freeze_seeds_file=None,
+        preset="boundary",
+    )
+
+    assert captured["preset"] == "boundary"

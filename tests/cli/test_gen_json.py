@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import BaseModel
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.cli.gen import json as json_mod
-from pydantic_fixturegen.core.config import ConfigError
+from pydantic_fixturegen.core.config import AppConfig, ConfigError
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError
 from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult
 from typer.testing import CliRunner
@@ -266,6 +267,7 @@ def test_execute_json_command_warnings(
         seed=42,
         freeze_seeds=False,
         freeze_seeds_file=None,
+        preset=None,
     )
 
     captured = capsys.readouterr()
@@ -300,6 +302,7 @@ def test_execute_json_command_discovery_errors(
             seed=None,
             freeze_seeds=False,
             freeze_seeds_file=None,
+            preset=None,
         )
 
 
@@ -382,6 +385,7 @@ def test_execute_json_command_emit_error(tmp_path: Path, monkeypatch: pytest.Mon
             seed=None,
             freeze_seeds=False,
             freeze_seeds_file=None,
+            preset=None,
         )
 
 
@@ -403,6 +407,7 @@ def test_execute_json_command_path_checks(tmp_path: Path) -> None:
             seed=None,
             freeze_seeds=False,
             freeze_seeds_file=None,
+            preset=None,
         )
 
     as_dir = tmp_path / "dir"
@@ -422,7 +427,75 @@ def test_execute_json_command_path_checks(tmp_path: Path) -> None:
             seed=None,
             freeze_seeds=False,
             freeze_seeds_file=None,
+            preset=None,
         )
+
+
+def test_execute_json_command_applies_preset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module_path = _write_module(tmp_path)
+    info = IntrospectedModel(
+        module="pkg",
+        name="User",
+        qualname="pkg.User",
+        locator=str(module_path),
+        lineno=1,
+        discovery="import",
+        is_public=True,
+    )
+
+    class DemoModel(BaseModel):
+        id: int
+
+    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
+        assert path == module_path
+        return IntrospectionResult(models=[info], warnings=[], errors=[])
+
+    class DummyGenerator:
+        def generate_one(self, model):  # noqa: ANN001
+            return DemoModel(id=1)
+
+    captured: dict[str, Any] = {}
+
+    def fake_load_config(*, root: Path, cli: dict[str, Any] | None = None) -> AppConfig:
+        captured.update(cli or {})
+        return AppConfig()
+
+    monkeypatch.setattr(json_mod, "discover_models", fake_discover)
+    monkeypatch.setattr(json_mod, "load_model_class", lambda _: DemoModel)
+    monkeypatch.setattr(json_mod, "clear_module_cache", lambda: None)
+    monkeypatch.setattr(json_mod, "load_entrypoint_plugins", lambda: None)
+    monkeypatch.setattr(json_mod, "load_config", fake_load_config)
+    monkeypatch.setattr(json_mod, "_build_instance_generator", lambda *_, **__: DummyGenerator())
+    monkeypatch.setattr(json_mod, "emit_artifact", lambda *a, **k: False)
+
+    def fake_emit(factory, output_path: Path, **_: Any) -> list[Path]:
+        output_path.write_text("{}", encoding="utf-8")
+        factory()
+        return [output_path]
+
+    monkeypatch.setattr(json_mod, "emit_json_samples", fake_emit)
+
+    out_path = tmp_path / "sample.json"
+
+    json_mod._execute_json_command(
+        target=str(module_path),
+        out=out_path,
+        count=1,
+        jsonl=False,
+        indent=None,
+        use_orjson=None,
+        shard_size=None,
+        include=None,
+        exclude=None,
+        seed=None,
+        freeze_seeds=False,
+        freeze_seeds_file=None,
+        preset="boundary",
+    )
+
+    assert captured["preset"] == "boundary"
 
 
 def test_gen_json_load_model_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
