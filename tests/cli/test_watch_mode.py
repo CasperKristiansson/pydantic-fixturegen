@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
@@ -140,7 +140,9 @@ def test_gather_watch_paths_handles_missing_extra(tmp_path: Path) -> None:
     assert module.parent.resolve() in resolved
 
 
-def test_gather_watch_paths_no_valid_entries(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_gather_watch_paths_no_valid_entries(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     module = _write_model(tmp_path)
     monkeypatch.setattr(watch_mod, "_normalize_watch_paths", lambda _paths: [])
 
@@ -150,7 +152,11 @@ def test_gather_watch_paths_no_valid_entries(monkeypatch: pytest.MonkeyPatch, tm
 
 def test_run_with_watch_requires_paths(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     module = _write_model(tmp_path)
-    monkeypatch.setattr(watch_mod, "_import_watch_backend", lambda: lambda *args, **kwargs: iter(()))
+
+    def empty_backend(*_args: object, **_kwargs: object):
+        return iter(())
+
+    monkeypatch.setattr(watch_mod, "_import_watch_backend", lambda: empty_backend)
     monkeypatch.setattr(watch_mod, "_normalize_watch_paths", lambda _paths: [])
 
     with pytest.raises(WatchError):

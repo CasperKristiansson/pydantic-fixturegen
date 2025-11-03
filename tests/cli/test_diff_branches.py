@@ -1,24 +1,21 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 
-from pydantic import BaseModel
-import pytest
-from typer.testing import CliRunner
-
 import pydantic_fixturegen.cli as cli_package
 import pydantic_fixturegen.cli.diff as diff_module
-
+import pytest
+from pydantic import BaseModel
+from typer.testing import CliRunner
 
 runner = CliRunner()
 
 
 def _write_simple_module(path: Path) -> None:
     path.write_text(
-        "from pydantic import BaseModel\n\n"
-        "class Model(BaseModel):\n"
-        "    value: int\n",
+        "from pydantic import BaseModel\n\nclass Model(BaseModel):\n    value: int\n",
         encoding="utf-8",
     )
 
@@ -61,6 +58,13 @@ def _schema_options(path: Path | None) -> diff_module.SchemaDiffOptions:
     return diff_module.SchemaDiffOptions(out=path, indent=None)
 
 
+def _make_generator(factory: Callable[[], object]) -> Callable[..., SimpleNamespace]:
+    def _builder(**_kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(generate_one=lambda _model: factory())
+
+    return _builder
+
+
 def test_diff_requires_artifact_path(tmp_path: Path) -> None:
     module_path = tmp_path / "models.py"
     _write_simple_module(module_path)
@@ -92,7 +96,9 @@ def test_diff_rejects_directory_target(tmp_path: Path) -> None:
     assert "Target must be a Python module file" in result.stderr
 
 
-def test_execute_diff_surfaces_discovery_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_execute_diff_surfaces_discovery_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     module_path = tmp_path / "models.py"
     _write_simple_module(module_path)
 
@@ -172,7 +178,11 @@ def test_execute_diff_wraps_load_errors(tmp_path: Path, monkeypatch: pytest.Monk
         "discover_models",
         lambda *args, **kwargs: SimpleNamespace(errors=[], warnings=[], models=[discovery_model]),
     )
-    monkeypatch.setattr(diff_module, "load_model_class", lambda model: (_ for _ in ()).throw(RuntimeError("load failed")))
+
+    def fail_load(_model: object) -> None:
+        raise RuntimeError("load failed")
+
+    monkeypatch.setattr(diff_module, "load_model_class", fail_load)
 
     with pytest.raises(diff_module.DiscoveryError) as exc_info:
         diff_module._execute_diff(
@@ -260,7 +270,7 @@ def test_diff_json_handles_mapping_failure(tmp_path: Path, monkeypatch: pytest.M
     monkeypatch.setattr(
         diff_module,
         "_build_instance_generator",
-        lambda **kwargs: SimpleNamespace(generate_one=lambda model: None),
+        _make_generator(lambda: None),
     )
 
     def fake_emit_json_samples(factory, output_path, **kwargs):
@@ -295,7 +305,11 @@ def test_diff_json_detects_directory_targets(
         generated.write_text("{}", encoding="utf-8")
         return [generated]
 
-    monkeypatch.setattr(diff_module, "_build_instance_generator", lambda **kwargs: SimpleNamespace(generate_one=lambda model: AlphaModel()))
+    monkeypatch.setattr(
+        diff_module,
+        "_build_instance_generator",
+        _make_generator(AlphaModel),
+    )
     monkeypatch.setattr(diff_module, "emit_json_samples", fake_emit_json_samples)
 
     report = diff_module._diff_json_artifact(
@@ -328,7 +342,11 @@ def test_diff_json_ignores_extra_directories(
         generated.write_text("{}", encoding="utf-8")
         return [generated]
 
-    monkeypatch.setattr(diff_module, "_build_instance_generator", lambda **kwargs: SimpleNamespace(generate_one=lambda model: AlphaModel()))
+    monkeypatch.setattr(
+        diff_module,
+        "_build_instance_generator",
+        _make_generator(AlphaModel),
+    )
     monkeypatch.setattr(diff_module, "emit_json_samples", fake_emit_json_samples)
 
     report = diff_module._diff_json_artifact(
@@ -427,9 +445,7 @@ def test_diff_schema_requires_output() -> None:
         )
 
 
-def test_diff_schema_emit_plugin_success(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_diff_schema_emit_plugin_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     output_path = tmp_path / "schema" / "model.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text("{}", encoding="utf-8")

@@ -24,7 +24,7 @@ LOG_LEVELS: Final[dict[str, int]] = {
 DEFAULT_VERBOSITY_INDEX: Final[int] = LOG_LEVEL_ORDER.index("info")
 
 
-_COLOR_BY_LEVEL: Final[dict[str, typer.colors.Color]] = {
+_COLOR_BY_LEVEL: Final[dict[str, str]] = {
     "debug": typer.colors.BLUE,
     "info": typer.colors.GREEN,
     "warn": typer.colors.YELLOW,

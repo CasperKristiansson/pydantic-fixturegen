@@ -4,10 +4,8 @@ from pathlib import Path
 
 import pytest
 import typer
-
 from pydantic_fixturegen.cli import init as init_mod
 from pydantic_fixturegen.cli.init import app as init_app
-from pydantic_fixturegen.core.io_utils import WriteResult
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -117,7 +115,7 @@ def test_init_custom_options(tmp_path: Path) -> None:
     pyproject = tmp_path / "pyproject.toml"
     content = _read(pyproject)
     assert "seed" not in content
-    assert "locale = \"sv_SE\"" in content
+    assert 'locale = "sv_SE"' in content
 
     yaml_content = _read(custom_yaml)
     assert "locale: sv_SE" in yaml_content

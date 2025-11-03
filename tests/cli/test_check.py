@@ -193,9 +193,7 @@ def test_execute_check_requires_models(
     monkeypatch.setattr(
         check_mod,
         "discover_models",
-        lambda *args, **kwargs: IntrospectionResult(
-            models=[], warnings=["notice"], errors=[]
-        ),
+        lambda *args, **kwargs: IntrospectionResult(models=[], warnings=["notice"], errors=[]),
     )
 
     with pytest.raises(check_mod.DiscoveryError):
@@ -232,9 +230,7 @@ def test_execute_check_wraps_load_errors(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.setattr(
         check_mod,
         "discover_models",
-        lambda *args, **kwargs: IntrospectionResult(
-            models=[info], warnings=[], errors=[]
-        ),
+        lambda *args, **kwargs: IntrospectionResult(models=[info], warnings=[], errors=[]),
     )
     monkeypatch.setattr(
         check_mod,
@@ -287,9 +283,7 @@ def test_validate_output_path_conditions(tmp_path: Path, monkeypatch: pytest.Mon
     not_dir = check_mod._validate_output_path(parent_file / "child.json", "JSON output")
     assert "not a directory" in not_dir[0]
 
-    monkeypatch.setattr(
-        "pydantic_fixturegen.cli.check.os.access", lambda *_args, **_kwargs: False
-    )
+    monkeypatch.setattr("pydantic_fixturegen.cli.check.os.access", lambda *_args, **_kwargs: False)
     not_writable = check_mod._validate_output_path(tmp_path / "file.json", "JSON output")
     assert "not writable" in not_writable[0]
 

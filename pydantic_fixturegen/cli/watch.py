@@ -114,7 +114,7 @@ def _normalize_watch_paths(paths: Iterable[Path]) -> list[Path]:
 
 def _import_watch_backend() -> WatchBackend:
     try:
-        from watchfiles import watch as watch_fn  # type: ignore[import-not-found]
+        from watchfiles import watch as watch_fn
     except ModuleNotFoundError as exc:  # pragma: no cover - depends on optional extra
         raise WatchError(
             "Watch mode requires the optional 'watchfiles' dependency. Install it via"
