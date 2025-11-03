@@ -269,6 +269,8 @@ def test_execute_fixtures_command_warnings(
         p_none=0.2,
         include="pkg.User",
         exclude=None,
+        freeze_seeds=False,
+        freeze_seeds_file=None,
     )
 
     captured = capsys.readouterr()
@@ -308,6 +310,8 @@ def test_execute_fixtures_command_errors(tmp_path: Path, monkeypatch: pytest.Mon
             p_none=None,
             include=None,
             exclude=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
         )
 
 
@@ -325,6 +329,8 @@ def test_execute_fixtures_command_path_checks(tmp_path: Path) -> None:
             p_none=None,
             include=None,
             exclude=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
         )
 
     directory = tmp_path / "dir"
@@ -341,6 +347,8 @@ def test_execute_fixtures_command_path_checks(tmp_path: Path) -> None:
             p_none=None,
             include=None,
             exclude=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
         )
 
 
@@ -388,4 +396,6 @@ def test_execute_fixtures_command_emit_error(
             p_none=None,
             include=None,
             exclude=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
         )

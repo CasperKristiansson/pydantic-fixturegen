@@ -124,7 +124,7 @@ def test_gen_json_mapping_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         def generate_one(self, model):  # noqa: ANN001
             return None
 
-    def dummy_builder(_: object) -> DummyGenerator:
+    def dummy_builder(_: object, **__: object) -> DummyGenerator:
         return DummyGenerator()
 
     monkeypatch.setattr(
@@ -239,7 +239,11 @@ def test_execute_json_command_warnings(
     monkeypatch.setattr(json_mod, "load_model_class", lambda _: DemoModel)
     monkeypatch.setattr(json_mod, "clear_module_cache", lambda: None)
     monkeypatch.setattr(json_mod, "load_entrypoint_plugins", lambda: None)
-    monkeypatch.setattr(json_mod, "_build_instance_generator", lambda _: DummyGenerator())
+    monkeypatch.setattr(
+        json_mod,
+        "_build_instance_generator",
+        lambda *_, **__: DummyGenerator(),
+    )
 
     out_path = tmp_path / "emitted.json"
 
@@ -260,6 +264,8 @@ def test_execute_json_command_warnings(
         include="pkg.User",
         exclude=None,
         seed=42,
+        freeze_seeds=False,
+        freeze_seeds_file=None,
     )
 
     captured = capsys.readouterr()
@@ -292,6 +298,8 @@ def test_execute_json_command_discovery_errors(
             include=None,
             exclude=None,
             seed=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
         )
 
 
@@ -348,7 +356,11 @@ def test_execute_json_command_emit_error(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.setattr(json_mod, "load_model_class", lambda _: DemoModel)
     monkeypatch.setattr(json_mod, "clear_module_cache", lambda: None)
     monkeypatch.setattr(json_mod, "load_entrypoint_plugins", lambda: None)
-    monkeypatch.setattr(json_mod, "_build_instance_generator", lambda _: DummyGenerator())
+    monkeypatch.setattr(
+        json_mod,
+        "_build_instance_generator",
+        lambda *_, **__: DummyGenerator(),
+    )
     monkeypatch.setattr(json_mod, "emit_artifact", lambda *a, **k: False)
 
     def boom_emit(*args, **kwargs):  # noqa: ANN001, ANN002
@@ -368,6 +380,8 @@ def test_execute_json_command_emit_error(tmp_path: Path, monkeypatch: pytest.Mon
             include=None,
             exclude=None,
             seed=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
         )
 
 
@@ -387,6 +401,8 @@ def test_execute_json_command_path_checks(tmp_path: Path) -> None:
             include=None,
             exclude=None,
             seed=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
         )
 
     as_dir = tmp_path / "dir"
@@ -404,6 +420,8 @@ def test_execute_json_command_path_checks(tmp_path: Path) -> None:
             include=None,
             exclude=None,
             seed=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
         )
 
 

@@ -22,9 +22,18 @@ from pydantic_fixturegen.core.errors import (
 )
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.seed import SeedManager
+from pydantic_fixturegen.core.seed_freeze import (
+    FreezeStatus,
+    SeedFreezeFile,
+    compute_model_digest,
+    derive_default_model_seed,
+    model_identifier,
+    resolve_freeze_path,
+)
 from pydantic_fixturegen.emitters.json_out import emit_json_samples
 from pydantic_fixturegen.emitters.pytest_codegen import PytestEmitConfig, emit_pytest_fixtures
 from pydantic_fixturegen.emitters.schema_out import emit_model_schema, emit_models_schema
+from pydantic_fixturegen.logging import get_logger
 from pydantic_fixturegen.plugins.hookspecs import EmitterContext
 from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
 
@@ -95,6 +104,18 @@ PNONE_OPTION = typer.Option(
     min=0.0,
     max=1.0,
     help="Override probability of None for optional fields.",
+)
+
+FREEZE_SEEDS_OPTION = typer.Option(
+    False,
+    "--freeze-seeds/--no-freeze-seeds",
+    help="Read/write per-model seeds using a freeze file for deterministic diffs.",
+)
+
+FREEZE_FILE_OPTION = typer.Option(
+    None,
+    "--freeze-seeds-file",
+    help="Seed freeze file path (defaults to `.pfg-seeds.json`).",
 )
 
 JSON_OUT_OPTION = typer.Option(
@@ -230,6 +251,8 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
     schema_indent: int | None = SCHEMA_INDENT_OPTION,
     show_diff: bool = SHOW_DIFF_OPTION,
     json_errors: bool = JSON_ERRORS_OPTION,
+    freeze_seeds: bool = FREEZE_SEEDS_OPTION,
+    freeze_seeds_file: Path | None = FREEZE_FILE_OPTION,
 ) -> None:
     _ = ctx
     try:
@@ -262,6 +285,8 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
                 out=schema_out,
                 indent=schema_indent,
             ),
+            freeze_seeds=freeze_seeds,
+            freeze_seeds_file=freeze_seeds_file,
         )
     except PFGError as exc:
         render_cli_error(exc, json_errors=json_errors)
@@ -336,6 +361,8 @@ def _execute_diff(
     json_options: JsonDiffOptions,
     fixtures_options: FixturesDiffOptions,
     schema_options: SchemaDiffOptions,
+    freeze_seeds: bool,
+    freeze_seeds_file: Path | None,
 ) -> list[DiffReport]:
     if not any((json_options.out, fixtures_options.out, schema_options.out)):
         raise DiscoveryError("Provide at least one artifact path to diff.")
@@ -348,6 +375,20 @@ def _execute_diff(
 
     clear_module_cache()
     load_entrypoint_plugins()
+
+    logger = get_logger()
+
+    freeze_manager: SeedFreezeFile | None = None
+    if freeze_seeds:
+        freeze_path = resolve_freeze_path(freeze_seeds_file, root=Path.cwd())
+        freeze_manager = SeedFreezeFile.load(freeze_path)
+        for message in freeze_manager.messages:
+            logger.warn(
+                "Seed freeze file ignored",
+                event="seed_freeze_invalid",
+                path=str(freeze_path),
+                reason=message,
+            )
 
     app_config = load_config(root=Path.cwd())
 
@@ -382,13 +423,48 @@ def _execute_diff(
     seed_value = seed_override if seed_override is not None else app_config.seed
     p_none_value = p_none_override if p_none_override is not None else app_config.p_none
 
+    per_model_seeds: dict[str, int] = {}
+    model_digests: dict[str, str | None] = {}
+
+    for model_cls in model_classes:
+        model_id = model_identifier(model_cls)
+        digest = compute_model_digest(model_cls)
+        model_digests[model_id] = digest
+
+        default_seed = derive_default_model_seed(seed_value, model_id)
+        selected_seed = default_seed
+
+        if freeze_manager is not None:
+            stored_seed, status = freeze_manager.resolve_seed(
+                model_id, model_digest=digest
+            )
+            if status is FreezeStatus.VALID and stored_seed is not None:
+                selected_seed = stored_seed
+            else:
+                event = (
+                    "seed_freeze_missing" if status is FreezeStatus.MISSING else "seed_freeze_stale"
+                )
+                logger.warn(
+                    "Seed freeze entry unavailable; deriving new seed",
+                    event=event,
+                    model=model_id,
+                    path=str(freeze_manager.path),
+                )
+                selected_seed = default_seed
+
+        per_model_seeds[model_id] = selected_seed
+
     reports: list[DiffReport] = []
 
     if json_options.out is not None:
+        json_model_id = model_identifier(model_classes[0])
+        json_seed_value = (
+            per_model_seeds[json_model_id] if freeze_manager is not None else seed_value
+        )
         reports.append(
             _diff_json_artifact(
                 model_classes=model_classes,
-                app_config_seed=seed_value,
+                seed_value=json_seed_value,
                 app_config_indent=app_config.json.indent,
                 app_config_orjson=app_config.json.orjson,
                 app_config_enum=app_config.enum_policy,
@@ -407,6 +483,7 @@ def _execute_diff(
                 app_config_style=app_config.emitters.pytest.style,
                 app_config_scope=app_config.emitters.pytest.scope,
                 options=fixtures_options,
+                per_model_seeds=per_model_seeds if freeze_manager is not None else None,
             )
         )
 
@@ -419,13 +496,23 @@ def _execute_diff(
             )
         )
 
+    if freeze_manager is not None:
+        for model_cls in model_classes:
+            model_id = model_identifier(model_cls)
+            freeze_manager.record_seed(
+                model_id,
+                per_model_seeds[model_id],
+                model_digest=model_digests[model_id],
+            )
+        freeze_manager.save()
+
     return reports
 
 
 def _diff_json_artifact(
     *,
     model_classes: list[type[BaseModel]],
-    app_config_seed: int | str | None,
+    seed_value: int | str | None,
     app_config_indent: int | None,
     app_config_orjson: bool,
     app_config_enum: str,
@@ -454,7 +541,7 @@ def _diff_json_artifact(
         temp_base.parent.mkdir(parents=True, exist_ok=True)
 
         generator = _build_instance_generator(
-            seed_value=app_config_seed,
+            seed_value=seed_value,
             union_policy=app_config_union,
             enum_policy=app_config_enum,
             p_none=app_config_p_none,
@@ -553,6 +640,7 @@ def _diff_fixtures_artifact(
     app_config_style: str,
     app_config_scope: str,
     options: FixturesDiffOptions,
+    per_model_seeds: dict[str, int] | None,
 ) -> DiffReport:
     if options.out is None:
         raise DiscoveryError("Fixtures diff requires --fixtures-out.")
@@ -576,13 +664,16 @@ def _diff_fixtures_artifact(
         temp_out = Path(tmp_dir) / "fixtures" / output_path.name
         temp_out.parent.mkdir(parents=True, exist_ok=True)
 
+        header_seed = seed_normalized if per_model_seeds is None else None
+
         pytest_config = PytestEmitConfig(
             scope=scope_final,
             style=style_final,
             return_type=return_type_final,
             cases=options.cases,
-            seed=seed_normalized,
+            seed=header_seed,
             optional_p_none=app_config_p_none,
+            per_model_seeds=per_model_seeds,
         )
 
         context = EmitterContext(

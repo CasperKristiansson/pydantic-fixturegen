@@ -223,6 +223,22 @@ Verbosity tiers map to sensible defaults: `info` by default, `-v` enables debug 
 
 The `event` field is a machine-friendly identifier that remains stable even if human-facing `message` text changes. Additional metadata appears under `context`, making it easy to feed logs into structured processors.
 
+Enforce deterministic regeneration across machines with the `--freeze-seeds` flag available on `gen json`, `gen fixtures`, and `diff`. When enabled the commands read and update a freeze file (defaults to `.pfg-seeds.json` in the project root) containing per-model seeds and model digests:
+
+```json
+{
+  "version": 1,
+  "models": {
+    "pkg.Model": {
+      "seed": 123456789,
+      "model_digest": "8d3db06f..."
+    }
+  }
+}
+```
+
+Missing or stale entries emit warnings (`seed_freeze_missing`, `seed_freeze_stale`) and new seeds are derived deterministically from the configured seed (or the model name when unspecified) before being written back. Point to an alternative location with `--freeze-seeds-file` when you need to check the file into source control or keep environment-specific copies.
+
 > **Watch mode** requires the optional `watch` extra: `pip install pydantic-fixturegen[watch]`.
 
 ---

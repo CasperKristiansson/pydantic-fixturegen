@@ -124,6 +124,8 @@ def test_execute_diff_surfaces_discovery_errors(
             json_options=_json_options(tmp_path / "data.json"),
             fixtures_options=_fixtures_options(None),
             schema_options=_schema_options(None),
+            freeze_seeds=False,
+            freeze_seeds_file=None,
         )
 
 
@@ -159,6 +161,8 @@ def test_execute_diff_reports_warnings_and_missing_models(
             json_options=_json_options(tmp_path / "data.json"),
             fixtures_options=_fixtures_options(None),
             schema_options=_schema_options(None),
+            freeze_seeds=False,
+            freeze_seeds_file=None,
         )
 
     err = capsys.readouterr().err
@@ -198,6 +202,8 @@ def test_execute_diff_wraps_load_errors(tmp_path: Path, monkeypatch: pytest.Monk
             json_options=_json_options(tmp_path / "data.json"),
             fixtures_options=_fixtures_options(None),
             schema_options=_schema_options(None),
+            freeze_seeds=False,
+            freeze_seeds_file=None,
         )
 
     assert "load failed" in str(exc_info.value)
@@ -215,7 +221,7 @@ def test_diff_json_requires_models() -> None:
     with pytest.raises(diff_module.DiscoveryError):
         diff_module._diff_json_artifact(
             model_classes=[],
-            app_config_seed=None,
+            seed_value=None,
             app_config_indent=None,
             app_config_orjson=False,
             app_config_enum="name",
@@ -229,7 +235,7 @@ def test_diff_json_rejects_multiple_models(tmp_path: Path) -> None:
     with pytest.raises(diff_module.DiscoveryError) as exc_info:
         diff_module._diff_json_artifact(
             model_classes=[AlphaModel, BetaModel],
-            app_config_seed=None,
+            seed_value=None,
             app_config_indent=None,
             app_config_orjson=False,
             app_config_enum="name",
@@ -254,7 +260,7 @@ def test_diff_json_requires_output(tmp_path: Path) -> None:
     with pytest.raises(diff_module.DiscoveryError):
         diff_module._diff_json_artifact(
             model_classes=[AlphaModel],
-            app_config_seed=None,
+            seed_value=None,
             app_config_indent=None,
             app_config_orjson=False,
             app_config_enum="name",
@@ -282,7 +288,7 @@ def test_diff_json_handles_mapping_failure(tmp_path: Path, monkeypatch: pytest.M
     with pytest.raises(diff_module.MappingError):
         diff_module._diff_json_artifact(
             model_classes=[AlphaModel],
-            app_config_seed=None,
+            seed_value=None,
             app_config_indent=None,
             app_config_orjson=False,
             app_config_enum="name",
@@ -314,7 +320,7 @@ def test_diff_json_detects_directory_targets(
 
     report = diff_module._diff_json_artifact(
         model_classes=[AlphaModel],
-        app_config_seed=None,
+        seed_value=None,
         app_config_indent=None,
         app_config_orjson=False,
         app_config_enum="name",
@@ -351,7 +357,7 @@ def test_diff_json_ignores_extra_directories(
 
     report = diff_module._diff_json_artifact(
         model_classes=[AlphaModel],
-        app_config_seed=None,
+        seed_value=None,
         app_config_indent=None,
         app_config_orjson=False,
         app_config_enum="name",
@@ -373,6 +379,7 @@ def test_diff_fixtures_require_output() -> None:
             app_config_style="functions",
             app_config_scope="function",
             options=_fixtures_options(None),
+            per_model_seeds=None,
         )
 
 
@@ -397,6 +404,7 @@ def test_diff_fixtures_emit_artifact_success(
         app_config_style="functions",
         app_config_scope="function",
         options=_fixtures_options(output_path),
+        per_model_seeds=None,
     )
 
     assert report.summary == "Fixtures artifact matches."
@@ -417,6 +425,7 @@ def test_diff_fixtures_emit_artifact_without_file(
             app_config_style="functions",
             app_config_scope="function",
             options=_fixtures_options(output_path),
+            per_model_seeds=None,
         )
 
 
@@ -431,6 +440,7 @@ def test_diff_fixtures_detect_directory_target(tmp_path: Path) -> None:
         app_config_style="functions",
         app_config_scope="function",
         options=_fixtures_options(output_path),
+        per_model_seeds=None,
     )
 
     assert "Fixtures path is a directory" in report.messages[0]

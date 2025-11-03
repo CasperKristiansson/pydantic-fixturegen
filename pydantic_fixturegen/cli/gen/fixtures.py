@@ -10,6 +10,14 @@ import typer
 from pydantic_fixturegen.core.config import ConfigError, load_config
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, PFGError
 from pydantic_fixturegen.core.seed import SeedManager
+from pydantic_fixturegen.core.seed_freeze import (
+    FreezeStatus,
+    SeedFreezeFile,
+    compute_model_digest,
+    derive_default_model_seed,
+    model_identifier,
+    resolve_freeze_path,
+)
 from pydantic_fixturegen.emitters.pytest_codegen import PytestEmitConfig, emit_pytest_fixtures
 from pydantic_fixturegen.plugins.hookspecs import EmitterContext
 from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
@@ -111,6 +119,18 @@ WATCH_DEBOUNCE_OPTION = typer.Option(
     help="Debounce interval in seconds for filesystem events.",
 )
 
+FREEZE_SEEDS_OPTION = typer.Option(
+    False,
+    "--freeze-seeds/--no-freeze-seeds",
+    help="Read/write per-model seeds using a freeze file to stabilize fixture output.",
+)
+
+FREEZE_FILE_OPTION = typer.Option(
+    None,
+    "--freeze-seeds-file",
+    help="Seed freeze file path (defaults to `.pfg-seeds.json` in the project root).",
+)
+
 
 def register(app: typer.Typer) -> None:
     @app.command("fixtures")
@@ -128,6 +148,8 @@ def register(app: typer.Typer) -> None:
         json_errors: bool = JSON_ERRORS_OPTION,
         watch: bool = WATCH_OPTION,
         watch_debounce: float = WATCH_DEBOUNCE_OPTION,
+        freeze_seeds: bool = FREEZE_SEEDS_OPTION,
+        freeze_seeds_file: Path | None = FREEZE_FILE_OPTION,
     ) -> None:
         logger = get_logger()
 
@@ -144,6 +166,8 @@ def register(app: typer.Typer) -> None:
                     p_none=p_none,
                     include=include,
                     exclude=exclude,
+                    freeze_seeds=freeze_seeds,
+                    freeze_seeds_file=freeze_seeds_file,
                 )
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors, exit_app=exit_app)
@@ -189,6 +213,8 @@ def _execute_fixtures_command(
     p_none: float | None,
     include: str | None,
     exclude: str | None,
+    freeze_seeds: bool,
+    freeze_seeds_file: Path | None,
 ) -> None:
     logger = get_logger()
     path = Path(target)
@@ -203,6 +229,18 @@ def _execute_fixtures_command(
 
     clear_module_cache()
     load_entrypoint_plugins()
+
+    freeze_manager: SeedFreezeFile | None = None
+    if freeze_seeds:
+        freeze_path = resolve_freeze_path(freeze_seeds_file, root=Path.cwd())
+        freeze_manager = SeedFreezeFile.load(freeze_path)
+        for message in freeze_manager.messages:
+            logger.warn(
+                "Seed freeze file ignored",
+                event="seed_freeze_invalid",
+                path=str(freeze_path),
+                reason=message,
+            )
 
     cli_overrides: dict[str, Any] = {}
     if seed is not None:
@@ -264,13 +302,47 @@ def _execute_fixtures_command(
     scope_final = scope_value or app_config.emitters.pytest.scope
     return_type_final = return_type_value or DEFAULT_RETURN
 
+    per_model_seeds: dict[str, int] = {}
+    model_digests: dict[str, str | None] = {}
+
+    for model_cls in model_classes:
+        model_id = model_identifier(model_cls)
+        digest = compute_model_digest(model_cls)
+        model_digests[model_id] = digest
+
+        if freeze_manager is not None:
+            default_seed = derive_default_model_seed(app_config.seed, model_id)
+            selected_seed = default_seed
+
+            stored_seed, status = freeze_manager.resolve_seed(model_id, model_digest=digest)
+            if status is FreezeStatus.VALID and stored_seed is not None:
+                selected_seed = stored_seed
+            else:
+                event = (
+                    "seed_freeze_missing" if status is FreezeStatus.MISSING else "seed_freeze_stale"
+                )
+                logger.warn(
+                    "Seed freeze entry unavailable; deriving new seed",
+                    event=event,
+                    model=model_id,
+                    path=str(freeze_manager.path),
+                )
+                selected_seed = default_seed
+        else:
+            selected_seed = derive_default_model_seed(app_config.seed, model_id)
+
+        per_model_seeds[model_id] = selected_seed
+
+    header_seed = seed_value if freeze_manager is None else None
+
     pytest_config = PytestEmitConfig(
         scope=scope_final,
         style=style_final,
         return_type=return_type_final,
         cases=cases,
-        seed=seed_value,
+        seed=header_seed,
         optional_p_none=app_config.p_none,
+        per_model_seeds=per_model_seeds if freeze_manager is not None else None,
     )
 
     context = EmitterContext(
@@ -319,6 +391,16 @@ def _execute_fixtures_command(
             scope=scope_final,
         )
     typer.echo(message)
+
+    if freeze_manager is not None:
+        for model_cls in model_classes:
+            model_id = model_identifier(model_cls)
+            freeze_manager.record_seed(
+                model_id,
+                per_model_seeds[model_id],
+                model_digest=model_digests[model_id],
+            )
+        freeze_manager.save()
 
 
 __all__ = ["register"]

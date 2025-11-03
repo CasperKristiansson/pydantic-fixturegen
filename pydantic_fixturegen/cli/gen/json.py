@@ -12,6 +12,14 @@ from pydantic_fixturegen.core.config import AppConfig, ConfigError, load_config
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError, PFGError
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.seed import SeedManager
+from pydantic_fixturegen.core.seed_freeze import (
+    FreezeStatus,
+    SeedFreezeFile,
+    compute_model_digest,
+    derive_default_model_seed,
+    model_identifier,
+    resolve_freeze_path,
+)
 from pydantic_fixturegen.emitters.json_out import emit_json_samples
 from pydantic_fixturegen.plugins.hookspecs import EmitterContext
 from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
@@ -106,6 +114,18 @@ WATCH_DEBOUNCE_OPTION = typer.Option(
     help="Debounce interval in seconds for filesystem events.",
 )
 
+FREEZE_SEEDS_OPTION = typer.Option(
+    False,
+    "--freeze-seeds/--no-freeze-seeds",
+    help="Read/write per-model seeds using a freeze file to ensure deterministic regeneration.",
+)
+
+FREEZE_FILE_OPTION = typer.Option(
+    None,
+    "--freeze-seeds-file",
+    help="Seed freeze file path (defaults to `.pfg-seeds.json` in the project root).",
+)
+
 
 def register(app: typer.Typer) -> None:
     @app.command("json")
@@ -123,6 +143,8 @@ def register(app: typer.Typer) -> None:
         json_errors: bool = JSON_ERRORS_OPTION,
         watch: bool = WATCH_OPTION,
         watch_debounce: float = WATCH_DEBOUNCE_OPTION,
+        freeze_seeds: bool = FREEZE_SEEDS_OPTION,
+        freeze_seeds_file: Path | None = FREEZE_FILE_OPTION,
     ) -> None:
         logger = get_logger()
 
@@ -139,6 +161,8 @@ def register(app: typer.Typer) -> None:
                     include=include,
                     exclude=exclude,
                     seed=seed,
+                    freeze_seeds=freeze_seeds,
+                    freeze_seeds_file=freeze_seeds_file,
                 )
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors, exit_app=exit_app)
@@ -184,6 +208,8 @@ def _execute_json_command(
     include: str | None,
     exclude: str | None,
     seed: int | None,
+    freeze_seeds: bool,
+    freeze_seeds_file: Path | None,
 ) -> None:
     logger = get_logger()
     path = Path(target)
@@ -194,6 +220,18 @@ def _execute_json_command(
 
     clear_module_cache()
     load_entrypoint_plugins()
+
+    freeze_manager: SeedFreezeFile | None = None
+    if freeze_seeds:
+        freeze_path = resolve_freeze_path(freeze_seeds_file, root=Path.cwd())
+        freeze_manager = SeedFreezeFile.load(freeze_path)
+        for message in freeze_manager.messages:
+            logger.warn(
+                "Seed freeze file ignored",
+                event="seed_freeze_invalid",
+                path=str(freeze_path),
+                reason=message,
+            )
 
     cli_overrides: dict[str, Any] = {}
     if seed is not None:
@@ -254,7 +292,28 @@ def _execute_json_command(
     except RuntimeError as exc:
         raise DiscoveryError(str(exc)) from exc
 
-    generator = _build_instance_generator(app_config)
+    model_id = model_identifier(model_cls)
+    model_digest = compute_model_digest(model_cls)
+
+    if freeze_manager is not None:
+        default_seed = derive_default_model_seed(app_config.seed, model_id)
+        selected_seed: int | None = default_seed
+        stored_seed, status = freeze_manager.resolve_seed(model_id, model_digest=model_digest)
+        if status is FreezeStatus.VALID and stored_seed is not None:
+            selected_seed = stored_seed
+        else:
+            event = "seed_freeze_missing" if status is FreezeStatus.MISSING else "seed_freeze_stale"
+            logger.warn(
+                "Seed freeze entry unavailable; deriving new seed",
+                event=event,
+                model=model_id,
+                path=str(freeze_manager.path),
+            )
+            selected_seed = default_seed
+    else:
+        selected_seed = None
+
+    generator = _build_instance_generator(app_config, seed_override=selected_seed)
 
     def sample_factory() -> BaseModel:
         instance = generator.generate_one(model_cls)
@@ -308,14 +367,23 @@ def _execute_json_command(
         files=path_strs,
         count=count,
     )
+    if freeze_manager is not None:
+        assert selected_seed is not None
+        freeze_manager.record_seed(model_id, selected_seed, model_digest=model_digest)
+        freeze_manager.save()
     for emitted_path in paths:
         typer.echo(str(emitted_path))
 
 
-def _build_instance_generator(app_config: AppConfig) -> InstanceGenerator:
-    seed_value: int | None = None
-    if app_config.seed is not None:
-        seed_value = SeedManager(seed=app_config.seed).normalized_seed
+def _build_instance_generator(
+    app_config: AppConfig, *, seed_override: int | None = None
+) -> InstanceGenerator:
+    if seed_override is not None:
+        seed_value: int | None = seed_override
+    else:
+        seed_value = None
+        if app_config.seed is not None:
+            seed_value = SeedManager(seed=app_config.seed).normalized_seed
 
     p_none = app_config.p_none if app_config.p_none is not None else 0.0
     gen_config = GenerationConfig(

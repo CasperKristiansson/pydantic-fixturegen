@@ -6,7 +6,7 @@ import json
 import re
 import shutil
 import subprocess
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from pprint import pformat
@@ -36,6 +36,7 @@ class PytestEmitConfig:
     optional_p_none: float | None = None
     model_digest: str | None = None
     hash_compare: bool = True
+    per_model_seeds: Mapping[str, int] | None = None
 
 
 def emit_pytest_fixtures(
@@ -59,16 +60,30 @@ def emit_pytest_fixtures(
     if cfg.return_type not in {"model", "dict"}:
         raise ValueError(f"Unsupported return_type: {cfg.return_type!r}")
 
-    generation_config = GenerationConfig(seed=cfg.seed)
-    if cfg.optional_p_none is not None:
-        generation_config.optional_p_none = cfg.optional_p_none
-    generator = InstanceGenerator(config=generation_config)
+    def _build_generator(seed_value: int | None) -> InstanceGenerator:
+        generation_config = GenerationConfig(seed=seed_value)
+        if cfg.optional_p_none is not None:
+            generation_config.optional_p_none = cfg.optional_p_none
+        return InstanceGenerator(config=generation_config)
+
+    shared_generator: InstanceGenerator | None = None
 
     model_entries: list[_ModelEntry] = []
     fixture_names: dict[str, int] = {}
     helper_names: dict[str, int] = {}
 
+    per_model_seeds = cfg.per_model_seeds or {}
+
     for model in models:
+        model_id = f"{model.__module__}.{model.__qualname__}"
+        if per_model_seeds:
+            seed_value = per_model_seeds.get(model_id, cfg.seed)
+            generator = _build_generator(seed_value)
+        else:
+            if shared_generator is None:
+                shared_generator = _build_generator(cfg.seed)
+            generator = shared_generator
+
         instances = generator.generate(model, count=cfg.cases)
         if len(instances) < cfg.cases:
             raise RuntimeError(
