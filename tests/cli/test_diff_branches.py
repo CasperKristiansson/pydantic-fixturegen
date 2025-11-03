@@ -60,7 +60,10 @@ def _schema_options(path: Path | None) -> diff_module.SchemaDiffOptions:
 
 def _make_generator(factory: Callable[[], object]) -> Callable[..., SimpleNamespace]:
     def _builder(**_kwargs: object) -> SimpleNamespace:
-        return SimpleNamespace(generate_one=lambda _model: factory())
+        return SimpleNamespace(
+            generate_one=lambda _model: factory(),
+            constraint_report=SimpleNamespace(summary=lambda: {}),
+        )
 
     return _builder
 
@@ -549,7 +552,13 @@ def test_resolve_method_variants() -> None:
 
 
 def test_render_reports_handles_cases(capsys: pytest.CaptureFixture[str]) -> None:
-    diff_module._render_reports([], show_diff=False)
+    logger = SimpleNamespace(
+        config=SimpleNamespace(json=False),
+        warn=lambda *a, **k: None,
+        debug=lambda *a, **k: None,
+    )
+
+    diff_module._render_reports([], show_diff=False, logger=logger, json_mode=False)
     output = capsys.readouterr()
     assert "No artifacts were compared" in output.out or output.err
 
@@ -570,7 +579,7 @@ def test_render_reports_handles_cases(capsys: pytest.CaptureFixture[str]) -> Non
         summary=None,
     )
 
-    diff_module._render_reports([matching, changed], show_diff=True)
+    diff_module._render_reports([matching, changed], show_diff=True, logger=logger, json_mode=False)
     output = capsys.readouterr()
     assert "All good" in output.out
     assert "FIXTURES differences detected" in output.out

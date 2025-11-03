@@ -6,10 +6,10 @@ import importlib
 import importlib.util
 import json
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from types import ModuleType
-from typing import Literal
+from typing import Any, Literal
 
 import typer
 from pydantic import BaseModel
@@ -20,6 +20,7 @@ from pydantic_fixturegen.core.introspect import (
     IntrospectionResult,
     discover,
 )
+from pydantic_fixturegen.logging import Logger
 
 __all__ = [
     "JSON_ERRORS_OPTION",
@@ -28,6 +29,7 @@ __all__ = [
     "load_model_class",
     "render_cli_error",
     "split_patterns",
+    "emit_constraint_summary",
 ]
 
 
@@ -97,6 +99,79 @@ def render_cli_error(error: PFGError, *, json_errors: bool, exit_app: bool = Tru
             typer.secho(f"hint: {error.hint}", err=True, fg=typer.colors.YELLOW)
     if exit_app:
         raise typer.Exit(code=int(error.code))
+
+
+def emit_constraint_summary(
+    report: Mapping[str, Any] | None,
+    *,
+    logger: Logger,
+    json_mode: bool,
+    heading: str | None = None,
+) -> None:
+    if not report:
+        return
+
+    models = report.get("models")
+    if not models:
+        return
+
+    has_failures = any(
+        field.get("failures") for model_entry in models for field in model_entry.get("fields", [])
+    )
+
+    event_payload = {"report": report, "heading": heading}
+
+    if has_failures:
+        logger.warn(
+            "Constraint violations detected.",
+            event="constraint_report",
+            **event_payload,
+        )
+    else:
+        logger.debug(
+            "Constraint report recorded.",
+            event="constraint_report",
+            **event_payload,
+        )
+
+    if not has_failures or json_mode:
+        return
+
+    title = heading or "Constraint report"
+    typer.secho(title + ":", fg=typer.colors.CYAN)
+
+    for model_entry in models:
+        fields = [field for field in model_entry.get("fields", []) if field.get("failures")]
+        if not fields:
+            continue
+
+        typer.secho(
+            (
+                f"  {model_entry['model']} "
+                f"(attempts={model_entry['attempts']}, successes={model_entry['successes']})"
+            ),
+            fg=typer.colors.CYAN,
+        )
+        for field_entry in fields:
+            typer.secho(
+                (
+                    f"    {field_entry['name']} "
+                    f"(attempts={field_entry['attempts']}, successes={field_entry['successes']})"
+                ),
+                fg=typer.colors.YELLOW,
+            )
+            for failure in field_entry.get("failures", []):
+                location = failure.get("location") or [field_entry["name"]]
+                location_display = ".".join(str(part) for part in location)
+                typer.secho(
+                    f"      ✖ {location_display}: {failure.get('message', '')}",
+                    fg=typer.colors.RED,
+                )
+                if failure.get("value") is not None:
+                    typer.echo(f"        value={failure['value']}")
+                hint = failure.get("hint")
+                if hint:
+                    typer.secho(f"        hint: {hint}", fg=typer.colors.MAGENTA)
 
 
 def _load_module(module_name: str, locator: Path) -> ModuleType:

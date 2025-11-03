@@ -12,10 +12,11 @@ from dataclasses import fields as dataclass_fields
 from typing import Any, get_type_hints
 
 from faker import Faker
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from pydantic.fields import FieldInfo
 
 from pydantic_fixturegen.core import schema as schema_module
+from pydantic_fixturegen.core.constraint_report import ConstraintReporter
 from pydantic_fixturegen.core.providers import ProviderRegistry, create_default_registry
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary, extract_constraints
 from pydantic_fixturegen.core.strategies import (
@@ -70,6 +71,11 @@ class InstanceGenerator:
             plugin_manager=self._plugin_manager,
         )
         self._strategy_cache: dict[type[Any], dict[str, StrategyResult]] = {}
+        self._constraint_reporter = ConstraintReporter()
+
+    @property
+    def constraint_report(self) -> ConstraintReporter:
+        return self._constraint_reporter
 
     # ------------------------------------------------------------------ public API
     def generate_one(self, model: type[BaseModel]) -> BaseModel | None:
@@ -97,53 +103,97 @@ class InstanceGenerator:
         except TypeError:
             return None
 
+        self._constraint_reporter.begin_model(model_type)
+
         values: dict[str, Any] = {}
         for field_name, strategy in strategies.items():
-            values[field_name] = self._evaluate_strategy(strategy, depth)
+            values[field_name] = self._evaluate_strategy(
+                strategy,
+                depth,
+                model_type,
+                field_name,
+            )
 
         try:
-            if isinstance(model_type, type) and issubclass(model_type, BaseModel):
-                return model_type(**values)
-            if is_dataclass(model_type):
-                return model_type(**values)
-        except Exception:
+            instance: Any | None = None
+            if (isinstance(model_type, type) and issubclass(model_type, BaseModel)) or is_dataclass(
+                model_type
+            ):
+                instance = model_type(**values)
+        except ValidationError as exc:
+            self._constraint_reporter.finish_model(
+                model_type,
+                success=False,
+                errors=exc.errors(),
+            )
             return None
-        return None
+        except Exception:
+            self._constraint_reporter.finish_model(model_type, success=False)
+            return None
 
-    def _evaluate_strategy(self, strategy: StrategyResult, depth: int) -> Any:
+        if instance is None:
+            self._constraint_reporter.finish_model(model_type, success=False)
+            return None
+
+        self._constraint_reporter.finish_model(model_type, success=True)
+        return instance
+
+    def _evaluate_strategy(
+        self,
+        strategy: StrategyResult,
+        depth: int,
+        model_type: type[Any],
+        field_name: str,
+    ) -> Any:
         if isinstance(strategy, UnionStrategy):
-            return self._evaluate_union(strategy, depth)
-        return self._evaluate_single(strategy, depth)
+            return self._evaluate_union(strategy, depth, model_type, field_name)
+        return self._evaluate_single(strategy, depth, model_type, field_name)
 
-    def _evaluate_union(self, strategy: UnionStrategy, depth: int) -> Any:
+    def _evaluate_union(
+        self,
+        strategy: UnionStrategy,
+        depth: int,
+        model_type: type[Any],
+        field_name: str,
+    ) -> Any:
         choices = strategy.choices
         if not choices:
             return None
 
         selected = self.random.choice(choices) if strategy.policy == "random" else choices[0]
-        return self._evaluate_single(selected, depth)
+        return self._evaluate_single(selected, depth, model_type, field_name)
 
-    def _evaluate_single(self, strategy: Strategy, depth: int) -> Any:
-        if self._should_return_none(strategy):
-            return None
-
+    def _evaluate_single(
+        self,
+        strategy: Strategy,
+        depth: int,
+        model_type: type[Any],
+        field_name: str,
+    ) -> Any:
         summary = strategy.summary
-        enum_values = strategy.enum_values or summary.enum_values
+        self._constraint_reporter.record_field_attempt(model_type, field_name, summary)
 
-        if enum_values:
-            return self._select_enum_value(strategy, enum_values)
+        if self._should_return_none(strategy):
+            value: Any = None
+        else:
+            enum_values = strategy.enum_values or summary.enum_values
+            if enum_values:
+                value = self._select_enum_value(strategy, enum_values)
+            else:
+                annotation = strategy.annotation
 
-        annotation = strategy.annotation
+                if self._is_model_like(annotation):
+                    value = self._build_model_instance(annotation, depth=depth + 1)
+                elif summary.type in {"list", "set", "tuple", "mapping"}:
+                    value = self._evaluate_collection(strategy, depth)
+                else:
+                    if strategy.provider_ref is None:
+                        value = None
+                    else:
+                        value = self._call_strategy_provider(strategy)
 
-        if self._is_model_like(annotation):
-            return self._build_model_instance(annotation, depth=depth + 1)
-
-        if summary.type in {"list", "set", "tuple", "mapping"}:
-            return self._evaluate_collection(strategy, depth)
-
-        if strategy.provider_ref is None:
-            return None
-        return self._call_strategy_provider(strategy)
+        self._constraint_reporter.record_field_value(field_name, value)
+        return value
 
     def _evaluate_collection(self, strategy: Strategy, depth: int) -> Any:
         summary = strategy.summary

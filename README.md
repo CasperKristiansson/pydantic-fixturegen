@@ -230,6 +230,8 @@ Presets bundle opinionated policy tweaks for faster boundary-focused runs. Suppl
 
 Aliases like `--preset edge` resolve to `boundary`. Explicit CLI/env/config overrides still take precedence over the preset values.
 
+Whenever generation cannot satisfy model constraints, the CLI prints a constraint report (and emits a `constraint_report` log event) summarizing failing fields plus hints for overrides or policy adjustments. The structured payload is also available in `--log-json` and diff reports.
+
 Enforce deterministic regeneration across machines with the `--freeze-seeds` flag available on `gen json`, `gen fixtures`, and `diff`. When enabled the commands read and update a freeze file (defaults to `.pfg-seeds.json` in the project root) containing per-model seeds and model digests:
 
 ```json

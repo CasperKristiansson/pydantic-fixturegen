@@ -7,6 +7,7 @@ import os
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 __all__ = ["WriteResult", "write_atomic_text", "write_atomic_bytes"]
 
@@ -19,6 +20,7 @@ class WriteResult:
     wrote: bool
     skipped: bool
     reason: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 def write_atomic_text(
@@ -53,7 +55,13 @@ def _write_atomic(path: Path, data: bytes, *, hash_compare: bool) -> WriteResult
     if hash_compare and path.exists():
         existing = path.read_bytes()
         if _hash_bytes(existing) == digest:
-            return WriteResult(path=path, wrote=False, skipped=True, reason="unchanged")
+            return WriteResult(
+                path=path,
+                wrote=False,
+                skipped=True,
+                reason="unchanged",
+                metadata=None,
+            )
 
     with tempfile.NamedTemporaryFile(
         delete=False,
@@ -70,7 +78,7 @@ def _write_atomic(path: Path, data: bytes, *, hash_compare: bool) -> WriteResult
         temp_path.unlink(missing_ok=True)
         raise exc
 
-    return WriteResult(path=path, wrote=True, skipped=False, reason=None)
+    return WriteResult(path=path, wrote=True, skipped=False, reason=None, metadata=None)
 
 
 def _hash_bytes(data: bytes) -> str:

@@ -30,6 +30,7 @@ from ._common import (
     JSON_ERRORS_OPTION,
     clear_module_cache,
     discover_models,
+    emit_constraint_summary,
     load_model_class,
     render_cli_error,
     split_patterns,
@@ -369,21 +370,51 @@ def _execute_json_command(
             ensure_ascii=False,
         )
     except RuntimeError as exc:
+        constraint_summary = _summarize_constraint_report(generator)
+        emit_constraint_summary(
+            constraint_summary,
+            logger=logger,
+            json_mode=logger.config.json,
+        )
         raise EmitError(str(exc)) from exc
-
-    path_strs = [str(emitted_path) for emitted_path in paths]
-    logger.info(
-        "JSON generation complete",
-        event="json_generation_complete",
-        files=path_strs,
-        count=count,
-    )
+    except PFGError:
+        constraint_summary = _summarize_constraint_report(generator)
+        emit_constraint_summary(
+            constraint_summary,
+            logger=logger,
+            json_mode=logger.config.json,
+        )
+        raise
+    else:
+        constraint_summary = _summarize_constraint_report(generator)
+        path_strs = [str(emitted_path) for emitted_path in paths]
+        logger.info(
+            "JSON generation complete",
+            event="json_generation_complete",
+            files=path_strs,
+            count=count,
+        )
+        emit_constraint_summary(
+            constraint_summary,
+            logger=logger,
+            json_mode=logger.config.json,
+        )
     if freeze_manager is not None:
         assert selected_seed is not None
         freeze_manager.record_seed(model_id, selected_seed, model_digest=model_digest)
         freeze_manager.save()
     for emitted_path in paths:
         typer.echo(str(emitted_path))
+
+
+def _summarize_constraint_report(generator: Any) -> dict[str, Any] | None:
+    reporter = getattr(generator, "constraint_report", None)
+    if reporter is None:
+        return None
+    summary = reporter.summary()
+    if not isinstance(summary, dict):
+        return None
+    return summary
 
 
 def _build_instance_generator(

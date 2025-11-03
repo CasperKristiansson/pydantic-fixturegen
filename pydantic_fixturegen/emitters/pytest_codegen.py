@@ -14,6 +14,7 @@ from typing import Any, Literal, cast
 
 from pydantic import BaseModel
 
+from pydantic_fixturegen.core.constraint_report import ConstraintReporter
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.io_utils import WriteResult, write_atomic_text
 from pydantic_fixturegen.core.version import build_artifact_header
@@ -73,6 +74,7 @@ def emit_pytest_fixtures(
     helper_names: dict[str, int] = {}
 
     per_model_seeds = cfg.per_model_seeds or {}
+    constraint_reporters: list[ConstraintReporter] = []
 
     for model in models:
         model_id = f"{model.__module__}.{model.__qualname__}"
@@ -89,6 +91,8 @@ def emit_pytest_fixtures(
             raise RuntimeError(
                 f"Failed to generate {cfg.cases} instance(s) for {model.__qualname__}."
             )
+        if per_model_seeds:
+            constraint_reporters.append(generator.constraint_report)
         data = [_model_to_literal(instance) for instance in instances]
         base_name = model.__name__
         if cfg.style in {"factory", "class"}:
@@ -116,6 +120,17 @@ def emit_pytest_fixtures(
         rendered,
         hash_compare=cfg.hash_compare,
     )
+    aggregate_report = ConstraintReporter()
+    if shared_generator is not None and not per_model_seeds:
+        aggregate_report.merge_from(shared_generator.constraint_report)
+    else:
+        for reporter in constraint_reporters:
+            aggregate_report.merge_from(reporter)
+
+    summary = aggregate_report.summary()
+    if summary.get("models"):
+        result.metadata = result.metadata or {}
+        result.metadata["constraints"] = summary
     return result
 
 

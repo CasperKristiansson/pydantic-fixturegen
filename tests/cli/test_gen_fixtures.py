@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import types
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +10,7 @@ from pydantic_fixturegen.cli.gen import fixtures as fixtures_mod
 from pydantic_fixturegen.core.config import AppConfig, ConfigError
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError
 from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult
+from pydantic_fixturegen.core.io_utils import WriteResult
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -249,15 +249,21 @@ def test_execute_fixtures_command_warnings(
     monkeypatch.setattr(fixtures_mod, "load_entrypoint_plugins", lambda: None)
     monkeypatch.setattr(fixtures_mod, "emit_artifact", lambda *a, **k: False)
 
-    result_obj = types.SimpleNamespace(skipped=True)
+    out_path = tmp_path / "fixtures.py"
+
+    result_obj = WriteResult(
+        path=out_path,
+        wrote=False,
+        skipped=True,
+        reason="unchanged",
+        metadata=None,
+    )
 
     monkeypatch.setattr(
         fixtures_mod,
         "emit_pytest_fixtures",
         lambda *a, **k: result_obj,
     )
-
-    out_path = tmp_path / "fixtures.py"
 
     fixtures_mod._execute_fixtures_command(
         target=str(module_path),
@@ -441,8 +447,9 @@ def test_execute_fixtures_command_applies_preset(
     monkeypatch.setattr(fixtures_mod, "load_config", fake_load_config)
     monkeypatch.setattr(fixtures_mod, "emit_artifact", lambda *a, **k: False)
 
-    result_obj = types.SimpleNamespace(path=tmp_path / "fixtures.py", skipped=False)
-    result_obj.path.write_text("# fixtures", encoding="utf-8")
+    result_path = tmp_path / "fixtures.py"
+    result_path.write_text("# fixtures", encoding="utf-8")
+    result_obj = WriteResult(path=result_path, wrote=True, skipped=False, reason=None, metadata={})
 
     monkeypatch.setattr(fixtures_mod, "emit_pytest_fixtures", lambda *a, **k: result_obj)
 

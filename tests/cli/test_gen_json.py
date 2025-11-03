@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -122,6 +123,39 @@ def test_gen_json_mapping_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     output = tmp_path / "out.json"
 
     class DummyGenerator:
+        def __init__(self) -> None:
+            self.constraint_report = SimpleNamespace(
+                summary=lambda: {
+                    "models": [
+                        {
+                            "model": "models.User",
+                            "attempts": 1,
+                            "successes": 0,
+                            "fields": [
+                                {
+                                    "name": "value",
+                                    "constraints": None,
+                                    "attempts": 1,
+                                    "successes": 0,
+                                    "failures": [
+                                        {
+                                            "location": ["value"],
+                                            "message": "failed",
+                                            "error_type": "value_error",
+                                            "value": None,
+                                            "hint": "check constraints",
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                    "total_models": 1,
+                    "models_with_failures": 1,
+                    "total_failures": 1,
+                }
+            )
+
         def generate_one(self, model):  # noqa: ANN001
             return None
 
@@ -148,6 +182,9 @@ def test_gen_json_mapping_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
 
     assert result.exit_code == 20
     assert "Failed to generate instance" in result.stderr
+    assert "Constraint violations detected." in result.stderr
+    assert "Constraint report" in result.stdout
+    assert "hint:" in result.stdout
 
 
 def test_gen_json_emit_artifact_short_circuit(

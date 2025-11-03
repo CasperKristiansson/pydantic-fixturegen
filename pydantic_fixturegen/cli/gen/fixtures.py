@@ -28,6 +28,7 @@ from ._common import (
     JSON_ERRORS_OPTION,
     clear_module_cache,
     discover_models,
+    emit_constraint_summary,
     load_model_class,
     render_cli_error,
     split_patterns,
@@ -385,6 +386,10 @@ def _execute_fixtures_command(
     except Exception as exc:
         raise EmitError(str(exc)) from exc
 
+    constraint_summary = None
+    if result.metadata and "constraints" in result.metadata:
+        constraint_summary = result.metadata["constraints"]
+
     message = str(out)
     if result.skipped:
         message += " (unchanged)"
@@ -402,6 +407,12 @@ def _execute_fixtures_command(
             scope=scope_final,
         )
     typer.echo(message)
+
+    emit_constraint_summary(
+        constraint_summary,
+        logger=logger,
+        json_mode=logger.config.json,
+    )
 
     if freeze_manager is not None:
         for model_cls in model_classes:

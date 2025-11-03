@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added watch mode (`--watch`) to generation commands for automatic regeneration on file changes (requires the optional `watch` extra).
 - Introduced structured logging controls (`-v/-q` verbosity tiers and `--log-json` for machine-readable events with stable `event` + `context` fields).
 - Introduced boundary coverage presets (`--preset` with `boundary` / `boundary-max`) that tune union/enum policies and optional `None` probabilities for edge-case heavy datasets.
+- Added constraint reporting across generation and diff commands, surfacing unmet model constraints with actionable hints in both human-readable and structured outputs.
 - Added deterministic seed freeze support (`--freeze-seeds`, `.pfg-seeds.json`) with per-model digests, warnings for stale data, and CLI integration across generation/diff commands.
 
 ### Fixed

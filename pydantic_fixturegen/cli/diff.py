@@ -31,7 +31,10 @@ from pydantic_fixturegen.core.seed_freeze import (
     resolve_freeze_path,
 )
 from pydantic_fixturegen.emitters.json_out import emit_json_samples
-from pydantic_fixturegen.emitters.pytest_codegen import PytestEmitConfig, emit_pytest_fixtures
+from pydantic_fixturegen.emitters.pytest_codegen import (
+    PytestEmitConfig,
+    emit_pytest_fixtures,
+)
 from pydantic_fixturegen.emitters.schema_out import emit_model_schema, emit_models_schema
 from pydantic_fixturegen.logging import get_logger
 from pydantic_fixturegen.plugins.hookspecs import EmitterContext
@@ -42,6 +45,7 @@ from .gen._common import (
     DiscoveryMethod,
     clear_module_cache,
     discover_models,
+    emit_constraint_summary,
     load_model_class,
     render_cli_error,
     split_patterns,
@@ -225,6 +229,7 @@ class DiffReport:
     messages: list[str]
     diff_outputs: list[tuple[str, str]]
     summary: str | None
+    constraint_report: dict[str, Any] | None = None
 
     @property
     def changed(self) -> bool:
@@ -262,6 +267,7 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
     freeze_seeds_file: Path | None = FREEZE_FILE_OPTION,
 ) -> None:
     _ = ctx
+    logger = get_logger()
     try:
         reports = _execute_diff(
             target=path,
@@ -313,6 +319,7 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
                     "diffs": [
                         {"path": path, "diff": diff_text} for path, diff_text in report.diff_outputs
                     ],
+                    "constraints": report.constraint_report,
                 }
                 for report in reports
                 if report.kind and (report.changed or report.messages or report.checked_paths)
@@ -321,7 +328,7 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
         render_cli_error(DiffError("Artifacts differ.", details=payload), json_errors=True)
         return
 
-    _render_reports(reports, show_diff)
+    _render_reports(reports, show_diff, logger, logger.config.json)
 
     if changed:
         raise typer.Exit(code=1)
@@ -574,52 +581,54 @@ def _diff_json_artifact(
             options.use_orjson if options.use_orjson is not None else app_config_orjson
         )
 
-        try:
-            generated_paths = emit_json_samples(
-                sample_factory,
-                output_path=temp_base,
-                count=options.count,
-                jsonl=options.jsonl,
-                indent=indent_value,
-                shard_size=options.shard_size,
-                use_orjson=use_orjson_value,
-                ensure_ascii=False,
-            )
-        except RuntimeError as exc:
-            raise EmitError(str(exc)) from exc
+    try:
+        generated_paths = emit_json_samples(
+            sample_factory,
+            output_path=temp_base,
+            count=options.count,
+            jsonl=options.jsonl,
+            indent=indent_value,
+            shard_size=options.shard_size,
+            use_orjson=use_orjson_value,
+            ensure_ascii=False,
+        )
+    except RuntimeError as exc:
+        raise EmitError(str(exc)) from exc
 
-        generated_paths = sorted(generated_paths, key=lambda p: p.name)
-        actual_parent = output_path.parent if output_path.parent != Path("") else Path(".")
+    constraint_summary = generator.constraint_report.summary()
 
-        checked_paths: list[Path] = []
-        messages: list[str] = []
-        diff_outputs: list[tuple[str, str]] = []
+    generated_paths = sorted(generated_paths, key=lambda p: p.name)
+    actual_parent = output_path.parent if output_path.parent != Path("") else Path(".")
 
-        for generated_path in generated_paths:
-            actual_path = actual_parent / generated_path.name
-            checked_paths.append(actual_path)
-            if not actual_path.exists():
-                messages.append(f"Missing JSON artifact: {actual_path}")
-                continue
-            if actual_path.is_dir():
-                messages.append(f"JSON artifact path is a directory: {actual_path}")
-                continue
+    checked_paths: list[Path] = []
+    messages: list[str] = []
+    diff_outputs: list[tuple[str, str]] = []
 
-            actual_text = actual_path.read_text(encoding="utf-8")
-            generated_text = generated_path.read_text(encoding="utf-8")
-            if actual_text != generated_text:
-                messages.append(f"JSON artifact differs: {actual_path}")
-                diff_outputs.append(
-                    (
+    for generated_path in generated_paths:
+        actual_path = actual_parent / generated_path.name
+        checked_paths.append(actual_path)
+        if not actual_path.exists():
+            messages.append(f"Missing JSON artifact: {actual_path}")
+            continue
+        if actual_path.is_dir():
+            messages.append(f"JSON artifact path is a directory: {actual_path}")
+            continue
+
+        actual_text = actual_path.read_text(encoding="utf-8")
+        generated_text = generated_path.read_text(encoding="utf-8")
+        if actual_text != generated_text:
+            messages.append(f"JSON artifact differs: {actual_path}")
+            diff_outputs.append(
+                (
+                    str(actual_path),
+                    _build_unified_diff(
+                        actual_text,
+                        generated_text,
                         str(actual_path),
-                        _build_unified_diff(
-                            actual_text,
-                            generated_text,
-                            str(actual_path),
-                            f"{actual_path} (generated)",
-                        ),
-                    )
+                        f"{actual_path} (generated)",
+                    ),
                 )
+            )
 
         expected_names = {path.name for path in generated_paths}
         suffix = ".jsonl" if options.jsonl else ".json"
@@ -642,6 +651,7 @@ def _diff_json_artifact(
         messages=messages,
         diff_outputs=diff_outputs,
         summary=summary,
+        constraint_report=(constraint_summary if constraint_summary.get("models") else None),
     )
 
 
@@ -672,6 +682,8 @@ def _diff_fixtures_artifact(
     scope_final = scope_value or app_config_scope
     return_type_default: ReturnLiteral = DEFAULT_RETURN
     return_type_final: ReturnLiteral = return_type_value or return_type_default
+
+    constraint_summary: dict[str, Any] | None = None
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         temp_out = Path(tmp_dir) / "fixtures" / output_path.name
@@ -713,6 +725,8 @@ def _diff_fixtures_artifact(
             except Exception as exc:  # pragma: no cover - defensive
                 raise EmitError(str(exc)) from exc
             generated_path = result.path
+            if result.metadata and "constraints" in result.metadata:
+                constraint_summary = result.metadata["constraints"]
 
         if not generated_path.exists() or generated_path.is_dir():
             raise EmitError("Fixture emitter did not produce a file to diff.")
@@ -755,6 +769,9 @@ def _diff_fixtures_artifact(
         messages=messages,
         diff_outputs=diff_outputs,
         summary=summary,
+        constraint_report=(
+            constraint_summary if constraint_summary and constraint_summary.get("models") else None
+        ),
     )
 
 
@@ -879,7 +896,12 @@ def _resolve_method(ast_mode: bool, hybrid_mode: bool) -> DiscoveryMethod:
     return "import"
 
 
-def _render_reports(reports: Iterable[DiffReport], show_diff: bool) -> None:
+def _render_reports(
+    reports: Iterable[DiffReport],
+    show_diff: bool,
+    logger: Any,
+    json_mode: bool,
+) -> None:
     reports = list(reports)
     if not reports:
         typer.secho("No artifacts were compared.", fg=typer.colors.YELLOW)
@@ -900,6 +922,14 @@ def _render_reports(reports: Iterable[DiffReport], show_diff: bool) -> None:
         else:
             if report.summary:
                 typer.echo(report.summary)
+
+        if report.constraint_report:
+            emit_constraint_summary(
+                report.constraint_report,
+                logger=logger,
+                json_mode=json_mode,
+                heading=f"{report.kind.upper()} constraint report",
+            )
 
     if not any_changes:
         typer.secho("All compared artifacts match.", fg=typer.colors.GREEN)
