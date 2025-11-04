@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import datetime
 from pathlib import Path
 from typing import Literal, cast
 
@@ -257,9 +256,12 @@ def _execute_fixtures_command(
             preset=preset,
             logger=logger,
         )
-    except PFGError:
+    except PFGError as exc:
+        _handle_fixtures_error(logger, exc)
         raise
     except Exception as exc:  # pragma: no cover - defensive
+        if isinstance(exc, ConfigError):
+            raise
         raise EmitError(str(exc)) from exc
 
     if _log_fixtures_snapshot(logger, result):
@@ -336,6 +338,45 @@ def _log_fixtures_snapshot(logger: Logger, result: FixturesGenerationResult) -> 
 
 
 __all__ = ["register"]
+
+
+def _handle_fixtures_error(logger: Logger, exc: PFGError) -> None:
+    details = getattr(exc, "details", {}) or {}
+    config_info = details.get("config")
+    anchor_iso = None
+    if isinstance(config_info, dict):
+        anchor_iso = config_info.get("time_anchor")
+        logger.debug(
+            "Loaded configuration",
+            event="config_loaded",
+            seed=config_info.get("seed"),
+            include=config_info.get("include", []),
+            exclude=config_info.get("exclude", []),
+            time_anchor=anchor_iso,
+        )
+        if anchor_iso:
+            logger.info(
+                "Using temporal anchor",
+                event="temporal_anchor_set",
+                time_anchor=anchor_iso,
+            )
+
+    warnings = details.get("warnings") or []
+    for warning in warnings:
+        if isinstance(warning, str):
+            logger.warn(
+                warning,
+                event="discovery_warning",
+                warning=warning,
+            )
+
+    constraint_summary = details.get("constraint_summary")
+    if constraint_summary:
+        emit_constraint_summary(
+            constraint_summary,
+            logger=logger,
+            json_mode=logger.config.json,
+        )
 
 
 def _coerce_style(value: str | None) -> StyleLiteral | None:

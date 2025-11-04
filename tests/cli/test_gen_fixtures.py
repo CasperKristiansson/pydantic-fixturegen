@@ -4,13 +4,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from pydantic import BaseModel
+from pydantic_fixturegen.api.models import ConfigSnapshot, FixturesGenerationResult
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.cli.gen import fixtures as fixtures_mod
-from pydantic_fixturegen.core.config import AppConfig, ConfigError
+from pydantic_fixturegen.core.config import ConfigError
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError
-from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult
-from pydantic_fixturegen.core.io_utils import WriteResult
 from pydantic_fixturegen.core.path_template import OutputTemplate
 from typer.testing import CliRunner
 
@@ -47,6 +45,8 @@ class Order(BaseModel):
 def test_gen_fixtures_basic_functions_style(tmp_path: Path) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "conftest.py"
+
+    output.write_text("sentinel", encoding="utf-8")
 
     result = runner.invoke(
         cli_app,
@@ -191,15 +191,28 @@ def test_gen_fixtures_emit_artifact_short_circuit(
     module_path = _write_module(tmp_path)
     output = tmp_path / "fixtures.py"
 
-    monkeypatch.setattr(
-        "pydantic_fixturegen.cli.gen.fixtures.emit_artifact",
-        lambda *a, **k: True,
+    delegated = FixturesGenerationResult(
+        path=None,
+        base_output=output,
+        models=(),
+        config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+        metadata={},
+        warnings=(),
+        constraint_summary=None,
+        skipped=False,
+        delegated=True,
+        style="functions",
+        scope="function",
+        return_type="model",
+        cases=1,
     )
 
-    def fail_emit(*args, **kwargs):  # noqa: ANN001, ANN002
-        raise AssertionError("emit_pytest_fixtures should not be called")
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.gen.fixtures.generate_fixtures_artifacts",
+        lambda **_: delegated,
+    )
 
-    monkeypatch.setattr("pydantic_fixturegen.cli.gen.fixtures.emit_pytest_fixtures", fail_emit)
+    output.write_text("sentinel", encoding="utf-8")
 
     result = runner.invoke(
         cli_app,
@@ -215,17 +228,45 @@ def test_gen_fixtures_emit_artifact_short_circuit(
     )
 
     assert result.exit_code == 0
-    assert not output.exists()
+    assert output.exists()
+    assert output.read_text(encoding="utf-8") == "sentinel"
 
 
 def test_gen_fixtures_emit_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "fixtures.py"
 
-    def bad_emit(*args, **kwargs):  # noqa: ANN001, ANN002
-        raise RuntimeError("fail")
+    error = EmitError(
+        "fail",
+        details={
+            "config": {
+                "seed": None,
+                "include": ["models.User"],
+                "exclude": [],
+                "time_anchor": None,
+            },
+            "warnings": [],
+            "base_output": str(output),
+            "constraint_summary": {
+                "models": [
+                    {
+                        "model": "models.User",
+                        "attempts": 1,
+                        "successes": 0,
+                        "fields": [],
+                    }
+                ]
+            },
+        },
+    )
 
-    monkeypatch.setattr("pydantic_fixturegen.cli.gen.fixtures.emit_pytest_fixtures", bad_emit)
+    def raise_error(**_: Any) -> FixturesGenerationResult:
+        raise error
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.gen.fixtures.generate_fixtures_artifacts",
+        raise_error,
+    )
 
     result = runner.invoke(
         cli_app,
@@ -248,10 +289,13 @@ def test_gen_fixtures_config_error(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     module_path = _write_module(tmp_path)
     output = tmp_path / "fixtures.py"
 
-    def bad_config(**_: object):  # noqa: ANN003
+    def raise_config(**_: Any) -> FixturesGenerationResult:
         raise ConfigError("broken")
 
-    monkeypatch.setattr("pydantic_fixturegen.cli.gen.fixtures.load_config", bad_config)
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.gen.fixtures.generate_fixtures_artifacts",
+        raise_config,
+    )
 
     result = runner.invoke(
         cli_app,
@@ -275,48 +319,30 @@ def test_execute_fixtures_command_warnings(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    module_path = _write_module(tmp_path)
-    info = IntrospectedModel(
-        module="pkg",
-        name="User",
-        qualname="pkg.User",
-        locator=str(module_path),
-        lineno=1,
-        discovery="import",
-        is_public=True,
-    )
-
-    class DemoModel(BaseModel):
-        id: int
-
-    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
-        assert path == module_path
-        return IntrospectionResult(models=[info], warnings=["warn"], errors=[])
-
-    monkeypatch.setattr(fixtures_mod, "discover_models", fake_discover)
-    monkeypatch.setattr(fixtures_mod, "load_model_class", lambda _: DemoModel)
-    monkeypatch.setattr(fixtures_mod, "clear_module_cache", lambda: None)
-    monkeypatch.setattr(fixtures_mod, "load_entrypoint_plugins", lambda: None)
-    monkeypatch.setattr(fixtures_mod, "emit_artifact", lambda *a, **k: False)
-
     out_path = tmp_path / "fixtures.py"
-
-    result_obj = WriteResult(
+    result = FixturesGenerationResult(
         path=out_path,
-        wrote=False,
+        base_output=out_path,
+        models=(),
+        config=ConfigSnapshot(seed=123, include=("pkg.User",), exclude=(), time_anchor=None),
+        metadata={},
+        warnings=("warn",),
+        constraint_summary=None,
         skipped=True,
-        reason="unchanged",
-        metadata=None,
+        delegated=False,
+        style="factory",
+        scope="module",
+        return_type="model",
+        cases=2,
     )
 
     monkeypatch.setattr(
-        fixtures_mod,
-        "emit_pytest_fixtures",
-        lambda *a, **k: result_obj,
+        "pydantic_fixturegen.cli.gen.fixtures.generate_fixtures_artifacts",
+        lambda **_: result,
     )
 
     fixtures_mod._execute_fixtures_command(
-        target=str(module_path),
+        target="module",
         output_template=OutputTemplate(str(out_path)),
         style="factory",
         scope="module",
@@ -338,29 +364,18 @@ def test_execute_fixtures_command_warnings(
 
 
 def test_execute_fixtures_command_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    module_path = _write_module(tmp_path)
-    info = IntrospectedModel(
-        module="pkg",
-        name="User",
-        qualname="pkg.User",
-        locator=str(module_path),
-        lineno=1,
-        discovery="import",
-        is_public=True,
+    def raise_discovery(**_: Any) -> FixturesGenerationResult:
+        raise DiscoveryError("boom")
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.gen.fixtures.generate_fixtures_artifacts",
+        raise_discovery,
     )
-
-    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
-        assert path == module_path
-        return IntrospectionResult(models=[info], warnings=[], errors=["boom"])
-
-    monkeypatch.setattr(fixtures_mod, "discover_models", fake_discover)
-    monkeypatch.setattr(fixtures_mod, "clear_module_cache", lambda: None)
-    monkeypatch.setattr(fixtures_mod, "load_entrypoint_plugins", lambda: None)
 
     with pytest.raises(DiscoveryError):
         fixtures_mod._execute_fixtures_command(
-            target=str(module_path),
-            output_template=OutputTemplate(str(module_path)),
+            target="module",
+            output_template=OutputTemplate(str(tmp_path / "out.py")),
             style=None,
             scope=None,
             cases=1,
@@ -420,39 +435,32 @@ def test_execute_fixtures_command_path_checks(tmp_path: Path) -> None:
 def test_execute_fixtures_command_emit_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    module_path = _write_module(tmp_path)
-    info = IntrospectedModel(
-        module="pkg",
-        name="User",
-        qualname="pkg.User",
-        locator=str(module_path),
-        lineno=1,
-        discovery="import",
-        is_public=True,
+    error = EmitError(
+        "fail",
+        details={
+            "config": {
+                "seed": None,
+                "include": [],
+                "exclude": [],
+                "time_anchor": None,
+            },
+            "warnings": [],
+            "base_output": str(tmp_path / "out.py"),
+        },
     )
 
-    class DemoModel(BaseModel):
-        id: int
+    def raise_error(**_: Any) -> FixturesGenerationResult:
+        raise error
 
-    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
-        assert path == module_path
-        return IntrospectionResult(models=[info], warnings=[], errors=[])
-
-    monkeypatch.setattr(fixtures_mod, "discover_models", fake_discover)
-    monkeypatch.setattr(fixtures_mod, "load_model_class", lambda _: DemoModel)
-    monkeypatch.setattr(fixtures_mod, "clear_module_cache", lambda: None)
-    monkeypatch.setattr(fixtures_mod, "load_entrypoint_plugins", lambda: None)
-    monkeypatch.setattr(fixtures_mod, "emit_artifact", lambda *a, **k: False)
-
-    def boom_emit(*args, **kwargs):  # noqa: ANN001, ANN002
-        raise RuntimeError("fail")
-
-    monkeypatch.setattr(fixtures_mod, "emit_pytest_fixtures", boom_emit)
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.gen.fixtures.generate_fixtures_artifacts",
+        raise_error,
+    )
 
     with pytest.raises(EmitError):
         fixtures_mod._execute_fixtures_command(
-            target=str(module_path),
-            output_template=OutputTemplate(str(module_path)),
+            target="module",
+            output_template=OutputTemplate(str(tmp_path / "out.py")),
             style=None,
             scope=None,
             cases=1,
@@ -471,46 +479,35 @@ def test_execute_fixtures_command_emit_error(
 def test_execute_fixtures_command_applies_preset(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    module_path = _write_module(tmp_path)
-    info = IntrospectedModel(
-        module="pkg",
-        name="User",
-        qualname="pkg.User",
-        locator=str(module_path),
-        lineno=1,
-        discovery="import",
-        is_public=True,
-    )
-
-    class DemoModel(BaseModel):
-        id: int
-
-    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
-        assert path == module_path
-        return IntrospectionResult(models=[info], warnings=[], errors=[])
-
+    out_path = tmp_path / "fixtures.py"
     captured: dict[str, Any] = {}
 
-    def fake_load_config(*, root: Path, cli: dict[str, Any] | None = None) -> AppConfig:
-        captured.update(cli or {})
-        return AppConfig()
+    def fake_generate(**kwargs: Any) -> FixturesGenerationResult:
+        captured.update(kwargs)
+        return FixturesGenerationResult(
+            path=out_path,
+            base_output=out_path,
+            models=(),
+            config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+            metadata={},
+            warnings=(),
+            constraint_summary=None,
+            skipped=False,
+            delegated=False,
+            style="functions",
+            scope="function",
+            return_type="model",
+            cases=1,
+        )
 
-    monkeypatch.setattr(fixtures_mod, "discover_models", fake_discover)
-    monkeypatch.setattr(fixtures_mod, "load_model_class", lambda _: DemoModel)
-    monkeypatch.setattr(fixtures_mod, "clear_module_cache", lambda: None)
-    monkeypatch.setattr(fixtures_mod, "load_entrypoint_plugins", lambda: None)
-    monkeypatch.setattr(fixtures_mod, "load_config", fake_load_config)
-    monkeypatch.setattr(fixtures_mod, "emit_artifact", lambda *a, **k: False)
-
-    result_path = tmp_path / "fixtures.py"
-    result_path.write_text("# fixtures", encoding="utf-8")
-    result_obj = WriteResult(path=result_path, wrote=True, skipped=False, reason=None, metadata={})
-
-    monkeypatch.setattr(fixtures_mod, "emit_pytest_fixtures", lambda *a, **k: result_obj)
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.gen.fixtures.generate_fixtures_artifacts",
+        fake_generate,
+    )
 
     fixtures_mod._execute_fixtures_command(
-        target=str(module_path),
-        output_template=OutputTemplate(str(result_obj.path)),
+        target="module",
+        output_template=OutputTemplate(str(out_path)),
         style=None,
         scope=None,
         cases=1,

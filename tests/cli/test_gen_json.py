@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic_fixturegen.api.models import ConfigSnapshot, JsonGenerationResult
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.cli.gen import json as json_mod
 from pydantic_fixturegen.core.config import ConfigError
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError
 from pydantic_fixturegen.core.path_template import OutputTemplate
-from pydantic_fixturegen.api.models import ConfigSnapshot, JsonGenerationResult
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -174,6 +174,7 @@ def test_gen_json_now_option(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     output = tmp_path / "anchored.json"
 
     captured: dict[str, Any] = {}
+
     def fake_generate(**kwargs: Any) -> JsonGenerationResult:
         captured.update(kwargs)
         return JsonGenerationResult(
@@ -192,7 +193,7 @@ def test_gen_json_now_option(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
         )
 
     monkeypatch.setattr(
-        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
+        "pydantic_fixturegen.cli.gen.json.generate_json_artifacts",
         fake_generate,
     )
 
@@ -269,7 +270,7 @@ def test_gen_json_mapping_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         raise error
 
     monkeypatch.setattr(
-        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
+        "pydantic_fixturegen.cli.gen.json.generate_json_artifacts",
         raise_error,
     )
 
@@ -310,7 +311,7 @@ def test_gen_json_emit_artifact_short_circuit(
     )
 
     monkeypatch.setattr(
-        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
+        "pydantic_fixturegen.cli.gen.json.generate_json_artifacts",
         lambda **_: delegated,
     )
 
@@ -353,7 +354,7 @@ def test_gen_json_emit_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
         raise error
 
     monkeypatch.setattr(
-        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
+        "pydantic_fixturegen.cli.gen.json.generate_json_artifacts",
         raise_error,
     )
 
@@ -391,7 +392,7 @@ def test_execute_json_command_warnings(
     )
 
     monkeypatch.setattr(
-        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
+        "pydantic_fixturegen.cli.gen.json.generate_json_artifacts",
         lambda **_: result,
     )
 
@@ -426,7 +427,7 @@ def test_execute_json_command_discovery_errors(
         raise err
 
     monkeypatch.setattr(
-        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
+        "pydantic_fixturegen.cli.gen.json.generate_json_artifacts",
         raise_discovery,
     )
 
@@ -453,12 +454,12 @@ def test_gen_json_config_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     module_path = _write_module(tmp_path)
     output = tmp_path / "out.json"
 
-    def raise_config(**_: object):  # noqa: ANN003
+    def raise_config(**_: Any) -> JsonGenerationResult:
         raise ConfigError("bad config")
 
     monkeypatch.setattr(
-        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
-        lambda **_: raise_config(),
+        "pydantic_fixturegen.cli.gen.json.generate_json_artifacts",
+        raise_config,
     )
 
     result = runner.invoke(
@@ -497,7 +498,7 @@ def test_execute_json_command_emit_error(tmp_path: Path, monkeypatch: pytest.Mon
         raise error
 
     monkeypatch.setattr(
-        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
+        "pydantic_fixturegen.cli.gen.json.generate_json_artifacts",
         raise_error,
     )
 
@@ -513,6 +514,11 @@ def test_execute_json_command_emit_error(tmp_path: Path, monkeypatch: pytest.Mon
             include=None,
             exclude=None,
             seed=None,
+            now=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+        )
 
 
 def test_execute_json_command_path_checks(tmp_path: Path) -> None:
@@ -578,7 +584,7 @@ def test_execute_json_command_applies_preset(
         )
 
     monkeypatch.setattr(
-        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
+        "pydantic_fixturegen.cli.gen.json.generate_json_artifacts",
         fake_generate,
     )
 
@@ -606,9 +612,12 @@ def test_gen_json_load_model_failure(tmp_path: Path, monkeypatch: pytest.MonkeyP
     module_path = _write_module(tmp_path)
     output = tmp_path / "out.json"
 
+    def raise_discovery(**_: Any) -> JsonGenerationResult:
+        raise DiscoveryError("boom")
+
     monkeypatch.setattr(
-        "pydantic_fixturegen.cli.gen.json.load_model_class",
-        lambda _: (_ for _ in ()).throw(RuntimeError("boom")),
+        "pydantic_fixturegen.cli.gen.json.generate_json_artifacts",
+        raise_discovery,
     )
 
     result = runner.invoke(

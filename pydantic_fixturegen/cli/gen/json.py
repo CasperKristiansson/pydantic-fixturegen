@@ -248,6 +248,8 @@ def _execute_json_command(
         _handle_generation_error(logger, exc)
         raise
     except Exception as exc:  # pragma: no cover - defensive
+        if isinstance(exc, ConfigError):
+            raise
         raise EmitError(str(exc)) from exc
 
     if _log_generation_snapshot(logger, result, count):

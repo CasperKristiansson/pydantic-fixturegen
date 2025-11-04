@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import datetime as _dt
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -14,7 +15,7 @@ from pydantic import BaseModel
 class ConfigSnapshot:
     """Relevant configuration details captured during generation."""
 
-    seed: int | None
+    seed: int | str | None
     include: tuple[str, ...]
     exclude: tuple[str, ...]
     time_anchor: _dt.datetime | None

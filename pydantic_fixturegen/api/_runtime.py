@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import datetime as _dt
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel
 
-from pydantic_fixturegen.core.config import AppConfig, ConfigError, load_config
+from pydantic_fixturegen.core.config import AppConfig, load_config
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError, PFGError
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
-from pydantic_fixturegen.core.io_utils import WriteResult
 from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
 from pydantic_fixturegen.core.seed import SeedManager
 from pydantic_fixturegen.core.seed_freeze import (
@@ -29,9 +29,13 @@ from pydantic_fixturegen.logging import get_logger
 from pydantic_fixturegen.plugins.hookspecs import EmitterContext
 from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
 
-from ..cli.gen._common import clear_module_cache, discover_models, load_model_class, split_patterns
 from ..logging import Logger
-from .models import ConfigSnapshot, FixturesGenerationResult, JsonGenerationResult, SchemaGenerationResult
+from .models import (
+    ConfigSnapshot,
+    FixturesGenerationResult,
+    JsonGenerationResult,
+    SchemaGenerationResult,
+)
 
 
 def _snapshot_config(app_config: AppConfig) -> ConfigSnapshot:
@@ -50,6 +54,12 @@ def _config_details(snapshot: ConfigSnapshot) -> dict[str, Any]:
         "exclude": list(snapshot.exclude),
         "time_anchor": snapshot.time_anchor.isoformat() if snapshot.time_anchor else None,
     }
+
+
+def _split_patterns(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    return [part.strip() for part in raw.split(",") if part.strip()]
 
 
 def _build_error_details(
@@ -88,7 +98,7 @@ def _resolve_patterns(patterns: Sequence[str] | None) -> Sequence[str] | None:
         return None
     resolved: list[str] = []
     for pattern in patterns:
-        resolved.extend(split_patterns(pattern))
+        resolved.extend(_split_patterns(pattern))
     return resolved
 
 
@@ -96,7 +106,11 @@ def _collect_warnings(messages: Iterable[str]) -> tuple[str, ...]:
     return tuple(message.strip() for message in messages if message.strip())
 
 
-def _build_instance_generator(app_config: AppConfig, *, seed_override: int | None = None) -> InstanceGenerator:
+def _build_instance_generator(
+    app_config: AppConfig,
+    *,
+    seed_override: int | None = None,
+) -> InstanceGenerator:
     if seed_override is not None:
         seed_value: int | None = seed_override
     else:
@@ -135,7 +149,7 @@ def generate_json_artifacts(
     preset: str | None,
     logger: Logger | None = None,
 ) -> JsonGenerationResult:
-    log = logger or get_logger()
+    logger = logger or get_logger()
     path = Path(target)
     if not path.exists():
         raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
@@ -145,7 +159,9 @@ def generate_json_artifacts(
     clear_include = _resolve_patterns(include)
     clear_exclude = _resolve_patterns(exclude)
 
-    clear_module_cache()
+    from ..cli.gen import _common as cli_common
+
+    cli_common.clear_module_cache()
     load_entrypoint_plugins()
 
     freeze_manager: SeedFreezeFile | None = None
@@ -153,7 +169,7 @@ def generate_json_artifacts(
         freeze_path = resolve_freeze_path(freeze_seeds_file, root=Path.cwd())
         freeze_manager = SeedFreezeFile.load(freeze_path)
         for message in freeze_manager.messages:
-            log.warn(
+            logger.warn(
                 "Seed freeze file ignored",
                 event="seed_freeze_invalid",
                 path=str(freeze_manager.path),
@@ -182,7 +198,7 @@ def generate_json_artifacts(
     app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
     config_snapshot = _snapshot_config(app_config)
 
-    discovery = discover_models(
+    discovery = cli_common.discover_models(
         path,
         include=app_config.include,
         exclude=app_config.exclude,
@@ -206,7 +222,7 @@ def generate_json_artifacts(
     target_model = discovery.models[0]
 
     try:
-        model_cls = load_model_class(target_model)
+        model_cls = cli_common.load_model_class(target_model)
     except RuntimeError as exc:  # pragma: no cover - defensive
         raise DiscoveryError(str(exc)) from exc
 
@@ -221,7 +237,7 @@ def generate_json_artifacts(
             selected_seed = stored_seed
         else:
             event = "seed_freeze_missing" if status is FreezeStatus.MISSING else "seed_freeze_stale"
-            log.warn(
+            logger.warn(
                 "Seed freeze entry unavailable; deriving new seed",
                 event=event,
                 model=model_id,
@@ -349,7 +365,9 @@ def generate_fixtures_artifacts(
     preset: str | None,
     logger: Logger | None = None,
 ) -> FixturesGenerationResult:
-    log = logger or get_logger()
+    logger = logger or get_logger()
+    from ..cli.gen import _common as cli_common
+
     path = Path(target)
     if not path.exists():
         raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
@@ -359,7 +377,7 @@ def generate_fixtures_artifacts(
     clear_include = _resolve_patterns(include)
     clear_exclude = _resolve_patterns(exclude)
 
-    clear_module_cache()
+    cli_common.clear_module_cache()
     load_entrypoint_plugins()
 
     freeze_manager: SeedFreezeFile | None = None
@@ -367,7 +385,7 @@ def generate_fixtures_artifacts(
         freeze_path = resolve_freeze_path(freeze_seeds_file, root=Path.cwd())
         freeze_manager = SeedFreezeFile.load(freeze_path)
         for message in freeze_manager.messages:
-            log.warn(
+            logger.warn(
                 "Seed freeze file ignored",
                 event="seed_freeze_invalid",
                 path=str(freeze_path),
@@ -398,7 +416,7 @@ def generate_fixtures_artifacts(
     app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
     config_snapshot = _snapshot_config(app_config)
 
-    discovery = discover_models(
+    discovery = cli_common.discover_models(
         path,
         include=app_config.include,
         exclude=app_config.exclude,
@@ -413,7 +431,7 @@ def generate_fixtures_artifacts(
         raise DiscoveryError("No models discovered.")
 
     try:
-        model_classes = [load_model_class(model) for model in discovery.models]
+        model_classes = [cli_common.load_model_class(model) for model in discovery.models]
     except RuntimeError as exc:  # pragma: no cover - defensive
         raise DiscoveryError(str(exc)) from exc
 
@@ -424,6 +442,9 @@ def generate_fixtures_artifacts(
     style_value = style or app_config.emitters.pytest.style
     scope_value = scope or app_config.emitters.pytest.scope
     return_type_value = return_type or "model"
+
+    style_literal = cast(Literal["functions", "factory", "class"], style_value)
+    return_type_literal = cast(Literal["model", "dict"], return_type_value)
 
     per_model_seeds: dict[str, int] = {}
     model_digests: dict[str, str | None] = {}
@@ -440,8 +461,10 @@ def generate_fixtures_artifacts(
             if status is FreezeStatus.VALID and stored_seed is not None:
                 selected_seed = stored_seed
             else:
-                event = "seed_freeze_missing" if status is FreezeStatus.MISSING else "seed_freeze_stale"
-                log.warn(
+                event = (
+                    "seed_freeze_missing" if status is FreezeStatus.MISSING else "seed_freeze_stale"
+                )
+                logger.warn(
                     "Seed freeze entry unavailable; deriving new seed",
                     event=event,
                     model=model_id,
@@ -457,8 +480,8 @@ def generate_fixtures_artifacts(
 
     pytest_config = PytestEmitConfig(
         scope=scope_value,
-        style=style_value,
-        return_type=return_type_value,
+        style=style_literal,
+        return_type=return_type_literal,
         cases=cases,
         seed=header_seed,
         optional_p_none=app_config.p_none,
@@ -514,8 +537,23 @@ def generate_fixtures_artifacts(
             template=output_template,
             template_context=template_context,
         )
+    except PFGError as exc:
+        details = _build_error_details(
+            config_snapshot=config_snapshot,
+            warnings=warnings,
+            base_output=resolved_output,
+            constraint_summary=None,
+        )
+        _attach_error_details(exc, details)
+        raise
     except Exception as exc:  # pragma: no cover - defensive
-        raise EmitError(str(exc)) from exc
+        details = _build_error_details(
+            config_snapshot=config_snapshot,
+            warnings=warnings,
+            base_output=resolved_output,
+            constraint_summary=None,
+        )
+        raise EmitError(str(exc), details=details) from exc
 
     constraint_summary = None
     if result.metadata and "constraints" in result.metadata:
@@ -543,9 +581,9 @@ def generate_fixtures_artifacts(
         constraint_summary=constraint_summary,
         skipped=result.skipped,
         delegated=False,
-        style=style_value,
+        style=style_literal,
         scope=scope_value,
-        return_type=return_type_value,
+        return_type=return_type_literal,
         cases=cases,
     )
 
@@ -559,7 +597,9 @@ def generate_schema_artifacts(
     exclude: Sequence[str] | None,
     logger: Logger | None = None,
 ) -> SchemaGenerationResult:
-    log = logger or get_logger()
+    logger = logger or get_logger()
+    from ..cli.gen import _common as cli_common
+
     path = Path(target)
     if not path.exists():
         raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
@@ -569,7 +609,7 @@ def generate_schema_artifacts(
     clear_include = _resolve_patterns(include)
     clear_exclude = _resolve_patterns(exclude)
 
-    clear_module_cache()
+    cli_common.clear_module_cache()
     load_entrypoint_plugins()
 
     cli_overrides: dict[str, Any] = {}
@@ -583,7 +623,7 @@ def generate_schema_artifacts(
     app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
     config_snapshot = _snapshot_config(app_config)
 
-    discovery = discover_models(
+    discovery = cli_common.discover_models(
         path,
         include=app_config.include,
         exclude=app_config.exclude,
@@ -598,11 +638,22 @@ def generate_schema_artifacts(
         raise DiscoveryError("No models discovered.")
 
     try:
-        model_classes = [load_model_class(model) for model in discovery.models]
+        model_classes = [cli_common.load_model_class(model) for model in discovery.models]
     except RuntimeError as exc:  # pragma: no cover - defensive
         raise DiscoveryError(str(exc)) from exc
 
     indent_value = indent if indent is not None else app_config.json.indent
+
+    if len(model_classes) > 1 and "model" in output_template.fields:
+        names = ", ".join(cls.__name__ for cls in model_classes)
+        raise EmitError(
+            "Template variable '{model}' requires a single model selection.",
+            details={
+                "config": _config_details(config_snapshot),
+                "warnings": list(warnings),
+                "models": names,
+            },
+        )
 
     timestamp = _dt.datetime.now(_dt.timezone.utc)
     template_context = OutputTemplateContext(
@@ -650,7 +701,13 @@ def generate_schema_artifacts(
                 template_context=template_context,
             )
     except Exception as exc:  # pragma: no cover - defensive
-        raise EmitError(str(exc)) from exc
+        details = _build_error_details(
+            config_snapshot=config_snapshot,
+            warnings=warnings,
+            base_output=resolved_output,
+            constraint_summary=None,
+        )
+        raise EmitError(str(exc), details=details) from exc
 
     return SchemaGenerationResult(
         path=emitted_path,

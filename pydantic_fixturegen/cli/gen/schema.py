@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import datetime
 from pathlib import Path
 
 import typer
@@ -158,9 +157,12 @@ def _execute_schema_command(
             exclude=exclude_patterns,
             logger=logger,
         )
-    except PFGError:
+    except PFGError as exc:
+        _handle_schema_error(logger, exc)
         raise
     except Exception as exc:  # pragma: no cover - defensive
+        if isinstance(exc, ConfigError):
+            raise
         raise EmitError(str(exc)) from exc
 
     if _log_schema_snapshot(logger, result):
@@ -212,6 +214,36 @@ def _log_schema_snapshot(logger: Logger, result: SchemaGenerationResult) -> bool
         time_anchor=anchor_iso,
     )
     return False
+
+
+def _handle_schema_error(logger: Logger, exc: PFGError) -> None:
+    details = getattr(exc, "details", {}) or {}
+    config_info = details.get("config")
+    anchor_iso = None
+    if isinstance(config_info, dict):
+        anchor_iso = config_info.get("time_anchor")
+        logger.debug(
+            "Loaded configuration",
+            event="config_loaded",
+            include=config_info.get("include", []),
+            exclude=config_info.get("exclude", []),
+            time_anchor=anchor_iso,
+        )
+        if anchor_iso:
+            logger.info(
+                "Using temporal anchor",
+                event="temporal_anchor_set",
+                time_anchor=anchor_iso,
+            )
+
+    warnings = details.get("warnings") or []
+    for warning in warnings:
+        if isinstance(warning, str):
+            logger.warn(
+                warning,
+                event="discovery_warning",
+                warning=warning,
+            )
 
 
 __all__ = ["register"]
