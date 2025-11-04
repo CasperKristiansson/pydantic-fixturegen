@@ -120,6 +120,22 @@ pfg gen schema ./models.py --out ./schema
 
 **What it does**: Calls `model_json_schema()` and writes files **atomically** to avoid partial artifacts.
 
+### 3.5 Python API (generate programmatically)
+
+```python
+from pydantic_fixturegen.api import generate_json
+
+paths = generate_json(
+    "./models.py",
+    out="artifacts/{model}/sample-{case_index}.json",
+    include=["models.User"],
+).paths
+
+print(paths)
+```
+
+The API returns dataclasses capturing emitted paths, discovery warnings, and configuration snapshots so you can integrate generation into build systems without invoking the CLI.
+
 ### 3.6 Explain strategy decisions (gen-explain)
 
 ```bash

@@ -2,42 +2,19 @@
 
 from __future__ import annotations
 
-import datetime
 from pathlib import Path
-from typing import Any
 
 import typer
-from pydantic import BaseModel
 
-from pydantic_fixturegen.core.config import AppConfig, ConfigError, load_config
-from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError, PFGError
-from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
-from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
-from pydantic_fixturegen.core.seed import SeedManager
-from pydantic_fixturegen.core.seed_freeze import (
-    FreezeStatus,
-    SeedFreezeFile,
-    compute_model_digest,
-    derive_default_model_seed,
-    model_identifier,
-    resolve_freeze_path,
-)
-from pydantic_fixturegen.emitters.json_out import emit_json_samples
-from pydantic_fixturegen.plugins.hookspecs import EmitterContext
-from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
+from pydantic_fixturegen.api._runtime import generate_json_artifacts
+from pydantic_fixturegen.api.models import JsonGenerationResult
+from pydantic_fixturegen.core.config import ConfigError
+from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, PFGError
+from pydantic_fixturegen.core.path_template import OutputTemplate
 
-from ...logging import get_logger
+from ...logging import Logger, get_logger
 from ..watch import gather_default_watch_paths, run_with_watch
-from ._common import (
-    JSON_ERRORS_OPTION,
-    NOW_OPTION,
-    clear_module_cache,
-    discover_models,
-    emit_constraint_summary,
-    load_model_class,
-    render_cli_error,
-    split_patterns,
-)
+from ._common import JSON_ERRORS_OPTION, NOW_OPTION, emit_constraint_summary, render_cli_error
 
 TARGET_ARGUMENT = typer.Argument(
     ...,
@@ -245,56 +222,57 @@ def _execute_json_command(
     preset: str | None,
 ) -> None:
     logger = get_logger()
-    path = Path(target)
-    if not path.exists():
-        raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
-    if not path.is_file():
-        raise DiscoveryError("Target must be a Python module file.", details={"path": target})
 
-    clear_module_cache()
-    load_entrypoint_plugins()
+    include_patterns = [include] if include else None
+    exclude_patterns = [exclude] if exclude else None
 
-    freeze_manager: SeedFreezeFile | None = None
-    if freeze_seeds:
-        freeze_path = resolve_freeze_path(freeze_seeds_file, root=Path.cwd())
-        freeze_manager = SeedFreezeFile.load(freeze_path)
-        for message in freeze_manager.messages:
-            logger.warn(
-                "Seed freeze file ignored",
-                event="seed_freeze_invalid",
-                path=str(freeze_path),
-                reason=message,
-            )
+    try:
+        result = generate_json_artifacts(
+            target=target,
+            output_template=output_template,
+            count=count,
+            jsonl=jsonl,
+            indent=indent,
+            use_orjson=use_orjson,
+            shard_size=shard_size,
+            include=include_patterns,
+            exclude=exclude_patterns,
+            seed=seed,
+            now=now,
+            freeze_seeds=freeze_seeds,
+            freeze_seeds_file=freeze_seeds_file,
+            preset=preset,
+            logger=logger,
+        )
+    except PFGError as exc:
+        _handle_generation_error(logger, exc)
+        raise
+    except Exception as exc:  # pragma: no cover - defensive
+        raise EmitError(str(exc)) from exc
 
-    cli_overrides: dict[str, Any] = {}
-    if preset is not None:
-        cli_overrides["preset"] = preset
-    if seed is not None:
-        cli_overrides["seed"] = seed
-    if now is not None:
-        cli_overrides["now"] = now
-    json_overrides: dict[str, Any] = {}
-    if indent is not None:
-        json_overrides["indent"] = indent
-    if use_orjson is not None:
-        json_overrides["orjson"] = use_orjson
-    if json_overrides:
-        cli_overrides["json"] = json_overrides
-    if include:
-        cli_overrides["include"] = split_patterns(include)
-    if exclude:
-        cli_overrides["exclude"] = split_patterns(exclude)
+    if _log_generation_snapshot(logger, result, count):
+        return
 
-    app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
+    emit_constraint_summary(
+        result.constraint_summary,
+        logger=logger,
+        json_mode=logger.config.json,
+    )
 
-    anchor_iso = app_config.now.isoformat() if app_config.now else None
+    for emitted_path in result.paths:
+        typer.echo(str(emitted_path))
+
+
+def _log_generation_snapshot(logger: Logger, result: JsonGenerationResult, count: int) -> bool:
+    config_snapshot = result.config
+    anchor_iso = config_snapshot.time_anchor.isoformat() if config_snapshot.time_anchor else None
 
     logger.debug(
         "Loaded configuration",
         event="config_loaded",
-        seed=app_config.seed,
-        include=list(app_config.include),
-        exclude=list(app_config.exclude),
+        seed=config_snapshot.seed,
+        include=list(config_snapshot.include),
+        exclude=list(config_snapshot.exclude),
         time_anchor=anchor_iso,
     )
 
@@ -305,187 +283,69 @@ def _execute_json_command(
             time_anchor=anchor_iso,
         )
 
-    discovery = discover_models(
-        path,
-        include=app_config.include,
-        exclude=app_config.exclude,
-    )
-
-    if discovery.errors:
-        raise DiscoveryError("; ".join(discovery.errors))
-
-    for warning in discovery.warnings:
-        if warning.strip():
-            logger.warn(
-                warning.strip(),
-                event="discovery_warning",
-                warning=warning.strip(),
-            )
-
-    if not discovery.models:
-        raise DiscoveryError("No models discovered.")
-
-    if len(discovery.models) > 1:
-        names = ", ".join(model.qualname for model in discovery.models)
-        raise DiscoveryError(
-            f"Multiple models discovered ({names}). Use --include/--exclude to narrow selection.",
-            details={"models": names},
+    for warning in result.warnings:
+        logger.warn(
+            warning,
+            event="discovery_warning",
+            warning=warning,
         )
 
-    target_model = discovery.models[0]
-
-    try:
-        model_cls = load_model_class(target_model)
-    except RuntimeError as exc:
-        raise DiscoveryError(str(exc)) from exc
-
-    model_id = model_identifier(model_cls)
-    model_digest = compute_model_digest(model_cls)
-
-    template_context = OutputTemplateContext(
-        model=model_cls.__name__,
-        timestamp=datetime.datetime.now(datetime.timezone.utc),
-    )
-
-    if freeze_manager is not None:
-        default_seed = derive_default_model_seed(app_config.seed, model_id)
-        selected_seed: int | None = default_seed
-        stored_seed, status = freeze_manager.resolve_seed(model_id, model_digest=model_digest)
-        if status is FreezeStatus.VALID and stored_seed is not None:
-            selected_seed = stored_seed
-        else:
-            event = "seed_freeze_missing" if status is FreezeStatus.MISSING else "seed_freeze_stale"
-            logger.warn(
-                "Seed freeze entry unavailable; deriving new seed",
-                event=event,
-                model=model_id,
-                path=str(freeze_manager.path),
-            )
-            selected_seed = default_seed
-    else:
-        selected_seed = None
-
-    generator = _build_instance_generator(app_config, seed_override=selected_seed)
-
-    def sample_factory() -> BaseModel:
-        instance = generator.generate_one(model_cls)
-        if instance is None:
-            raise MappingError(
-                f"Failed to generate instance for {target_model.qualname}.",
-                details={"model": target_model.qualname},
-            )
-        return instance
-
-    indent_value = indent if indent is not None else app_config.json.indent
-    use_orjson_value = use_orjson if use_orjson is not None else app_config.json.orjson
-
-    context = EmitterContext(
-        models=(model_cls,),
-        output=output_template.render(
-            context=template_context,
-            case_index=1 if output_template.uses_case_index() else None,
-        ),
-        parameters={
-            "count": count,
-            "jsonl": jsonl,
-            "indent": indent_value,
-            "shard_size": shard_size,
-            "use_orjson": use_orjson_value,
-            "path_template": output_template.raw,
-        },
-    )
-    if emit_artifact("json", context):
+    if result.delegated:
         logger.info(
             "JSON generation handled by plugin",
             event="json_generation_delegated",
-            output=str(context.output),
+            output=str(result.base_output),
             time_anchor=anchor_iso,
         )
-        return
+        return True
 
-    try:
-        paths = emit_json_samples(
-            sample_factory,
-            output_path=output_template.raw,
-            count=count,
-            jsonl=jsonl,
-            indent=indent_value,
-            shard_size=shard_size,
-            use_orjson=use_orjson_value,
-            ensure_ascii=False,
-            template=output_template,
-            template_context=template_context,
-        )
-    except RuntimeError as exc:
-        constraint_summary = _summarize_constraint_report(generator)
-        emit_constraint_summary(
-            constraint_summary,
-            logger=logger,
-            json_mode=logger.config.json,
-        )
-        raise EmitError(str(exc)) from exc
-    except PFGError:
-        constraint_summary = _summarize_constraint_report(generator)
-        emit_constraint_summary(
-            constraint_summary,
-            logger=logger,
-            json_mode=logger.config.json,
-        )
-        raise
-    else:
-        constraint_summary = _summarize_constraint_report(generator)
-        path_strs = [str(emitted_path) for emitted_path in paths]
-        logger.info(
-            "JSON generation complete",
-            event="json_generation_complete",
-            files=path_strs,
-            count=count,
-            time_anchor=anchor_iso,
-        )
-        emit_constraint_summary(
-            constraint_summary,
-            logger=logger,
-            json_mode=logger.config.json,
-        )
-    if freeze_manager is not None:
-        assert selected_seed is not None
-        freeze_manager.record_seed(model_id, selected_seed, model_digest=model_digest)
-        freeze_manager.save()
-    for emitted_path in paths:
-        typer.echo(str(emitted_path))
-
-
-def _summarize_constraint_report(generator: Any) -> dict[str, Any] | None:
-    reporter = getattr(generator, "constraint_report", None)
-    if reporter is None:
-        return None
-    summary = reporter.summary()
-    if not isinstance(summary, dict):
-        return None
-    return summary
-
-
-def _build_instance_generator(
-    app_config: AppConfig, *, seed_override: int | None = None
-) -> InstanceGenerator:
-    if seed_override is not None:
-        seed_value: int | None = seed_override
-    else:
-        seed_value = None
-        if app_config.seed is not None:
-            seed_value = SeedManager(seed=app_config.seed).normalized_seed
-
-    p_none = app_config.p_none if app_config.p_none is not None else 0.0
-    gen_config = GenerationConfig(
-        seed=seed_value,
-        enum_policy=app_config.enum_policy,
-        union_policy=app_config.union_policy,
-        default_p_none=p_none,
-        optional_p_none=p_none,
-        time_anchor=app_config.now,
-        field_policies=app_config.field_policies,
+    logger.info(
+        "JSON generation complete",
+        event="json_generation_complete",
+        files=[str(path) for path in result.paths],
+        count=count,
+        time_anchor=anchor_iso,
     )
-    return InstanceGenerator(config=gen_config)
+    return False
+
+
+def _handle_generation_error(logger: Logger, exc: PFGError) -> None:
+    details = getattr(exc, "details", {}) or {}
+    config_info = details.get("config")
+    anchor_iso = None
+    if isinstance(config_info, dict):
+        anchor_iso = config_info.get("time_anchor")
+        logger.debug(
+            "Loaded configuration",
+            event="config_loaded",
+            seed=config_info.get("seed"),
+            include=config_info.get("include", []),
+            exclude=config_info.get("exclude", []),
+            time_anchor=anchor_iso,
+        )
+        if anchor_iso:
+            logger.info(
+                "Using temporal anchor",
+                event="temporal_anchor_set",
+                time_anchor=anchor_iso,
+            )
+
+    warnings = details.get("warnings") or []
+    for warning in warnings:
+        if isinstance(warning, str):
+            logger.warn(
+                warning,
+                event="discovery_warning",
+                warning=warning,
+            )
+
+    constraint_summary = details.get("constraint_summary")
+    if constraint_summary:
+        emit_constraint_summary(
+            constraint_summary,
+            logger=logger,
+            json_mode=logger.config.json,
+        )
 
 
 __all__ = ["register"]

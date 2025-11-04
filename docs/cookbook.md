@@ -81,6 +81,16 @@ Control artifact formatting, sharding, and fixture styles.
    pfg gen json ./models.py --orjson --indent 0 --out ./out
    ```
 
+3. **Call the Python API directly**:
+
+   ```python
+   from pydantic_fixturegen.api import generate_json
+
+   result = generate_json("./models.py", out="artifacts/{model}.json")
+   ```
+
+   The API mirrors CLI options and returns metadata-rich result objects (paths, warnings, configuration snapshot) for further automation.
+
 3. **Template output directories** for structured artifacts:
 
    ```bash

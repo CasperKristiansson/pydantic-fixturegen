@@ -4,38 +4,19 @@ from __future__ import annotations
 
 import datetime
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Literal, cast
 
 import typer
 
-from pydantic_fixturegen.core.config import ConfigError, load_config
+from pydantic_fixturegen.api._runtime import generate_fixtures_artifacts
+from pydantic_fixturegen.api.models import FixturesGenerationResult
+from pydantic_fixturegen.core.config import ConfigError
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, PFGError
-from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
-from pydantic_fixturegen.core.seed import SeedManager
-from pydantic_fixturegen.core.seed_freeze import (
-    FreezeStatus,
-    SeedFreezeFile,
-    compute_model_digest,
-    derive_default_model_seed,
-    model_identifier,
-    resolve_freeze_path,
-)
-from pydantic_fixturegen.emitters.pytest_codegen import PytestEmitConfig, emit_pytest_fixtures
-from pydantic_fixturegen.plugins.hookspecs import EmitterContext
-from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
+from pydantic_fixturegen.core.path_template import OutputTemplate
 
-from ...logging import get_logger
+from ...logging import Logger, get_logger
 from ..watch import gather_default_watch_paths, run_with_watch
-from ._common import (
-    JSON_ERRORS_OPTION,
-    NOW_OPTION,
-    clear_module_cache,
-    discover_models,
-    emit_constraint_summary,
-    load_model_class,
-    render_cli_error,
-    split_patterns,
-)
+from ._common import JSON_ERRORS_OPTION, NOW_OPTION, emit_constraint_summary, render_cli_error
 
 STYLE_CHOICES = {"functions", "factory", "class"}
 SCOPE_CHOICES = {"function", "module", "session"}
@@ -250,62 +231,63 @@ def _execute_fixtures_command(
     preset: str | None,
 ) -> None:
     logger = get_logger()
-    path = Path(target)
-    if not path.exists():
-        raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
-    if not path.is_file():
-        raise DiscoveryError("Target must be a Python module file.", details={"path": target})
 
     style_value = _coerce_style(style)
     scope_value = _coerce_scope(scope)
     return_type_value = _coerce_return_type(return_type)
 
-    clear_module_cache()
-    load_entrypoint_plugins()
+    include_patterns = [include] if include else None
+    exclude_patterns = [exclude] if exclude else None
 
-    freeze_manager: SeedFreezeFile | None = None
-    if freeze_seeds:
-        freeze_path = resolve_freeze_path(freeze_seeds_file, root=Path.cwd())
-        freeze_manager = SeedFreezeFile.load(freeze_path)
-        for message in freeze_manager.messages:
-            logger.warn(
-                "Seed freeze file ignored",
-                event="seed_freeze_invalid",
-                path=str(freeze_path),
-                reason=message,
-            )
+    try:
+        result = generate_fixtures_artifacts(
+            target=target,
+            output_template=output_template,
+            style=style_value,
+            scope=scope_value,
+            cases=cases,
+            return_type=return_type_value,
+            seed=seed,
+            now=now,
+            p_none=p_none,
+            include=include_patterns,
+            exclude=exclude_patterns,
+            freeze_seeds=freeze_seeds,
+            freeze_seeds_file=freeze_seeds_file,
+            preset=preset,
+            logger=logger,
+        )
+    except PFGError:
+        raise
+    except Exception as exc:  # pragma: no cover - defensive
+        raise EmitError(str(exc)) from exc
 
-    cli_overrides: dict[str, Any] = {}
-    if preset is not None:
-        cli_overrides["preset"] = preset
-    if seed is not None:
-        cli_overrides["seed"] = seed
-    if now is not None:
-        cli_overrides["now"] = now
-    if p_none is not None:
-        cli_overrides["p_none"] = p_none
-    emitter_overrides: dict[str, Any] = {}
-    if style_value is not None:
-        emitter_overrides["style"] = style_value
-    if scope_value is not None:
-        emitter_overrides["scope"] = scope_value
-    if emitter_overrides:
-        cli_overrides["emitters"] = {"pytest": emitter_overrides}
-    if include:
-        cli_overrides["include"] = split_patterns(include)
-    if exclude:
-        cli_overrides["exclude"] = split_patterns(exclude)
+    if _log_fixtures_snapshot(logger, result):
+        return
 
-    app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
+    emit_constraint_summary(
+        result.constraint_summary,
+        logger=logger,
+        json_mode=logger.config.json,
+    )
 
-    anchor_iso = app_config.now.isoformat() if app_config.now else None
+    output_path = result.path or result.base_output
+    message = str(output_path)
+    if result.skipped:
+        message += " (unchanged)"
+    typer.echo(message)
+
+
+def _log_fixtures_snapshot(logger: Logger, result: FixturesGenerationResult) -> bool:
+    config_snapshot = result.config
+    anchor_iso = config_snapshot.time_anchor.isoformat() if config_snapshot.time_anchor else None
 
     logger.debug(
         "Loaded configuration",
         event="config_loaded",
-        seed=app_config.seed,
-        include=list(app_config.include),
-        exclude=list(app_config.exclude),
+        seed=config_snapshot.seed,
+        include=list(config_snapshot.include),
+        exclude=list(config_snapshot.exclude),
         time_anchor=anchor_iso,
     )
 
@@ -316,137 +298,25 @@ def _execute_fixtures_command(
             time_anchor=anchor_iso,
         )
 
-    discovery = discover_models(
-        path,
-        include=app_config.include,
-        exclude=app_config.exclude,
-    )
+    for warning in result.warnings:
+        logger.warn(
+            warning,
+            event="discovery_warning",
+            warning=warning,
+        )
 
-    if discovery.errors:
-        raise DiscoveryError("; ".join(discovery.errors))
-
-    for warning in discovery.warnings:
-        if warning.strip():
-            logger.warn(
-                warning.strip(),
-                event="discovery_warning",
-                warning=warning.strip(),
-            )
-
-    if not discovery.models:
-        raise DiscoveryError("No models discovered.")
-
-    try:
-        model_classes = [load_model_class(model) for model in discovery.models]
-    except RuntimeError as exc:
-        raise DiscoveryError(str(exc)) from exc
-
-    timestamp = datetime.datetime.now(datetime.timezone.utc)
-    template_model_name = model_classes[0].__name__ if len(model_classes) == 1 else "combined"
-
-    template_context = OutputTemplateContext(
-        model=template_model_name,
-        timestamp=timestamp,
-    )
-
-    resolved_output = output_template.render(
-        context=template_context,
-        case_index=1 if output_template.uses_case_index() else None,
-    )
-
-    seed_value: int | None = None
-    if app_config.seed is not None:
-        seed_value = SeedManager(seed=app_config.seed).normalized_seed
-
-    style_final = style_value or cast(StyleLiteral, app_config.emitters.pytest.style)
-    scope_final = scope_value or app_config.emitters.pytest.scope
-    return_type_final = return_type_value or DEFAULT_RETURN
-
-    per_model_seeds: dict[str, int] = {}
-    model_digests: dict[str, str | None] = {}
-
-    for model_cls in model_classes:
-        model_id = model_identifier(model_cls)
-        digest = compute_model_digest(model_cls)
-        model_digests[model_id] = digest
-
-        if freeze_manager is not None:
-            default_seed = derive_default_model_seed(app_config.seed, model_id)
-            selected_seed = default_seed
-
-            stored_seed, status = freeze_manager.resolve_seed(model_id, model_digest=digest)
-            if status is FreezeStatus.VALID and stored_seed is not None:
-                selected_seed = stored_seed
-            else:
-                event = (
-                    "seed_freeze_missing" if status is FreezeStatus.MISSING else "seed_freeze_stale"
-                )
-                logger.warn(
-                    "Seed freeze entry unavailable; deriving new seed",
-                    event=event,
-                    model=model_id,
-                    path=str(freeze_manager.path),
-                )
-                selected_seed = default_seed
-        else:
-            selected_seed = derive_default_model_seed(app_config.seed, model_id)
-
-        per_model_seeds[model_id] = selected_seed
-
-    header_seed = seed_value if freeze_manager is None else None
-
-    pytest_config = PytestEmitConfig(
-        scope=scope_final,
-        style=style_final,
-        return_type=return_type_final,
-        cases=cases,
-        seed=header_seed,
-        optional_p_none=app_config.p_none,
-        per_model_seeds=per_model_seeds if freeze_manager is not None else None,
-        time_anchor=app_config.now,
-        field_policies=app_config.field_policies,
-    )
-
-    context = EmitterContext(
-        models=tuple(model_classes),
-        output=resolved_output,
-        parameters={
-            "style": style_final,
-            "scope": scope_final,
-            "cases": cases,
-            "return_type": return_type_final,
-            "path_template": output_template.raw,
-        },
-    )
-    if emit_artifact("fixtures", context):
+    if result.delegated:
         logger.info(
-            "Fixture generation handled by plugin",
+            "Fixtures generation handled by plugin",
             event="fixtures_generation_delegated",
-            output=str(resolved_output),
-            style=style_final,
-            scope=scope_final,
+            output=str(result.base_output),
+            style=result.style,
+            scope=result.scope,
             time_anchor=anchor_iso,
         )
-        return
+        return True
 
-    try:
-        result = emit_pytest_fixtures(
-            model_classes,
-            output_path=output_template.raw,
-            config=pytest_config,
-            template=output_template,
-            template_context=template_context,
-        )
-    except Exception as exc:
-        raise EmitError(str(exc)) from exc
-
-    constraint_summary = None
-    if result.metadata and "constraints" in result.metadata:
-        constraint_summary = result.metadata["constraints"]
-
-    message = str(result.path)
     if result.skipped:
-        message += " (unchanged)"
         logger.info(
             "Fixtures unchanged",
             event="fixtures_generation_unchanged",
@@ -458,27 +328,11 @@ def _execute_fixtures_command(
             "Fixtures generation complete",
             event="fixtures_generation_complete",
             output=str(result.path),
-            style=style_final,
-            scope=scope_final,
+            style=result.style,
+            scope=result.scope,
             time_anchor=anchor_iso,
         )
-    typer.echo(message)
-
-    emit_constraint_summary(
-        constraint_summary,
-        logger=logger,
-        json_mode=logger.config.json,
-    )
-
-    if freeze_manager is not None:
-        for model_cls in model_classes:
-            model_id = model_identifier(model_cls)
-            freeze_manager.record_seed(
-                model_id,
-                per_model_seeds[model_id],
-                model_digest=model_digests[model_id],
-            )
-        freeze_manager.save()
+    return False
 
 
 __all__ = ["register"]

@@ -3,17 +3,15 @@ from __future__ import annotations
 import datetime
 import json
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from pydantic import BaseModel
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.cli.gen import json as json_mod
-from pydantic_fixturegen.core.config import AppConfig, ConfigError
-from pydantic_fixturegen.core.errors import DiscoveryError, EmitError
-from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult
+from pydantic_fixturegen.core.config import ConfigError
+from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError
 from pydantic_fixturegen.core.path_template import OutputTemplate
+from pydantic_fixturegen.api.models import ConfigSnapshot, JsonGenerationResult
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -176,14 +174,27 @@ def test_gen_json_now_option(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     output = tmp_path / "anchored.json"
 
     captured: dict[str, Any] = {}
-    original_builder = json_mod._build_instance_generator
+    def fake_generate(**kwargs: Any) -> JsonGenerationResult:
+        captured.update(kwargs)
+        return JsonGenerationResult(
+            paths=(output,),
+            base_output=output,
+            model=None,
+            config=ConfigSnapshot(
+                seed=None,
+                include=(),
+                exclude=(),
+                time_anchor=datetime.datetime(2024, 12, 1, 8, 9, 10, tzinfo=datetime.timezone.utc),
+            ),
+            constraint_summary=None,
+            warnings=(),
+            delegated=False,
+        )
 
-    def spy_builder(app_config: AppConfig, *, seed_override: int | None = None):
-        captured["now"] = app_config.now
-        captured["field_policies"] = app_config.field_policies
-        return original_builder(app_config, seed_override=seed_override)
-
-    monkeypatch.setattr(json_mod, "_build_instance_generator", spy_builder)
+    monkeypatch.setattr(
+        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
+        fake_generate,
+    )
 
     now_value = "2024-12-01T08:09:10Z"
 
@@ -203,58 +214,63 @@ def test_gen_json_now_option(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     )
 
     assert result.exit_code == 0, result.stderr
-    assert captured["now"] == datetime.datetime(2024, 12, 1, 8, 9, 10, tzinfo=datetime.timezone.utc)
-    assert captured["field_policies"] == ()
-    assert output.exists()
+    assert captured["now"] == now_value
 
 
 def test_gen_json_mapping_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "out.json"
+    summary = {
+        "models": [
+            {
+                "model": "models.User",
+                "attempts": 1,
+                "successes": 0,
+                "fields": [
+                    {
+                        "name": "value",
+                        "constraints": None,
+                        "attempts": 1,
+                        "successes": 0,
+                        "failures": [
+                            {
+                                "location": ["value"],
+                                "message": "failed",
+                                "error_type": "value_error",
+                                "value": None,
+                                "hint": "check constraints",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+        "total_models": 1,
+        "models_with_failures": 1,
+        "total_failures": 1,
+    }
 
-    class DummyGenerator:
-        def __init__(self) -> None:
-            self.constraint_report = SimpleNamespace(
-                summary=lambda: {
-                    "models": [
-                        {
-                            "model": "models.User",
-                            "attempts": 1,
-                            "successes": 0,
-                            "fields": [
-                                {
-                                    "name": "value",
-                                    "constraints": None,
-                                    "attempts": 1,
-                                    "successes": 0,
-                                    "failures": [
-                                        {
-                                            "location": ["value"],
-                                            "message": "failed",
-                                            "error_type": "value_error",
-                                            "value": None,
-                                            "hint": "check constraints",
-                                        }
-                                    ],
-                                }
-                            ],
-                        }
-                    ],
-                    "total_models": 1,
-                    "models_with_failures": 1,
-                    "total_failures": 1,
-                }
-            )
+    error = MappingError(
+        "Failed to generate instance for models.User.",
+        details={
+            "constraint_summary": summary,
+            "config": {
+                "seed": None,
+                "include": ["models.User"],
+                "exclude": [],
+                "time_anchor": None,
+            },
+            "warnings": ["warn"],
+            "base_output": str(output),
+        },
+    )
 
-        def generate_one(self, model):  # noqa: ANN001
-            return None
-
-    def dummy_builder(_: object, **__: object) -> DummyGenerator:
-        return DummyGenerator()
+    def raise_error(**_: object):  # noqa: ANN001
+        raise error
 
     monkeypatch.setattr(
-        "pydantic_fixturegen.cli.gen.json._build_instance_generator",
-        dummy_builder,
+        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
+        raise_error,
     )
 
     result = runner.invoke(
@@ -283,15 +299,20 @@ def test_gen_json_emit_artifact_short_circuit(
     module_path = _write_module(tmp_path)
     output = tmp_path / "out.json"
 
-    monkeypatch.setattr(
-        "pydantic_fixturegen.cli.gen.json.emit_artifact",
-        lambda *args, **kwargs: True,
+    delegated = JsonGenerationResult(
+        paths=(),
+        base_output=output,
+        model=None,
+        config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+        constraint_summary=None,
+        warnings=(),
+        delegated=True,
     )
 
-    def fail_emit(*args, **kwargs):  # noqa: ANN001, ANN002
-        raise AssertionError("emit_json_samples should not be called")
-
-    monkeypatch.setattr("pydantic_fixturegen.cli.gen.json.emit_json_samples", fail_emit)
+    monkeypatch.setattr(
+        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
+        lambda **_: delegated,
+    )
 
     result = runner.invoke(
         cli_app,
@@ -314,10 +335,27 @@ def test_gen_json_emit_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     module_path = _write_module(tmp_path)
     output = tmp_path / "out.json"
 
-    def boom_emit(*args, **kwargs):  # noqa: ANN001, ANN002
-        raise RuntimeError("boom")
+    error = EmitError(
+        "boom",
+        details={
+            "config": {
+                "seed": None,
+                "include": [],
+                "exclude": [],
+                "time_anchor": None,
+            },
+            "warnings": [],
+            "base_output": str(output),
+        },
+    )
 
-    monkeypatch.setattr("pydantic_fixturegen.cli.gen.json.emit_json_samples", boom_emit)
+    def raise_error(**_: object):  # noqa: ANN001
+        raise error
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
+        raise_error,
+    )
 
     result = runner.invoke(
         cli_app,
@@ -341,48 +379,24 @@ def test_execute_json_command_warnings(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    module_path = _write_module(tmp_path)
-    info = IntrospectedModel(
-        module="pkg",
-        name="User",
-        qualname="pkg.User",
-        locator=str(module_path),
-        lineno=1,
-        discovery="import",
-        is_public=True,
-    )
-
-    class DemoModel(BaseModel):
-        id: int
-
-    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
-        assert path == module_path
-        return IntrospectionResult(models=[info], warnings=["warn"], errors=[])
-
-    class DummyGenerator:
-        def generate_one(self, model):  # noqa: ANN001
-            return DemoModel(id=1)
-
-    monkeypatch.setattr(json_mod, "discover_models", fake_discover)
-    monkeypatch.setattr(json_mod, "load_model_class", lambda _: DemoModel)
-    monkeypatch.setattr(json_mod, "clear_module_cache", lambda: None)
-    monkeypatch.setattr(json_mod, "load_entrypoint_plugins", lambda: None)
-    monkeypatch.setattr(
-        json_mod,
-        "_build_instance_generator",
-        lambda *_, **__: DummyGenerator(),
-    )
-
     out_path = tmp_path / "emitted.json"
+    result = JsonGenerationResult(
+        paths=(out_path,),
+        base_output=out_path,
+        model=None,
+        config=ConfigSnapshot(seed=42, include=("pkg.User",), exclude=(), time_anchor=None),
+        constraint_summary=None,
+        warnings=("warn",),
+        delegated=False,
+    )
 
-    def fake_emit(*args, **kwargs):  # noqa: ANN001, ANN002
-        return [out_path]
-
-    monkeypatch.setattr(json_mod, "emit_json_samples", fake_emit)
-    monkeypatch.setattr(json_mod, "emit_artifact", lambda *a, **k: False)
+    monkeypatch.setattr(
+        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
+        lambda **_: result,
+    )
 
     json_mod._execute_json_command(
-        target=str(module_path),
+        target="module",
         output_template=OutputTemplate(str(out_path)),
         count=1,
         jsonl=False,
@@ -406,20 +420,20 @@ def test_execute_json_command_warnings(
 def test_execute_json_command_discovery_errors(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    module_path = _write_module(tmp_path)
+    err = DiscoveryError("fail")
 
-    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
-        assert path == module_path
-        return IntrospectionResult(models=[], warnings=[], errors=["fail"])
+    def raise_discovery(**_: object):  # noqa: ANN001
+        raise err
 
-    monkeypatch.setattr(json_mod, "discover_models", fake_discover)
-    monkeypatch.setattr(json_mod, "clear_module_cache", lambda: None)
-    monkeypatch.setattr(json_mod, "load_entrypoint_plugins", lambda: None)
+    monkeypatch.setattr(
+        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
+        raise_discovery,
+    )
 
     with pytest.raises(DiscoveryError):
         json_mod._execute_json_command(
-            target=str(module_path),
-            output_template=OutputTemplate(str(module_path)),
+            target="module",
+            output_template=OutputTemplate(str(tmp_path / "result.json")),
             count=1,
             jsonl=False,
             indent=None,
@@ -439,10 +453,13 @@ def test_gen_json_config_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     module_path = _write_module(tmp_path)
     output = tmp_path / "out.json"
 
-    def bad_config(**_: object):  # noqa: ANN003
+    def raise_config(**_: object):  # noqa: ANN003
         raise ConfigError("bad config")
 
-    monkeypatch.setattr("pydantic_fixturegen.cli.gen.json.load_config", bad_config)
+    monkeypatch.setattr(
+        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
+        lambda **_: raise_config(),
+    )
 
     result = runner.invoke(
         cli_app,
@@ -462,48 +479,32 @@ def test_gen_json_config_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_execute_json_command_emit_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    module_path = _write_module(tmp_path)
-    info = IntrospectedModel(
-        module="pkg",
-        name="User",
-        qualname="pkg.User",
-        locator=str(module_path),
-        lineno=1,
-        discovery="import",
-        is_public=True,
+    error = EmitError(
+        "broken",
+        details={
+            "config": {
+                "seed": None,
+                "include": [],
+                "exclude": [],
+                "time_anchor": None,
+            },
+            "warnings": [],
+            "base_output": str(tmp_path / "result.json"),
+        },
     )
 
-    class DemoModel(BaseModel):
-        id: int
+    def raise_error(**_: object):  # noqa: ANN001
+        raise error
 
-    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
-        assert path == module_path
-        return IntrospectionResult(models=[info], warnings=[], errors=[])
-
-    class DummyGenerator:
-        def generate_one(self, model):  # noqa: ANN001
-            return DemoModel(id=1)
-
-    monkeypatch.setattr(json_mod, "discover_models", fake_discover)
-    monkeypatch.setattr(json_mod, "load_model_class", lambda _: DemoModel)
-    monkeypatch.setattr(json_mod, "clear_module_cache", lambda: None)
-    monkeypatch.setattr(json_mod, "load_entrypoint_plugins", lambda: None)
     monkeypatch.setattr(
-        json_mod,
-        "_build_instance_generator",
-        lambda *_, **__: DummyGenerator(),
+        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
+        raise_error,
     )
-    monkeypatch.setattr(json_mod, "emit_artifact", lambda *a, **k: False)
-
-    def boom_emit(*args, **kwargs):  # noqa: ANN001, ANN002
-        raise RuntimeError("broken")
-
-    monkeypatch.setattr(json_mod, "emit_json_samples", boom_emit)
 
     with pytest.raises(EmitError):
         json_mod._execute_json_command(
-            target=str(module_path),
-            output_template=OutputTemplate(str(module_path)),
+            target="module",
+            output_template=OutputTemplate(str(tmp_path / "result.json")),
             count=1,
             jsonl=False,
             indent=None,
@@ -512,11 +513,6 @@ def test_execute_json_command_emit_error(tmp_path: Path, monkeypatch: pytest.Mon
             include=None,
             exclude=None,
             seed=None,
-            now=None,
-            freeze_seeds=False,
-            freeze_seeds_file=None,
-            preset=None,
-        )
 
 
 def test_execute_json_command_path_checks(tmp_path: Path) -> None:
@@ -566,54 +562,28 @@ def test_execute_json_command_path_checks(tmp_path: Path) -> None:
 def test_execute_json_command_applies_preset(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    module_path = _write_module(tmp_path)
-    info = IntrospectedModel(
-        module="pkg",
-        name="User",
-        qualname="pkg.User",
-        locator=str(module_path),
-        lineno=1,
-        discovery="import",
-        is_public=True,
-    )
-
-    class DemoModel(BaseModel):
-        id: int
-
-    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
-        assert path == module_path
-        return IntrospectionResult(models=[info], warnings=[], errors=[])
-
-    class DummyGenerator:
-        def generate_one(self, model):  # noqa: ANN001
-            return DemoModel(id=1)
-
+    out_path = tmp_path / "sample.json"
     captured: dict[str, Any] = {}
 
-    def fake_load_config(*, root: Path, cli: dict[str, Any] | None = None) -> AppConfig:
-        captured.update(cli or {})
-        return AppConfig()
+    def fake_generate(**kwargs: Any) -> JsonGenerationResult:
+        captured.update(kwargs)
+        return JsonGenerationResult(
+            paths=(out_path,),
+            base_output=out_path,
+            model=None,
+            config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+            constraint_summary=None,
+            warnings=(),
+            delegated=False,
+        )
 
-    monkeypatch.setattr(json_mod, "discover_models", fake_discover)
-    monkeypatch.setattr(json_mod, "load_model_class", lambda _: DemoModel)
-    monkeypatch.setattr(json_mod, "clear_module_cache", lambda: None)
-    monkeypatch.setattr(json_mod, "load_entrypoint_plugins", lambda: None)
-    monkeypatch.setattr(json_mod, "load_config", fake_load_config)
-    monkeypatch.setattr(json_mod, "_build_instance_generator", lambda *_, **__: DummyGenerator())
-    monkeypatch.setattr(json_mod, "emit_artifact", lambda *a, **k: False)
-
-    def fake_emit(factory, output_path: Path | str, **_: Any) -> list[Path]:
-        path_obj = Path(output_path)
-        path_obj.write_text("{}", encoding="utf-8")
-        factory()
-        return [path_obj]
-
-    monkeypatch.setattr(json_mod, "emit_json_samples", fake_emit)
-
-    out_path = tmp_path / "sample.json"
+    monkeypatch.setattr(
+        "pydantic_fixturegen.api._runtime.generate_json_artifacts",
+        fake_generate,
+    )
 
     json_mod._execute_json_command(
-        target=str(module_path),
+        target="module",
         output_template=OutputTemplate(str(out_path)),
         count=1,
         jsonl=False,

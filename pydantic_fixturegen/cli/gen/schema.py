@@ -4,27 +4,18 @@ from __future__ import annotations
 
 import datetime
 from pathlib import Path
-from typing import Any
 
 import typer
 
-from pydantic_fixturegen.core.config import ConfigError, load_config
+from pydantic_fixturegen.api._runtime import generate_schema_artifacts
+from pydantic_fixturegen.api.models import SchemaGenerationResult
+from pydantic_fixturegen.core.config import ConfigError
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, PFGError
-from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
-from pydantic_fixturegen.emitters.schema_out import emit_model_schema, emit_models_schema
-from pydantic_fixturegen.plugins.hookspecs import EmitterContext
-from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
+from pydantic_fixturegen.core.path_template import OutputTemplate
 
-from ...logging import get_logger
+from ...logging import Logger, get_logger
 from ..watch import gather_default_watch_paths, run_with_watch
-from ._common import (
-    JSON_ERRORS_OPTION,
-    clear_module_cache,
-    discover_models,
-    load_model_class,
-    render_cli_error,
-    split_patterns,
-)
+from ._common import JSON_ERRORS_OPTION, render_cli_error
 
 TARGET_ARGUMENT = typer.Argument(
     ...,
@@ -154,122 +145,73 @@ def _execute_schema_command(
     exclude: str | None,
 ) -> None:
     logger = get_logger()
-    path = Path(target)
-    if not path.exists():
-        raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
-    if not path.is_file():
-        raise DiscoveryError("Target must be a Python module file.", details={"path": target})
 
-    clear_module_cache()
-    load_entrypoint_plugins()
+    include_patterns = [include] if include else None
+    exclude_patterns = [exclude] if exclude else None
 
-    cli_overrides: dict[str, Any] = {}
-    if indent is not None:
-        cli_overrides.setdefault("json", {})["indent"] = indent
-    if include:
-        cli_overrides["include"] = split_patterns(include)
-    if exclude:
-        cli_overrides["exclude"] = split_patterns(exclude)
+    try:
+        result = generate_schema_artifacts(
+            target=target,
+            output_template=output_template,
+            indent=indent,
+            include=include_patterns,
+            exclude=exclude_patterns,
+            logger=logger,
+        )
+    except PFGError:
+        raise
+    except Exception as exc:  # pragma: no cover - defensive
+        raise EmitError(str(exc)) from exc
 
-    app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
+    if _log_schema_snapshot(logger, result):
+        return
+
+    typer.echo(str(result.path))
+
+
+def _log_schema_snapshot(logger: Logger, result: SchemaGenerationResult) -> bool:
+    config_snapshot = result.config
+    anchor_iso = config_snapshot.time_anchor.isoformat() if config_snapshot.time_anchor else None
 
     logger.debug(
         "Loaded configuration",
         event="config_loaded",
-        indent=indent,
-        include=list(app_config.include),
-        exclude=list(app_config.exclude),
+        include=list(config_snapshot.include),
+        exclude=list(config_snapshot.exclude),
+        time_anchor=anchor_iso,
     )
 
-    discovery = discover_models(
-        path,
-        include=app_config.include,
-        exclude=app_config.exclude,
-    )
-
-    if discovery.errors:
-        raise DiscoveryError("; ".join(discovery.errors))
-
-    for warning in discovery.warnings:
-        if warning.strip():
-            logger.warn(
-                warning.strip(),
-                event="discovery_warning",
-                warning=warning.strip(),
-            )
-
-    if not discovery.models:
-        raise DiscoveryError("No models discovered.")
-
-    try:
-        model_classes = [load_model_class(model) for model in discovery.models]
-    except RuntimeError as exc:
-        raise DiscoveryError(str(exc)) from exc
-
-    indent_value = indent if indent is not None else app_config.json.indent
-
-    timestamp = datetime.datetime.now(datetime.timezone.utc)
-    if len(model_classes) == 1:
-        template_context = OutputTemplateContext(
-            model=model_classes[0].__name__,
-            timestamp=timestamp,
+    if anchor_iso:
+        logger.info(
+            "Using temporal anchor",
+            event="temporal_anchor_set",
+            time_anchor=anchor_iso,
         )
-    else:
-        if "model" in output_template.fields:
-            names = ", ".join(cls.__name__ for cls in model_classes)
-            raise EmitError(
-                "Template variable '{model}' requires a single model selection.",
-                details={"models": names},
-            )
-        template_context = OutputTemplateContext(timestamp=timestamp)
 
-    resolved_output = output_template.render(
-        context=template_context,
-        case_index=1 if output_template.uses_case_index() else None,
-    )
+    for warning in result.warnings:
+        logger.warn(
+            warning,
+            event="discovery_warning",
+            warning=warning,
+        )
 
-    context = EmitterContext(
-        models=tuple(model_classes),
-        output=resolved_output,
-        parameters={"indent": indent_value, "path_template": output_template.raw},
-    )
-    if emit_artifact("schema", context):
+    if result.delegated:
         logger.info(
             "Schema generation handled by plugin",
             event="schema_generation_delegated",
-            output=str(resolved_output),
+            output=str(result.base_output),
+            time_anchor=anchor_iso,
         )
-        return
-
-    try:
-        if len(model_classes) == 1:
-            emitted_path = emit_model_schema(
-                model_classes[0],
-                output_path=output_template.raw,
-                indent=indent_value,
-                ensure_ascii=False,
-                template=output_template,
-                template_context=template_context,
-            )
-        else:
-            emitted_path = emit_models_schema(
-                model_classes,
-                output_path=output_template.raw,
-                indent=indent_value,
-                ensure_ascii=False,
-                template=output_template,
-                template_context=template_context,
-            )
-    except Exception as exc:
-        raise EmitError(str(exc)) from exc
+        return True
 
     logger.info(
         "Schema generation complete",
         event="schema_generation_complete",
-        output=str(emitted_path),
-        models=[model.__name__ for model in model_classes],
+        output=str(result.path),
+        models=[model.__name__ for model in result.models],
+        time_anchor=anchor_iso,
     )
-    typer.echo(str(emitted_path))
+    return False
 
 
 __all__ = ["register"]

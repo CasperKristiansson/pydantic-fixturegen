@@ -228,6 +228,38 @@ pfg gen fixtures models.py --include models.User \
 
 Rendered segments are normalised to `[A-Za-z0-9._-]`, and templates that traverse above the working directory (for example `../…`) are rejected to preserve sandbox guarantees.
 
+### Python API
+
+For programmatic access import the high-level helpers:
+
+```python
+from pydantic_fixturegen.api import generate_json, generate_fixtures, generate_schema
+
+result = generate_json(
+    "./models.py",
+    out="artifacts/{model}/sample-{case_index}.json",
+    include=["models.User"],
+    count=3,
+    shard_size=1,
+)
+
+for path in result.paths:
+    print("Generated", path)
+
+fixtures = generate_fixtures(
+    "./models.py",
+    out="tests/fixtures/{model}/fixtures.py",
+    include=["models.User"],
+)
+
+schema = generate_schema(
+    "./models.py",
+    out="schemas/{model}.json",
+)
+```
+
+Each function returns a dataclass with metadata such as discovered models, configuration snapshot, warnings, and emission paths.
+
 ### Explain command examples
 
 ````markdown
