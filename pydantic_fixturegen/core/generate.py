@@ -7,7 +7,7 @@ import datetime
 import enum
 import inspect
 import random
-from collections.abc import Iterable, Sized
+from collections.abc import Iterable, Mapping, Sized
 from dataclasses import dataclass, is_dataclass
 from dataclasses import fields as dataclass_fields
 from typing import Any, get_type_hints
@@ -17,7 +17,13 @@ from pydantic import BaseModel, ValidationError
 from pydantic.fields import FieldInfo
 
 from pydantic_fixturegen.core import schema as schema_module
+from pydantic_fixturegen.core.config import ConfigError
 from pydantic_fixturegen.core.constraint_report import ConstraintReporter
+from pydantic_fixturegen.core.field_policies import (
+    FieldPolicy,
+    FieldPolicyConflictError,
+    FieldPolicySet,
+)
 from pydantic_fixturegen.core.providers import ProviderRegistry, create_default_registry
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary, extract_constraints
 from pydantic_fixturegen.core.strategies import (
@@ -39,6 +45,18 @@ class GenerationConfig:
     optional_p_none: float = 0.0
     seed: int | None = None
     time_anchor: datetime.datetime | None = None
+    field_policies: tuple[FieldPolicy, ...] = ()
+
+
+@dataclass(slots=True)
+class _PathEntry:
+    module: str
+    qualname: str
+    via_field: str | None = None
+
+    @property
+    def full(self) -> str:
+        return f"{self.module}.{self.qualname}"
 
 
 class InstanceGenerator:
@@ -74,6 +92,10 @@ class InstanceGenerator:
         )
         self._strategy_cache: dict[type[Any], dict[str, StrategyResult]] = {}
         self._constraint_reporter = ConstraintReporter()
+        self._field_policy_set = (
+            FieldPolicySet(self.config.field_policies) if self.config.field_policies else None
+        )
+        self._path_stack: list[_PathEntry] = []
 
     @property
     def constraint_report(self) -> ConstraintReporter:
@@ -94,12 +116,20 @@ class InstanceGenerator:
         return results
 
     # ------------------------------------------------------------------ internals
-    def _build_model_instance(self, model_type: type[Any], *, depth: int) -> Any | None:
+    def _build_model_instance(
+        self,
+        model_type: type[Any],
+        *,
+        depth: int,
+        via_field: str | None = None,
+    ) -> Any | None:
         if depth >= self.config.max_depth:
             return None
         if not self._consume_object():
             return None
 
+        entry = self._make_path_entry(model_type, via_field)
+        self._path_stack.append(entry)
         try:
             strategies = self._get_model_strategies(model_type)
         except TypeError:
@@ -108,13 +138,17 @@ class InstanceGenerator:
         self._constraint_reporter.begin_model(model_type)
 
         values: dict[str, Any] = {}
-        for field_name, strategy in strategies.items():
-            values[field_name] = self._evaluate_strategy(
-                strategy,
-                depth,
-                model_type,
-                field_name,
-            )
+        try:
+            for field_name, strategy in strategies.items():
+                self._apply_field_policies(field_name, strategy)
+                values[field_name] = self._evaluate_strategy(
+                    strategy,
+                    depth,
+                    model_type,
+                    field_name,
+                )
+        finally:
+            self._path_stack.pop()
 
         try:
             instance: Any | None = None
@@ -151,6 +185,105 @@ class InstanceGenerator:
             return self._evaluate_union(strategy, depth, model_type, field_name)
         return self._evaluate_single(strategy, depth, model_type, field_name)
 
+    def _make_path_entry(self, model_type: type[Any], via_field: str | None) -> _PathEntry:
+        module = getattr(model_type, "__module__", "<unknown>")
+        qualname = getattr(
+            model_type,
+            "__qualname__",
+            getattr(model_type, "__name__", str(model_type)),
+        )
+        return _PathEntry(module=module, qualname=qualname, via_field=via_field)
+
+    def _apply_field_policies(self, field_name: str, strategy: StrategyResult) -> None:
+        if self._field_policy_set is None:
+            return
+        full_path, aliases = self._current_field_paths(field_name)
+        try:
+            policy_values = self._field_policy_set.resolve(full_path, aliases=aliases)
+        except FieldPolicyConflictError as exc:
+            raise ConfigError(str(exc)) from exc
+
+        if not policy_values:
+            return
+
+        if isinstance(strategy, UnionStrategy):
+            union_override = policy_values.get("union_policy")
+            if union_override is not None:
+                strategy.policy = union_override
+            element_policy = {
+                key: policy_values[key]
+                for key in ("p_none", "enum_policy")
+                if key in policy_values and policy_values[key] is not None
+            }
+            if element_policy:
+                for choice in strategy.choices:
+                    self._apply_field_policy_to_strategy(choice, element_policy)
+            return
+
+        self._apply_field_policy_to_strategy(strategy, policy_values)
+
+    def _current_field_paths(self, field_name: str) -> tuple[str, tuple[str, ...]]:
+        if not self._path_stack:
+            return field_name, ()
+
+        full_segments: list[str] = []
+        name_segments: list[str] = []
+        model_segments: list[str] = []
+        field_segments: list[str] = []
+
+        for index, entry in enumerate(self._path_stack):
+            if index == 0:
+                full_segments.append(entry.full)
+                name_segments.append(entry.qualname)
+                model_segments.append(entry.qualname)
+            else:
+                if entry.via_field:
+                    full_segments.append(entry.via_field)
+                    name_segments.append(entry.via_field)
+                    field_segments.append(entry.via_field)
+                full_segments.append(entry.full)
+                name_segments.append(entry.qualname)
+                model_segments.append(entry.qualname)
+
+        full_path = ".".join((*full_segments, field_name))
+
+        alias_candidates: list[str] = []
+
+        alias_candidates.append(".".join((*name_segments, field_name)))
+        alias_candidates.append(".".join((*model_segments, field_name)))
+
+        if field_segments:
+            alias_candidates.append(".".join((*field_segments, field_name)))
+            root_fields = ".".join((name_segments[0], *field_segments, field_name))
+            alias_candidates.append(root_fields)
+
+        last_entry = self._path_stack[-1]
+        alias_candidates.append(".".join((last_entry.qualname, field_name)))
+        alias_candidates.append(".".join((last_entry.full, field_name)))
+        alias_candidates.append(field_name)
+
+        aliases = self._dedupe_paths(alias_candidates, exclude=full_path)
+        return full_path, aliases
+
+    @staticmethod
+    def _dedupe_paths(paths: Iterable[str], *, exclude: str) -> tuple[str, ...]:
+        seen: dict[str, None] = {}
+        for path in paths:
+            if not path or path == exclude or path in seen:
+                continue
+            seen[path] = None
+        return tuple(seen.keys())
+
+    def _apply_field_policy_to_strategy(
+        self,
+        strategy: Strategy,
+        policy_values: Mapping[str, Any],
+    ) -> None:
+        if "p_none" in policy_values and policy_values["p_none"] is not None:
+            strategy.p_none = policy_values["p_none"]
+        if "enum_policy" in policy_values and policy_values["enum_policy"] is not None:
+            strategy.enum_policy = policy_values["enum_policy"]
+
     def _evaluate_union(
         self,
         strategy: UnionStrategy,
@@ -185,7 +318,11 @@ class InstanceGenerator:
                 annotation = strategy.annotation
 
                 if self._is_model_like(annotation):
-                    value = self._build_model_instance(annotation, depth=depth + 1)
+                    value = self._build_model_instance(
+                        annotation,
+                        depth=depth + 1,
+                        via_field=field_name,
+                    )
                 elif summary.type in {"list", "set", "tuple", "mapping"}:
                     value = self._evaluate_collection(strategy, depth)
                 else:
@@ -206,13 +343,22 @@ class InstanceGenerator:
             return base_value
 
         if summary.type == "mapping":
-            return self._build_mapping_collection(base_value, item_annotation, depth)
+            return self._build_mapping_collection(
+                base_value,
+                item_annotation,
+                depth,
+                strategy.field_name,
+            )
 
         length = self._collection_length_from_value(base_value)
         count = max(1, length)
         items: list[Any] = []
         for _ in range(count):
-            nested = self._build_model_instance(item_annotation, depth=depth + 1)
+            nested = self._build_model_instance(
+                item_annotation,
+                depth=depth + 1,
+                via_field=strategy.field_name,
+            )
             if nested is not None:
                 items.append(nested)
 
@@ -232,6 +378,7 @@ class InstanceGenerator:
         base_value: Any,
         annotation: Any,
         depth: int,
+        field_name: str,
     ) -> dict[str, Any]:
         if isinstance(base_value, dict) and base_value:
             keys: Iterable[str] = base_value.keys()
@@ -242,7 +389,11 @@ class InstanceGenerator:
 
         result: dict[str, Any] = {}
         for key in keys:
-            nested = self._build_model_instance(annotation, depth=depth + 1)
+            nested = self._build_model_instance(
+                annotation,
+                depth=depth + 1,
+                via_field=field_name,
+            )
             if nested is not None:
                 result[str(key)] = nested
         return result

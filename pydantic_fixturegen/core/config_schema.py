@@ -70,6 +70,27 @@ class JsonSchema(BaseModel):
     )
 
 
+class FieldPolicyOptionsSchema(BaseModel):
+    """Schema describing supported field policy overrides."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    p_none: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Probability override for returning None on optional fields.",
+    )
+    enum_policy: EnumPolicyLiteral | None = Field(
+        default=None,
+        description="Enum selection policy for matching fields.",
+    )
+    union_policy: Literal["first", "random"] | None = Field(
+        default=None,
+        description="Union selection policy for matching fields.",
+    )
+
+
 class ConfigSchemaModel(BaseModel):
     """Authoritative schema for `[tool.pydantic_fixturegen]` configuration."""
 
@@ -125,6 +146,13 @@ class ConfigSchemaModel(BaseModel):
         default_factory=JsonSchema,
         alias="json",
         description="Settings shared by JSON-based emitters.",
+    )
+    field_policies: dict[str, FieldPolicyOptionsSchema] = Field(
+        default_factory=dict,
+        description=(
+            "Field policy definitions keyed by glob or regex patterns that may target model "
+            "names or dotted field paths."
+        ),
     )
 
 

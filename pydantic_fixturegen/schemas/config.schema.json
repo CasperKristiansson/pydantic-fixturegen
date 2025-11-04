@@ -12,6 +12,63 @@
       "title": "EmittersSchema",
       "type": "object"
     },
+    "FieldPolicyOptionsSchema": {
+      "additionalProperties": false,
+      "description": "Schema describing supported field policy overrides.",
+      "properties": {
+        "enum_policy": {
+          "anyOf": [
+            {
+              "enum": [
+                "first",
+                "random"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enum selection policy for matching fields.",
+          "title": "Enum Policy"
+        },
+        "p_none": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Probability override for returning None on optional fields.",
+          "title": "P None"
+        },
+        "union_policy": {
+          "anyOf": [
+            {
+              "enum": [
+                "first",
+                "random"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Union selection policy for matching fields.",
+          "title": "Union Policy"
+        }
+      },
+      "title": "FieldPolicyOptionsSchema",
+      "type": "object"
+    },
     "JsonSchema": {
       "additionalProperties": false,
       "description": "Schema for JSON emitter settings.",
@@ -90,6 +147,14 @@
       },
       "title": "Exclude",
       "type": "array"
+    },
+    "field_policies": {
+      "additionalProperties": {
+        "$ref": "#/$defs/FieldPolicyOptionsSchema"
+      },
+      "description": "Field policy definitions keyed by glob or regex patterns that may target model names or dotted field paths.",
+      "title": "Field Policies",
+      "type": "object"
     },
     "include": {
       "description": "Glob patterns of fully-qualified model names to include by default.",

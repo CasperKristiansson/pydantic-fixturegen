@@ -453,6 +453,7 @@ def _build_instance_generator(
         default_p_none=p_none,
         optional_p_none=p_none,
         time_anchor=app_config.now,
+        field_policies=app_config.field_policies,
     )
     return InstanceGenerator(config=gen_config)
 

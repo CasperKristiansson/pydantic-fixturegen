@@ -16,6 +16,7 @@ from typing import Any, Literal, cast
 from pydantic import BaseModel
 
 from pydantic_fixturegen.core.constraint_report import ConstraintReporter
+from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.io_utils import WriteResult, write_atomic_text
 from pydantic_fixturegen.core.version import build_artifact_header
@@ -39,6 +40,7 @@ class PytestEmitConfig:
     model_digest: str | None = None
     hash_compare: bool = True
     per_model_seeds: Mapping[str, int] | None = None
+    field_policies: tuple[FieldPolicy, ...] = ()
     time_anchor: datetime.datetime | None = None
 
 
@@ -67,6 +69,7 @@ def emit_pytest_fixtures(
         generation_config = GenerationConfig(
             seed=seed_value,
             time_anchor=cfg.time_anchor,
+            field_policies=cfg.field_policies,
         )
         if cfg.optional_p_none is not None:
             generation_config.optional_p_none = cfg.optional_p_none

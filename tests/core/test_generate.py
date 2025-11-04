@@ -4,8 +4,12 @@ import datetime
 import enum
 from dataclasses import dataclass
 
+import pytest
 from pydantic import BaseModel, Field
+from pydantic_fixturegen.core.config import ConfigError
+from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
+from pydantic_fixturegen.core.strategies import UnionStrategy
 
 
 class Color(enum.Enum):
@@ -99,6 +103,134 @@ def test_dataclass_field_generation() -> None:
     assert isinstance(account, Account)
     assert isinstance(account.profile, Profile)
     assert isinstance(account.user.address, Address)
+
+
+class OptionalItem(BaseModel):
+    maybe: str | None
+
+
+class PolicyWrapper(BaseModel):
+    nested: OptionalItem
+
+
+def test_field_policy_overrides_p_none() -> None:
+    pattern = f"{OptionalItem.__module__}.{OptionalItem.__qualname__}.maybe"
+    policy = FieldPolicy(pattern=pattern, options={"p_none": 0.0}, index=0)
+    generator = InstanceGenerator(
+        config=GenerationConfig(
+            seed=1,
+            optional_p_none=1.0,
+            field_policies=(policy,),
+        )
+    )
+
+    instance = generator.generate_one(OptionalItem)
+    assert instance is not None
+    assert instance.maybe is not None
+
+
+def test_field_policy_conflict_raises() -> None:
+    pattern1 = f"{OptionalItem.__module__}.*.maybe"
+    pattern2 = f"{OptionalItem.__module__}.{OptionalItem.__qualname__}.maybe"
+    policies = (
+        FieldPolicy(pattern=pattern1, options={"p_none": 0.0}, index=0),
+        FieldPolicy(pattern=pattern2, options={"p_none": 1.0}, index=1),
+    )
+    generator = InstanceGenerator(config=GenerationConfig(field_policies=policies))
+
+    with pytest.raises(ConfigError):
+        generator.generate_one(OptionalItem)
+
+
+def test_field_policy_matches_model_name_alias() -> None:
+    policy = FieldPolicy(pattern="OptionalItem.maybe", options={"p_none": 0.0}, index=0)
+    generator = InstanceGenerator(
+        config=GenerationConfig(
+            seed=123,
+            optional_p_none=1.0,
+            field_policies=(policy,),
+        )
+    )
+
+    wrapper = generator.generate_one(PolicyWrapper)
+    assert wrapper is not None
+    assert wrapper.nested.maybe is not None
+
+
+def test_field_policy_matches_field_path_alias() -> None:
+    policy = FieldPolicy(pattern="PolicyWrapper.nested.maybe", options={"p_none": 0.0}, index=0)
+    generator = InstanceGenerator(
+        config=GenerationConfig(
+            seed=321,
+            optional_p_none=1.0,
+            field_policies=(policy,),
+        )
+    )
+
+    wrapper = generator.generate_one(PolicyWrapper)
+    assert wrapper is not None
+    assert wrapper.nested.maybe is not None
+
+
+def test_field_policy_matches_field_name_alias() -> None:
+    policy = FieldPolicy(pattern="maybe", options={"p_none": 0.0}, index=0)
+    generator = InstanceGenerator(
+        config=GenerationConfig(
+            seed=11,
+            optional_p_none=1.0,
+            field_policies=(policy,),
+        )
+    )
+
+    wrapper = generator.generate_one(PolicyWrapper)
+    assert wrapper is not None
+    assert wrapper.nested.maybe is not None
+
+
+def test_field_policy_regex_pattern_matches() -> None:
+    policy = FieldPolicy(
+        pattern=f"re:.*{OptionalItem.__qualname__}\\.maybe$",
+        options={"p_none": 0.0},
+        index=0,
+    )
+    generator = InstanceGenerator(
+        config=GenerationConfig(
+            seed=17,
+            optional_p_none=1.0,
+            field_policies=(policy,),
+        )
+    )
+
+    wrapper = generator.generate_one(PolicyWrapper)
+    assert wrapper is not None
+    assert wrapper.nested.maybe is not None
+
+
+def test_field_policy_updates_union_strategy() -> None:
+    policy = FieldPolicy(
+        pattern=f"{User.__qualname__}.preference",
+        options={"union_policy": "random", "p_none": 0.0},
+        index=0,
+    )
+    generator = InstanceGenerator(
+        config=GenerationConfig(
+            seed=23,
+            field_policies=(policy,),
+        )
+    )
+
+    strategies = generator._get_model_strategies(User)
+    union_strategy = strategies["preference"]
+    assert isinstance(union_strategy, UnionStrategy)
+
+    generator._path_stack.append(generator._make_path_entry(User, None))  # type: ignore[attr-defined]
+    try:
+        generator._apply_field_policies("preference", union_strategy)  # type: ignore[attr-defined]
+    finally:
+        generator._path_stack.pop()
+
+    assert union_strategy.policy == "random"
+    assert all(choice.p_none == 0.0 for choice in union_strategy.choices)
 
 
 class TemporalModel(BaseModel):

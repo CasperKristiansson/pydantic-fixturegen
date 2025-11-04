@@ -123,11 +123,12 @@ def test_gen_json_now_option(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     module_path = _write_module(tmp_path)
     output = tmp_path / "anchored.json"
 
-    captured: dict[str, datetime.datetime | None] = {}
+    captured: dict[str, Any] = {}
     original_builder = json_mod._build_instance_generator
 
     def spy_builder(app_config: AppConfig, *, seed_override: int | None = None):
         captured["now"] = app_config.now
+        captured["field_policies"] = app_config.field_policies
         return original_builder(app_config, seed_override=seed_override)
 
     monkeypatch.setattr(json_mod, "_build_instance_generator", spy_builder)
@@ -151,6 +152,7 @@ def test_gen_json_now_option(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
 
     assert result.exit_code == 0, result.stderr
     assert captured["now"] == datetime.datetime(2024, 12, 1, 8, 9, 10, tzinfo=datetime.timezone.utc)
+    assert captured["field_policies"] == ()
     assert output.exists()
 
 

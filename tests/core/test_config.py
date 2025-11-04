@@ -26,6 +26,7 @@ def test_default_configuration(tmp_path: Path) -> None:
     assert config.include == ()
     assert config.emitters.pytest == PytestEmitterConfig()
     assert config.json == JsonConfig()
+    assert config.field_policies == ()
     assert config.now is None
 
 
@@ -70,6 +71,7 @@ def test_load_from_pyproject(tmp_path: Path) -> None:
     assert config.json.indent == 0
     assert config.json.orjson is True
     assert config.overrides["app.models.User"]["email"]["provider"] == "email"
+    assert config.field_policies == ()
 
 
 @pytest.mark.skipif(not HAS_YAML, reason="PyYAML not installed")
@@ -126,6 +128,7 @@ def test_env_overrides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert config.p_none == pytest.approx(0.1)
     assert config.emitters.pytest.scope == "session"
     assert config.json.orjson is True
+    assert config.now == datetime.datetime(2024, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc)
     assert config.now == datetime.datetime(2024, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc)
 
 
@@ -217,6 +220,33 @@ def test_cli_now_accepts_datetime_instance(tmp_path: Path) -> None:
     config = load_config(root=tmp_path, cli={"now": value})
 
     assert config.now == value.replace(tzinfo=datetime.timezone.utc)
+
+
+def test_field_policies_parsing(tmp_path: Path) -> None:
+    config = load_config(
+        root=tmp_path,
+        cli={
+            "field_policies": {
+                "app.models.*.maybe": {"p_none": 0.0},
+                "re:^app\\.models\\.User\\..*$": {"enum_policy": "random"},
+            }
+        },
+    )
+
+    assert len(config.field_policies) == 2
+    patterns = [policy.pattern for policy in config.field_policies]
+    assert "app.models.*.maybe" in patterns
+    assert "re:^app\\.models\\.User\\..*$" in patterns
+    first = config.field_policies[0]
+    assert first.options["p_none"] == 0.0
+
+
+def test_field_policies_invalid_option(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError):
+        load_config(
+            root=tmp_path,
+            cli={"field_policies": {"*.value": {"unknown": 1}}},
+        )
 
 
 def test_preset_applies_policies(tmp_path: Path) -> None:

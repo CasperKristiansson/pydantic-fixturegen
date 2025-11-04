@@ -21,6 +21,7 @@ from pydantic_fixturegen.core.errors import (
     MappingError,
     PFGError,
 )
+from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.seed import SeedManager
 from pydantic_fixturegen.core.seed_freeze import (
@@ -524,6 +525,7 @@ def _execute_diff(
                 options=fixtures_options,
                 per_model_seeds=per_model_seeds if freeze_manager is not None else None,
                 app_config_now=app_config.now,
+                app_config_field_policies=app_config.field_policies,
             )
         )
 
@@ -690,6 +692,7 @@ def _diff_fixtures_artifact(
     options: FixturesDiffOptions,
     per_model_seeds: dict[str, int] | None,
     app_config_now: datetime.datetime | None,
+    app_config_field_policies: tuple[FieldPolicy, ...],
 ) -> DiffReport:
     if options.out is None:
         raise DiscoveryError("Fixtures diff requires --fixtures-out.")
@@ -726,6 +729,7 @@ def _diff_fixtures_artifact(
             optional_p_none=app_config_p_none,
             per_model_seeds=per_model_seeds,
             time_anchor=app_config_now,
+            field_policies=app_config_field_policies,
         )
 
         context = EmitterContext(

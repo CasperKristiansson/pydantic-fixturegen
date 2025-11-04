@@ -372,6 +372,7 @@ def _execute_fixtures_command(
         optional_p_none=app_config.p_none,
         per_model_seeds=per_model_seeds if freeze_manager is not None else None,
         time_anchor=app_config.now,
+        field_policies=app_config.field_policies,
     )
 
     context = EmitterContext(

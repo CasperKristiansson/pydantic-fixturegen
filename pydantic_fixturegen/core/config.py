@@ -10,6 +10,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, TypeVar, cast
 
+from .field_policies import FieldPolicy
 from .presets import get_preset_spec, normalize_preset_name
 from .seed import DEFAULT_LOCALE
 
@@ -74,6 +75,7 @@ class AppConfig:
     enum_policy: str = "first"
     now: datetime.datetime | None = None
     overrides: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
+    field_policies: tuple[FieldPolicy, ...] = ()
     emitters: EmittersConfig = field(default_factory=EmittersConfig)
     json: JsonConfig = field(default_factory=JsonConfig)
 
@@ -122,6 +124,7 @@ def _config_defaults_dict() -> dict[str, Any]:
         "union_policy": DEFAULT_CONFIG.union_policy,
         "enum_policy": DEFAULT_CONFIG.enum_policy,
         "now": DEFAULT_CONFIG.now,
+        "field_policies": {},
         "overrides": {},
         "emitters": {
             "pytest": {
@@ -265,6 +268,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
 
     emitters_value = _normalize_emitters(data.get("emitters"))
     json_value = _normalize_json(data.get("json"))
+    field_policies_value = _normalize_field_policies(data.get("field_policies"))
     now_value = _coerce_datetime(data.get("now"), "now")
 
     seed_value: int | str | None
@@ -284,6 +288,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         enum_policy=enum_policy,
         now=now_value,
         overrides=overrides_value,
+        field_policies=field_policies_value,
         emitters=emitters_value,
         json=json_value,
     )
@@ -368,6 +373,59 @@ def _normalize_overrides(value: Any) -> Mapping[str, Mapping[str, Any]]:
                 raise ConfigError("override field names must be strings.")
             overrides[model_key][field_name] = field_config
     return overrides
+
+
+def _normalize_field_policies(value: Any) -> tuple[FieldPolicy, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, Mapping):
+        raise ConfigError("field_policies must be a mapping of pattern to policy settings.")
+
+    policies: list[FieldPolicy] = []
+    for index, (pattern, raw_options) in enumerate(value.items()):
+        if not isinstance(pattern, str) or not pattern.strip():
+            raise ConfigError("field policy keys must be non-empty strings.")
+        if not isinstance(raw_options, Mapping):
+            raise ConfigError(f"Field policy '{pattern}' must be a mapping of options.")
+
+        p_none = raw_options.get("p_none")
+        if p_none is not None:
+            try:
+                p_none = float(p_none)
+            except (TypeError, ValueError) as exc:
+                raise ConfigError(
+                    f"Field policy '{pattern}' p_none must be a float value."
+                ) from exc
+            if not (0.0 <= p_none <= 1.0):
+                raise ConfigError(f"Field policy '{pattern}' p_none must be between 0.0 and 1.0.")
+
+        enum_policy = raw_options.get("enum_policy")
+        if enum_policy is not None and (
+            not isinstance(enum_policy, str) or enum_policy not in ENUM_POLICIES
+        ):
+            raise ConfigError(
+                f"Field policy '{pattern}' enum_policy must be one of {sorted(ENUM_POLICIES)}."
+            )
+
+        union_policy = raw_options.get("union_policy")
+        if union_policy is not None and (
+            not isinstance(union_policy, str) or union_policy not in UNION_POLICIES
+        ):
+            raise ConfigError(
+                f"Field policy '{pattern}' union_policy must be one of {sorted(UNION_POLICIES)}."
+            )
+
+        allowed_keys = {"p_none", "enum_policy", "union_policy"}
+        for option_key in raw_options:
+            if option_key not in allowed_keys:
+                raise ConfigError(
+                    f"Field policy '{pattern}' contains unsupported option '{option_key}'."
+                )
+
+        options = {"p_none": p_none, "enum_policy": enum_policy, "union_policy": union_policy}
+        policies.append(FieldPolicy(pattern=pattern, options=options, index=index))
+
+    return tuple(policies)
 
 
 def _normalize_emitters(value: Any) -> EmittersConfig:

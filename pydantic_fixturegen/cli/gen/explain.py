@@ -435,7 +435,7 @@ def _constraints_to_dict(summary: FieldSummary) -> dict[str, Any]:
 
 
 def _resolve_runtime_type(annotation: Any) -> type[Any] | None:
-    if isinstance(annotation, type):
+    if isinstance(annotation, type) and not isinstance(annotation, types.GenericAlias):
         return annotation
 
     origin = get_origin(annotation)

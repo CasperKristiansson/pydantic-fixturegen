@@ -27,6 +27,7 @@ def _stub_config() -> SimpleNamespace:
         seed=None,
         p_none=None,
         now=None,
+        field_policies=(),
         json=SimpleNamespace(indent=None, orjson=False),
         enum_policy="name",
         union_policy="smart",
@@ -397,6 +398,7 @@ def test_diff_fixtures_require_output() -> None:
             options=_fixtures_options(None),
             per_model_seeds=None,
             app_config_now=None,
+            app_config_field_policies=(),
         )
 
 
@@ -423,6 +425,7 @@ def test_diff_fixtures_emit_artifact_success(
         options=_fixtures_options(output_path),
         per_model_seeds=None,
         app_config_now=None,
+        app_config_field_policies=(),
     )
 
     assert report.summary == "Fixtures artifact matches."
@@ -445,6 +448,7 @@ def test_diff_fixtures_emit_artifact_without_file(
             options=_fixtures_options(output_path),
             per_model_seeds=None,
             app_config_now=None,
+            app_config_field_policies=(),
         )
 
 
@@ -461,6 +465,7 @@ def test_diff_fixtures_detect_directory_target(tmp_path: Path) -> None:
         options=_fixtures_options(output_path),
         per_model_seeds=None,
         app_config_now=None,
+        app_config_field_policies=(),
     )
 
     assert "Fixtures path is a directory" in report.messages[0]
