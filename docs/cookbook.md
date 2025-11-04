@@ -175,7 +175,7 @@ Safely evaluate untrusted models.
 3. **Run the doctor** before CI:
 
    ```bash
-   pfg doctor ./third_party_models.py --fail-on-warn
+   pfg doctor ./third_party_models.py --fail-on-gaps 0
    ```
 
 ### Guarantees

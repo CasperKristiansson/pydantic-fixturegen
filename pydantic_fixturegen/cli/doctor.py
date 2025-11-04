@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Iterable
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal, cast
 
 import typer
 from pydantic import BaseModel
@@ -58,6 +60,13 @@ MEMORY_LIMIT_OPTION = typer.Option(
     help="Memory limit in megabytes for safe import subprocess.",
 )
 
+FAIL_ON_GAPS_OPTION = typer.Option(
+    None,
+    "--fail-on-gaps",
+    min=0,
+    help="Exit with code 2 when uncovered fields exceed this number (errors only).",
+)
+
 
 app = typer.Typer(invoke_without_command=True, subcommand_metavar="")
 
@@ -67,6 +76,43 @@ class ModelReport:
     model: type[BaseModel]
     coverage: tuple[int, int]
     issues: list[str]
+    gaps: list[FieldGap] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class GapInfo:
+    type_name: str
+    reason: str
+    remediation: str
+    severity: Literal["error", "warning"]
+
+
+@dataclass(slots=True)
+class FieldGap:
+    model: type[BaseModel]
+    field: str
+    info: GapInfo
+
+    @property
+    def qualified_field(self) -> str:
+        return f"{self.model.__name__}.{self.field}"
+
+
+@dataclass(slots=True)
+class TypeGapSummary:
+    type_name: str
+    reason: str
+    remediation: str
+    severity: Literal["error", "warning"]
+    occurrences: int
+    fields: list[str]
+
+
+@dataclass(slots=True)
+class GapSummary:
+    summaries: list[TypeGapSummary]
+    total_error_fields: int
+    total_warning_fields: int
 
 
 def doctor(  # noqa: D401 - Typer callback
@@ -79,10 +125,11 @@ def doctor(  # noqa: D401 - Typer callback
     timeout: float = TIMEOUT_OPTION,
     memory_limit_mb: int = MEMORY_LIMIT_OPTION,
     json_errors: bool = JSON_ERRORS_OPTION,
+    fail_on_gaps: int | None = FAIL_ON_GAPS_OPTION,
 ) -> None:
     _ = ctx  # unused
     try:
-        _execute_doctor(
+        gap_summary = _execute_doctor(
             target=path,
             include=include,
             exclude=exclude,
@@ -93,6 +140,10 @@ def doctor(  # noqa: D401 - Typer callback
         )
     except PFGError as exc:
         render_cli_error(exc, json_errors=json_errors)
+        return
+
+    if fail_on_gaps is not None and gap_summary.total_error_fields > fail_on_gaps:
+        raise typer.Exit(code=2)
 
 
 app.callback(invoke_without_command=True)(doctor)
@@ -117,7 +168,7 @@ def _execute_doctor(
     hybrid_mode: bool,
     timeout: float,
     memory_limit_mb: int,
-) -> None:
+) -> GapSummary:
     path = Path(target)
     if not path.exists():
         raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
@@ -145,79 +196,167 @@ def _execute_doctor(
 
     if not discovery.models:
         typer.echo("No models discovered.")
-        return
+        empty_summary = GapSummary(summaries=[], total_error_fields=0, total_warning_fields=0)
+        return empty_summary
 
     registry = create_default_registry(load_plugins=True)
     builder = StrategyBuilder(registry, plugin_manager=get_plugin_manager())
 
     reports: list[ModelReport] = []
+    all_gaps: list[FieldGap] = []
     for model_info in discovery.models:
         try:
             model_cls = load_model_class(model_info)
         except RuntimeError as exc:
             raise DiscoveryError(str(exc)) from exc
-        reports.append(_analyse_model(model_cls, builder))
+        model_report = _analyse_model(model_cls, builder)
+        reports.append(model_report)
+        all_gaps.extend(model_report.gaps)
 
-    _render_report(reports)
+    gap_summary = _summarize_gaps(all_gaps)
+    _render_report(reports, gap_summary)
+    return gap_summary
 
 
 def _analyse_model(model: type[BaseModel], builder: StrategyBuilder) -> ModelReport:
     total_fields = 0
     covered_fields = 0
     issues: list[str] = []
-
-    try:
-        strategies = builder.build_model_strategies(model)
-    except ValueError as exc:  # missing provider
-        summaries = summarize_model_fields(model)
-        message = str(exc)
-        return ModelReport(
-            model=model,
-            coverage=(0, len(summaries)),
-            issues=[message],
-        )
+    field_gaps: list[FieldGap] = []
 
     summaries = summarize_model_fields(model)
 
-    for field_name, strategy in strategies.items():
+    for field_name, model_field in model.model_fields.items():
         total_fields += 1
         summary = summaries[field_name]
-        covered, field_issues = _strategy_status(summary, strategy)
+        try:
+            strategy = builder.build_field_strategy(
+                model,
+                field_name,
+                model_field.annotation,
+                summary,
+            )
+        except ValueError as exc:
+            message = str(exc)
+            issues.append(f"{model.__name__}.{field_name}: [error] {message}")
+            field_gaps.append(
+                FieldGap(
+                    model=model,
+                    field=field_name,
+                    info=GapInfo(
+                        type_name=summary.type,
+                        reason=message,
+                        remediation=(
+                            "Register a custom provider or configure an override for this field."
+                        ),
+                        severity="error",
+                    ),
+                )
+            )
+            continue
+
+        covered, gap_infos = _strategy_status(summary, strategy)
         if covered:
             covered_fields += 1
-        issues.extend(f"{model.__name__}.{field_name}: {msg}" for msg in field_issues)
+        for gap_info in gap_infos:
+            severity_label = "warning" if gap_info.severity == "warning" else "error"
+            issues.append(f"{model.__name__}.{field_name}: [{severity_label}] {gap_info.reason}")
+            field_gaps.append(FieldGap(model=model, field=field_name, info=gap_info))
 
-    return ModelReport(model=model, coverage=(covered_fields, total_fields), issues=issues)
+    return ModelReport(
+        model=model,
+        coverage=(covered_fields, total_fields),
+        issues=issues,
+        gaps=field_gaps,
+    )
 
 
-def _strategy_status(summary: FieldSummary, strategy: StrategyResult) -> tuple[bool, list[str]]:
+def _strategy_status(summary: FieldSummary, strategy: StrategyResult) -> tuple[bool, list[GapInfo]]:
     if isinstance(strategy, UnionStrategy):
-        issue_messages: list[str] = []
+        gap_infos: list[GapInfo] = []
         covered = True
         for choice in strategy.choices:
-            choice_ok, choice_issues = _strategy_status(choice.summary, choice)
+            choice_ok, choice_gaps = _strategy_status(choice.summary, choice)
             if not choice_ok:
                 covered = False
-                issue_messages.extend(choice_issues)
-        return covered, issue_messages
+            gap_infos.extend(choice_gaps)
+        return covered, gap_infos
 
-    messages: list[str] = []
+    gaps: list[GapInfo] = []
     if strategy.enum_values:
-        return True, messages
+        return True, gaps
 
     if summary.type in {"model", "dataclass"}:
-        return True, messages
+        return True, gaps
 
     if strategy.provider_ref is None:
-        messages.append(f"no provider for type '{summary.type}'")
-        return False, messages
+        gaps.append(
+            GapInfo(
+                type_name=summary.type,
+                reason=f"No provider registered for type '{summary.type}'.",
+                remediation="Register a custom provider or configure an override for this field.",
+                severity="error",
+            )
+        )
+        return False, gaps
 
     if summary.type == "any":
-        messages.append("falls back to generic type")
-    return True, messages
+        gaps.append(
+            GapInfo(
+                type_name="any",
+                reason="Falls back to generic `Any` provider.",
+                remediation="Define a provider for this shape or narrow the field annotation.",
+                severity="warning",
+            )
+        )
+    return True, gaps
 
 
-def _render_report(reports: list[ModelReport]) -> None:
+def _summarize_gaps(field_gaps: Iterable[FieldGap]) -> GapSummary:
+    grouped: dict[tuple[str, str, str, str], list[str]] = {}
+    error_fields = 0
+    warning_fields = 0
+
+    for gap in field_gaps:
+        key = (
+            gap.info.severity,
+            gap.info.type_name,
+            gap.info.reason,
+            gap.info.remediation,
+        )
+        grouped.setdefault(key, []).append(gap.qualified_field)
+        if gap.info.severity == "error":
+            error_fields += 1
+        else:
+            warning_fields += 1
+
+    summaries = [
+        TypeGapSummary(
+            type_name=type_name,
+            reason=reason,
+            remediation=remediation,
+            severity=cast(Literal["error", "warning"], severity),
+            occurrences=len(fields),
+            fields=sorted(fields),
+        )
+        for (severity, type_name, reason, remediation), fields in grouped.items()
+    ]
+    summaries.sort(
+        key=lambda item: (
+            0 if item.severity == "error" else 1,
+            item.type_name,
+            item.reason,
+        )
+    )
+
+    return GapSummary(
+        summaries=summaries,
+        total_error_fields=error_fields,
+        total_warning_fields=warning_fields,
+    )
+
+
+def _render_report(reports: list[ModelReport], gap_summary: GapSummary) -> None:
     for report in reports:
         covered, total = report.coverage
         coverage_pct = (covered / total * 100) if total else 100.0
@@ -230,6 +369,20 @@ def _render_report(reports: list[ModelReport]) -> None:
         else:
             typer.echo("  Issues: none")
         typer.echo("")
+
+    if not gap_summary.summaries:
+        typer.echo("Type coverage gaps: none")
+        return
+
+    typer.echo("Type coverage gaps:")
+    for summary in gap_summary.summaries:
+        level = "WARNING" if summary.severity == "warning" else "ERROR"
+        typer.echo(f"  - {summary.type_name}: {summary.reason} [{level}]")
+        typer.echo(f"    Fields ({summary.occurrences}):")
+        for field_name in summary.fields:
+            typer.echo(f"      • {field_name}")
+        typer.echo(f"    Remediation: {summary.remediation}")
+    typer.echo("")
 
 
 __all__ = ["app"]

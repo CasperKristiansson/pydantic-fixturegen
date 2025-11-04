@@ -198,7 +198,7 @@ pfg gen json ./models.py --seed 777 --indent 0
 - **Filesystem jail**: `open`, `io.open`, `os.open` deny writes **outside** the working directory.
 - **Resource caps**: `resource.RLIMIT_AS` and `RLIMIT_DATA` enforced where available.
 - **Timeouts**: exceeded time returns **exit code 40**.
-- Use `pfg doctor` to surface **risky imports** and **coverage gaps**; `--fail-on-warn` makes it CI-blocking.
+- Use `pfg doctor` to surface **risky imports** and **coverage gaps**; `--fail-on-gaps=N` makes gaps CI-blocking.
 
 ---
 
@@ -249,7 +249,7 @@ pfg gen fixtures <target> --out tests/fixtures/test_models.py \
 pfg gen explain <target>   # textual tree; --json if exposed
 
 # Doctor audit
-pfg doctor <target> --fail-on-warn --json-errors
+pfg doctor <target> --fail-on-gaps 0 --json-errors
 ```
 
 ---

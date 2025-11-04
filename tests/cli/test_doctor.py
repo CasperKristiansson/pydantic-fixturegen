@@ -8,11 +8,17 @@ from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.cli import doctor as doctor_mod
 from pydantic_fixturegen.core.errors import DiscoveryError
 from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult
+from pydantic_fixturegen.core.providers import create_default_registry
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
-from pydantic_fixturegen.core.strategies import Strategy
+from pydantic_fixturegen.core.strategies import Strategy, StrategyBuilder, UnionStrategy
 from typer.testing import CliRunner
 
 runner = CliRunner()
+
+
+def _make_builder() -> StrategyBuilder:
+    registry = create_default_registry(load_plugins=False)
+    return StrategyBuilder(registry, plugin_manager=doctor_mod.get_plugin_manager())
 
 
 def _write_module(tmp_path: Path, name: str = "models") -> Path:
@@ -48,6 +54,7 @@ def test_doctor_basic(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "Coverage: 3/3 fields" in result.stdout
     assert "Issues: none" in result.stdout
+    assert "Type coverage gaps: none" in result.stdout
 
 
 def test_doctor_reports_provider_issue(tmp_path: Path) -> None:
@@ -69,7 +76,7 @@ class Note(BaseModel):
     )
 
     assert result.exit_code == 0
-    assert "type 'any'" in result.stdout.lower()
+    assert "No provider registered" in result.stdout
 
 
 def test_doctor_json_errors(tmp_path: Path) -> None:
@@ -121,7 +128,7 @@ def test_doctor_warnings_and_no_models(
 
     def fake_discover(path: Path, **_: object) -> IntrospectionResult:
         assert path == module
-        return IntrospectionResult(models=[], warnings=["unused"], errors=[])
+        return IntrospectionResult(models=[], warnings=["unused", "   "], errors=[])
 
     monkeypatch.setattr(doctor_mod, "discover_models", fake_discover)
     monkeypatch.setattr(doctor_mod, "clear_module_cache", lambda: None)
@@ -198,12 +205,41 @@ def test_doctor_render_report_with_issues(capsys: pytest.CaptureFixture[str]) ->
         model=Dummy,
         coverage=(1, 2),
         issues=["problem"],
+        gaps=[
+            doctor_mod.FieldGap(
+                model=Dummy,
+                field="value",
+                info=doctor_mod.GapInfo(
+                    type_name="int",
+                    reason="No provider registered for type 'int'.",
+                    remediation="Fix",
+                    severity="error",
+                ),
+            )
+        ],
     )
 
-    doctor_mod._render_report([report])
+    gap_summary = doctor_mod.GapSummary(
+        summaries=[
+            doctor_mod.TypeGapSummary(
+                type_name="int",
+                reason="No provider registered for type 'int'.",
+                remediation="Fix",
+                severity="error",
+                occurrences=1,
+                fields=["Dummy.value"],
+            )
+        ],
+        total_error_fields=1,
+        total_warning_fields=0,
+    )
+
+    doctor_mod._render_report([report], gap_summary)
     captured = capsys.readouterr()
     assert "Coverage: 1/2" in captured.out
     assert "problem" in captured.out
+    assert "Type coverage gaps" in captured.out
+    assert "Dummy.value" in captured.out
 
 
 def test_doctor_strategy_status_any_type() -> None:
@@ -219,4 +255,226 @@ def test_doctor_strategy_status_any_type() -> None:
     )
     covered, issues = doctor_mod._strategy_status(summary, strategy)
     assert covered is True
-    assert issues == ["falls back to generic type"]
+    assert len(issues) == 1
+    assert issues[0].severity == "warning"
+    assert "Falls back" in issues[0].reason
+
+
+def test_strategy_status_provider_missing() -> None:
+    summary = FieldSummary(type="uuid", constraints=FieldConstraints())
+    strategy = Strategy(
+        field_name="identifier",
+        summary=summary,
+        annotation=object,
+        provider_ref=None,
+        provider_name="uuid",
+        provider_kwargs={},
+        p_none=0.0,
+    )
+    covered, issues = doctor_mod._strategy_status(summary, strategy)
+    assert covered is False
+    assert issues[0].severity == "error"
+    assert "No provider" in issues[0].reason
+
+
+def test_strategy_status_union_propagates_gaps() -> None:
+    summary_union = FieldSummary(type="union", constraints=FieldConstraints())
+    summary_any = FieldSummary(type="any", constraints=FieldConstraints())
+    choice_warning = Strategy(
+        field_name="value",
+        summary=summary_any,
+        annotation=object,
+        provider_ref=object(),
+        provider_name="generic",
+        provider_kwargs={},
+        p_none=0.0,
+    )
+    choice_error = Strategy(
+        field_name="value",
+        summary=FieldSummary(type="custom", constraints=FieldConstraints()),
+        annotation=object,
+        provider_ref=None,
+        provider_name="custom",
+        provider_kwargs={},
+        p_none=0.0,
+    )
+    union = UnionStrategy(
+        field_name="value", choices=[choice_warning, choice_error], policy="first"
+    )
+
+    covered, issues = doctor_mod._strategy_status(summary_union, union)
+    assert covered is False
+    severities = {info.severity for info in issues}
+    assert severities == {"warning", "error"}
+
+
+def test_strategy_status_enum_values() -> None:
+    summary = FieldSummary(type="enum", constraints=FieldConstraints(), enum_values=["a"])
+    strategy = Strategy(
+        field_name="value",
+        summary=summary,
+        annotation=str,
+        provider_ref=None,
+        provider_name="enum.static",
+        provider_kwargs={},
+        p_none=0.0,
+        enum_values=["a"],
+    )
+    covered, issues = doctor_mod._strategy_status(summary, strategy)
+    assert covered is True
+    assert issues == []
+
+
+def test_doctor_fail_on_gaps_threshold(tmp_path: Path) -> None:
+    module_path = tmp_path / "models.py"
+    module_path.write_text(
+        """
+from pydantic import BaseModel
+
+
+class Note(BaseModel):
+    data: object
+""",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        cli_app,
+        ["doctor", "--fail-on-gaps", "0", str(module_path)],
+    )
+
+    assert result.exit_code == 2
+    combined = result.stdout + result.stderr
+    assert "No provider registered" in combined
+
+
+def test_summarize_gaps_groups_fields() -> None:
+    class Dummy(BaseModel):
+        value: int
+
+    info_error = doctor_mod.GapInfo(
+        type_name="int",
+        reason="No provider registered for type 'int'.",
+        remediation="Fix",
+        severity="error",
+    )
+    info_warning = doctor_mod.GapInfo(
+        type_name="any",
+        reason="Falls back to generic `Any` provider.",
+        remediation="Adjust",
+        severity="warning",
+    )
+
+    gaps = [
+        doctor_mod.FieldGap(model=Dummy, field="value", info=info_error),
+        doctor_mod.FieldGap(model=Dummy, field="other", info=info_warning),
+    ]
+
+    summary = doctor_mod._summarize_gaps(gaps)
+
+    assert summary.total_error_fields == 1
+    assert summary.total_warning_fields == 1
+    assert len(summary.summaries) == 2
+    types = {item.type_name for item in summary.summaries}
+    assert {"int", "any"} == types
+
+
+def test_analyse_model_supported_field() -> None:
+    class Person(BaseModel):
+        name: str
+
+    builder = _make_builder()
+    report = doctor_mod._analyse_model(Person, builder)
+
+    assert report.coverage == (1, 1)
+    assert report.gaps == []
+
+
+def test_analyse_model_any_field_records_warning() -> None:
+    class Note(BaseModel):
+        payload: object
+
+    builder = _make_builder()
+    report = doctor_mod._analyse_model(Note, builder)
+
+    assert report.coverage == (0, 1)
+    assert len(report.gaps) == 1
+    assert report.gaps[0].info.severity == "error"
+
+
+def test_analyse_model_strategy_status_integration(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Sample(BaseModel):
+        value: int
+
+    builder = _make_builder()
+
+    def fake_status(
+        summary: FieldSummary, strategy: Strategy
+    ) -> tuple[bool, list[doctor_mod.GapInfo]]:  # type: ignore[type-arg]
+        return True, [
+            doctor_mod.GapInfo(
+                type_name=summary.type,
+                reason="Synthetic warning",
+                remediation="Handle",
+                severity="warning",
+            )
+        ]
+
+    monkeypatch.setattr(doctor_mod, "_strategy_status", fake_status)
+
+    report = doctor_mod._analyse_model(Sample, builder)
+
+    assert report.coverage == (1, 1)
+    assert len(report.gaps) == 1
+    assert report.gaps[0].info.reason == "Synthetic warning"
+
+
+def test_execute_doctor_discovery_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module = tmp_path / "models.py"
+    module.write_text("", encoding="utf-8")
+
+    def fake_discover(path: Path, **_: object) -> IntrospectionResult:
+        return IntrospectionResult(models=[], warnings=[], errors=["boom"])
+
+    monkeypatch.setattr(doctor_mod, "discover_models", fake_discover)
+    monkeypatch.setattr(doctor_mod, "clear_module_cache", lambda: None)
+
+    with pytest.raises(DiscoveryError, match="boom"):
+        doctor_mod._execute_doctor(
+            target=str(module),
+            include=None,
+            exclude=None,
+            ast_mode=False,
+            hybrid_mode=False,
+            timeout=1.0,
+            memory_limit_mb=128,
+        )
+
+
+def test_doctor_handles_pfg_error_return(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: list[str] = []
+
+    def fake_execute(**_: object) -> doctor_mod.GapSummary:  # type: ignore[override]
+        raise DiscoveryError("boom")
+
+    monkeypatch.setattr(doctor_mod, "_execute_doctor", fake_execute)
+    monkeypatch.setattr(
+        doctor_mod,
+        "render_cli_error",
+        lambda error, *, json_errors: captured.append(str(error)),
+    )
+
+    doctor_mod.doctor(
+        None,
+        path="ignored",
+        include=None,
+        exclude=None,
+        ast_mode=False,
+        hybrid_mode=False,
+        timeout=1.0,
+        memory_limit_mb=128,
+        json_errors=False,
+        fail_on_gaps=None,
+    )
+
+    assert captured == ["boom"]

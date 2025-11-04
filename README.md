@@ -202,7 +202,7 @@ Environment variables mirror keys using `PFG_` (e.g., `PFG_SEED=99`). **CLI flag
 - `pfg gen schema <target>` — emit JSON Schema (`--out` required; atomic writes; `--json-errors`, `--watch`).
 - `pfg gen fixtures <target>` — emit pytest fixtures (`--style {functions,factory,class}`, `--scope {function,module,session}`, `--p-none`, `--cases`, `--return-type {model,dict}`, `--now`, `--watch`).
 - `pfg gen explain <target>` — inspect provider/strategy composition (`--json` for structured output, `--tree` for ASCII visualization, `--max-depth N` to cap nested expansion).
-- `pfg doctor <target>` — audit coverage, constraints, risky imports (`--fail-on-warn`, `--json-errors`).
+- `pfg doctor <target>` — audit provider coverage, constraint gaps, risky imports (`--fail-on-gaps=N`, `--json-errors`).
 
 ### Explain command examples
 
