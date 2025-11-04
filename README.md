@@ -6,7 +6,7 @@
 ![Python versions](https://img.shields.io/pypi/pyversions/pydantic-fixturegen.svg "Python 3.10–3.13")
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg "MIT License")
 
-You ship deterministic Pydantic v2 data, pytest fixtures, and JSON quickly with a safe, task-focused CLI.
+Generate deterministic Pydantic v2 data, pytest fixtures, and JSON quickly with a safe, task-focused CLI built for modern testing workflows.
 
 ## Why
 
