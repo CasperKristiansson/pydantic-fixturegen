@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added constraint reporting across generation and diff commands, surfacing unmet model constraints with actionable hints in both human-readable and structured outputs.
 - Added deterministic seed freeze support (`--freeze-seeds`, `.pfg-seeds.json`) with per-model digests, warnings for stale data, and CLI integration across generation/diff commands.
 - Added `--now` option to JSON/fixture/diff workflows to pin temporal data to a reproducible anchor timestamp and surface the chosen value in artifact metadata.
+- `--out` destinations for JSON, schema, and fixture commands now support templated paths with `{model}`, `{case_index}`, and `{timestamp}` placeholders, normalised to safe segments.
 - Field policies now support glob or regex patterns targeting model names, nested field paths (for example `User.address.city`), and plain field names in addition to fully-qualified module paths.
 - `pfg doctor` now enumerates unsupported type coverage, aggregates remediation guidance, and supports `--fail-on-gaps` to raise CI-friendly exit codes when uncovered fields remain.
 - JSON, schema, and fixture emitters now enforce canonical key ordering and trailing newline policy for deterministic artifacts.

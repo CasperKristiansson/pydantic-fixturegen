@@ -81,6 +81,18 @@ Control artifact formatting, sharding, and fixture styles.
    pfg gen json ./models.py --orjson --indent 0 --out ./out
    ```
 
+3. **Template output directories** for structured artifacts:
+
+   ```bash
+   pfg gen json ./models.py --include models.User --n 5 --shard-size 1 \
+     --out "artifacts/{model}/sample-{case_index}.json"
+
+   pfg gen fixtures ./models.py --include models.User \
+     --out "tests/generated/{model}/fixtures-{timestamp:%Y%m%d}.py"
+   ```
+
+   Placeholders `{model}`, `{case_index}`, and `{timestamp}` are normalised to safe filesystem segments and keep writes confined to the working directory.
+
 3. **Generate factory-style fixtures**:
 
    ```bash

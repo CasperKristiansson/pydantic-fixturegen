@@ -13,6 +13,7 @@ from pydantic_fixturegen.cli.gen import json as json_mod
 from pydantic_fixturegen.core.config import AppConfig, ConfigError
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError
 from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult
+from pydantic_fixturegen.core.path_template import OutputTemplate
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -93,6 +94,56 @@ def test_gen_json_jsonl_shards(tmp_path: Path) -> None:
     assert len(shard_paths) == 3
     line_counts = [len(path.read_text(encoding="utf-8").splitlines()) for path in shard_paths]
     assert line_counts == [2, 2, 1]
+
+
+def test_gen_json_out_template(tmp_path: Path) -> None:
+    module_path = _write_module(tmp_path)
+    template = tmp_path / "artifacts" / "{model}" / "sample-{case_index}"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(template),
+            "--include",
+            "models.User",
+            "--n",
+            "3",
+            "--shard-size",
+            "1",
+        ],
+    )
+
+    assert result.exit_code == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    emitted = sorted((tmp_path / "artifacts" / "User").glob("sample-*.json"))
+    assert [path.name for path in emitted] == ["sample-1.json", "sample-2.json", "sample-3.json"]
+    stdout_text = result.stdout
+    for path in emitted:
+        assert str(path) in stdout_text
+
+
+def test_gen_json_out_template_invalid_field(tmp_path: Path) -> None:
+    module_path = _write_module(tmp_path)
+    template = tmp_path / "{unknown}.json"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(template),
+            "--include",
+            "models.User",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Unsupported template variable" in result.stdout or result.stderr
 
 
 def test_gen_json_respects_config_env(tmp_path: Path) -> None:
@@ -332,7 +383,7 @@ def test_execute_json_command_warnings(
 
     json_mod._execute_json_command(
         target=str(module_path),
-        out=out_path,
+        output_template=OutputTemplate(str(out_path)),
         count=1,
         jsonl=False,
         indent=0,
@@ -368,7 +419,7 @@ def test_execute_json_command_discovery_errors(
     with pytest.raises(DiscoveryError):
         json_mod._execute_json_command(
             target=str(module_path),
-            out=module_path,
+            output_template=OutputTemplate(str(module_path)),
             count=1,
             jsonl=False,
             indent=None,
@@ -452,7 +503,7 @@ def test_execute_json_command_emit_error(tmp_path: Path, monkeypatch: pytest.Mon
     with pytest.raises(EmitError):
         json_mod._execute_json_command(
             target=str(module_path),
-            out=module_path,
+            output_template=OutputTemplate(str(module_path)),
             count=1,
             jsonl=False,
             indent=None,
@@ -475,7 +526,7 @@ def test_execute_json_command_path_checks(tmp_path: Path) -> None:
     with pytest.raises(DiscoveryError):
         json_mod._execute_json_command(
             target=str(missing),
-            out=module_path,
+            output_template=OutputTemplate(str(module_path)),
             count=1,
             jsonl=False,
             indent=None,
@@ -496,7 +547,7 @@ def test_execute_json_command_path_checks(tmp_path: Path) -> None:
     with pytest.raises(DiscoveryError):
         json_mod._execute_json_command(
             target=str(as_dir),
-            out=module_path,
+            output_template=OutputTemplate(str(module_path)),
             count=1,
             jsonl=False,
             indent=None,
@@ -551,10 +602,11 @@ def test_execute_json_command_applies_preset(
     monkeypatch.setattr(json_mod, "_build_instance_generator", lambda *_, **__: DummyGenerator())
     monkeypatch.setattr(json_mod, "emit_artifact", lambda *a, **k: False)
 
-    def fake_emit(factory, output_path: Path, **_: Any) -> list[Path]:
-        output_path.write_text("{}", encoding="utf-8")
+    def fake_emit(factory, output_path: Path | str, **_: Any) -> list[Path]:
+        path_obj = Path(output_path)
+        path_obj.write_text("{}", encoding="utf-8")
         factory()
-        return [output_path]
+        return [path_obj]
 
     monkeypatch.setattr(json_mod, "emit_json_samples", fake_emit)
 
@@ -562,7 +614,7 @@ def test_execute_json_command_applies_preset(
 
     json_mod._execute_json_command(
         target=str(module_path),
-        out=out_path,
+        output_template=OutputTemplate(str(out_path)),
         count=1,
         jsonl=False,
         indent=None,

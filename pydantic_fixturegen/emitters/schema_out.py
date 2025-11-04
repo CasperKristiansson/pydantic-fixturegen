@@ -10,6 +10,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
+
 
 @dataclass(slots=True)
 class SchemaEmitConfig:
@@ -24,11 +26,20 @@ def emit_model_schema(
     output_path: str | Path,
     indent: int | None = 2,
     ensure_ascii: bool = False,
+    template: OutputTemplate | None = None,
+    template_context: OutputTemplateContext | None = None,
 ) -> Path:
     """Write the model JSON schema to ``output_path``."""
 
+    template_obj = template or OutputTemplate(output_path)
+    context = template_context or OutputTemplateContext()
+    resolved_path = template_obj.render(
+        context=context,
+        case_index=1 if template_obj.uses_case_index() else None,
+    )
+
     config = SchemaEmitConfig(
-        output_path=Path(output_path),
+        output_path=resolved_path,
         indent=_normalise_indent(indent),
         ensure_ascii=ensure_ascii,
     )
@@ -52,11 +63,20 @@ def emit_models_schema(
     output_path: str | Path,
     indent: int | None = 2,
     ensure_ascii: bool = False,
+    template: OutputTemplate | None = None,
+    template_context: OutputTemplateContext | None = None,
 ) -> Path:
     """Emit a combined schema referencing each model by its qualified name."""
 
+    template_obj = template or OutputTemplate(output_path)
+    context = template_context or OutputTemplateContext()
+    resolved_path = template_obj.render(
+        context=context,
+        case_index=1 if template_obj.uses_case_index() else None,
+    )
+
     config = SchemaEmitConfig(
-        output_path=Path(output_path),
+        output_path=resolved_path,
         indent=_normalise_indent(indent),
         ensure_ascii=ensure_ascii,
     )

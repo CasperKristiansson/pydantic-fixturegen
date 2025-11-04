@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -9,6 +10,7 @@ import typer
 
 from pydantic_fixturegen.core.config import ConfigError, load_config
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, PFGError
+from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
 from pydantic_fixturegen.core.seed import SeedManager
 from pydantic_fixturegen.core.seed_freeze import (
     FreezeStatus,
@@ -163,11 +165,24 @@ def register(app: typer.Typer) -> None:
     ) -> None:
         logger = get_logger()
 
+        try:
+            output_template = OutputTemplate(str(out))
+        except PFGError as exc:
+            render_cli_error(exc, json_errors=json_errors)
+            return
+
+        watch_output: Path | None = None
+        watch_extra: list[Path] | None = None
+        if output_template.has_dynamic_directories():
+            watch_extra = [output_template.watch_parent()]
+        else:
+            watch_output = output_template.preview_path()
+
         def invoke(exit_app: bool) -> None:
             try:
                 _execute_fixtures_command(
                     target=target,
-                    out=out,
+                    output_template=output_template,
                     style=style,
                     scope=scope,
                     cases=cases,
@@ -197,13 +212,17 @@ def register(app: typer.Typer) -> None:
                 )
 
         if watch:
-            watch_paths = gather_default_watch_paths(Path(target), output=out)
+            watch_paths = gather_default_watch_paths(
+                Path(target),
+                output=watch_output,
+                extra=watch_extra,
+            )
             try:
                 logger.debug(
                     "Entering watch loop",
                     event="watch_loop_enter",
                     target=str(target),
-                    output=str(out),
+                    output=str(watch_output or output_template.preview_path()),
                     debounce=watch_debounce,
                 )
                 run_with_watch(lambda: invoke(exit_app=False), watch_paths, debounce=watch_debounce)
@@ -216,7 +235,7 @@ def register(app: typer.Typer) -> None:
 def _execute_fixtures_command(
     *,
     target: str,
-    out: Path,
+    output_template: OutputTemplate,
     style: str | None,
     scope: str | None,
     cases: int,
@@ -322,6 +341,19 @@ def _execute_fixtures_command(
     except RuntimeError as exc:
         raise DiscoveryError(str(exc)) from exc
 
+    timestamp = datetime.datetime.now(datetime.timezone.utc)
+    template_model_name = model_classes[0].__name__ if len(model_classes) == 1 else "combined"
+
+    template_context = OutputTemplateContext(
+        model=template_model_name,
+        timestamp=timestamp,
+    )
+
+    resolved_output = output_template.render(
+        context=template_context,
+        case_index=1 if output_template.uses_case_index() else None,
+    )
+
     seed_value: int | None = None
     if app_config.seed is not None:
         seed_value = SeedManager(seed=app_config.seed).normalized_seed
@@ -377,19 +409,20 @@ def _execute_fixtures_command(
 
     context = EmitterContext(
         models=tuple(model_classes),
-        output=out,
+        output=resolved_output,
         parameters={
             "style": style_final,
             "scope": scope_final,
             "cases": cases,
             "return_type": return_type_final,
+            "path_template": output_template.raw,
         },
     )
     if emit_artifact("fixtures", context):
         logger.info(
             "Fixture generation handled by plugin",
             event="fixtures_generation_delegated",
-            output=str(out),
+            output=str(resolved_output),
             style=style_final,
             scope=scope_final,
             time_anchor=anchor_iso,
@@ -399,8 +432,10 @@ def _execute_fixtures_command(
     try:
         result = emit_pytest_fixtures(
             model_classes,
-            output_path=out,
+            output_path=output_template.raw,
             config=pytest_config,
+            template=output_template,
+            template_context=template_context,
         )
     except Exception as exc:
         raise EmitError(str(exc)) from exc
@@ -409,13 +444,13 @@ def _execute_fixtures_command(
     if result.metadata and "constraints" in result.metadata:
         constraint_summary = result.metadata["constraints"]
 
-    message = str(out)
+    message = str(result.path)
     if result.skipped:
         message += " (unchanged)"
         logger.info(
             "Fixtures unchanged",
             event="fixtures_generation_unchanged",
-            output=str(out),
+            output=str(result.path),
             time_anchor=anchor_iso,
         )
     else:

@@ -19,6 +19,7 @@ from pydantic_fixturegen.core.constraint_report import ConstraintReporter
 from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.io_utils import WriteResult, write_atomic_text
+from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
 from pydantic_fixturegen.core.version import build_artifact_header
 
 DEFAULT_SCOPE = "function"
@@ -49,6 +50,8 @@ def emit_pytest_fixtures(
     *,
     output_path: str | Path,
     config: PytestEmitConfig | None = None,
+    template: OutputTemplate | None = None,
+    template_context: OutputTemplateContext | None = None,
 ) -> WriteResult:
     """Generate pytest fixture code for ``models`` and write it atomically."""
 
@@ -123,8 +126,14 @@ def emit_pytest_fixtures(
         entries=model_entries,
         config=cfg,
     )
+    template_obj = template or OutputTemplate(output_path)
+    context = template_context or OutputTemplateContext()
+    resolved_path = template_obj.render(
+        context=context,
+        case_index=1 if template_obj.uses_case_index() else None,
+    )
     result = write_atomic_text(
-        output_path,
+        resolved_path,
         rendered,
         hash_compare=cfg.hash_compare,
     )

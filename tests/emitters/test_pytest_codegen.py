@@ -4,6 +4,7 @@ import datetime
 from pathlib import Path
 
 from pydantic import BaseModel, Field
+from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
 from pydantic_fixturegen.emitters.pytest_codegen import PytestEmitConfig, emit_pytest_fixtures
 
 
@@ -84,3 +85,22 @@ def test_emit_pytest_fixtures_records_time_anchor(tmp_path: Path) -> None:
     assert result.metadata.get("time_anchor") == anchor.isoformat()
     header = output.read_text(encoding="utf-8").splitlines()[2]
     assert f"time_anchor={anchor.isoformat()}" in header
+
+
+def test_emit_pytest_fixtures_with_template(tmp_path: Path) -> None:
+    template = OutputTemplate(tmp_path / "{model}" / "fixtures-{timestamp}.py")
+    context = OutputTemplateContext(
+        model="User",
+        timestamp=datetime.datetime(2024, 7, 21, 11, 15, tzinfo=datetime.timezone.utc),
+    )
+    result = emit_pytest_fixtures(
+        [User],
+        output_path=template.raw,
+        config=PytestEmitConfig(seed=13),
+        template=template,
+        template_context=context,
+    )
+
+    assert result.wrote is True
+    assert result.path.parent.name == "User"
+    assert result.path.name.startswith("fixtures-20240721")

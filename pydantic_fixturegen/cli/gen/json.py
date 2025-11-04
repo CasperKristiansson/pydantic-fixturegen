@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,7 @@ from pydantic import BaseModel
 from pydantic_fixturegen.core.config import AppConfig, ConfigError, load_config
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError, PFGError
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
+from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
 from pydantic_fixturegen.core.seed import SeedManager
 from pydantic_fixturegen.core.seed_freeze import (
     FreezeStatus,
@@ -158,11 +160,24 @@ def register(app: typer.Typer) -> None:
     ) -> None:
         logger = get_logger()
 
+        try:
+            output_template = OutputTemplate(str(out))
+        except PFGError as exc:
+            render_cli_error(exc, json_errors=json_errors)
+            return
+
+        watch_output: Path | None = None
+        watch_extra: list[Path] | None = None
+        if output_template.has_dynamic_directories():
+            watch_extra = [output_template.watch_parent()]
+        else:
+            watch_output = output_template.preview_path()
+
         def invoke(exit_app: bool) -> None:
             try:
                 _execute_json_command(
                     target=target,
-                    out=out,
+                    output_template=output_template,
                     count=count,
                     jsonl=jsonl,
                     indent=indent,
@@ -192,13 +207,17 @@ def register(app: typer.Typer) -> None:
                 )
 
         if watch:
-            watch_paths = gather_default_watch_paths(Path(target), output=out)
+            watch_paths = gather_default_watch_paths(
+                Path(target),
+                output=watch_output,
+                extra=watch_extra,
+            )
             try:
                 logger.debug(
                     "Entering watch loop",
                     event="watch_loop_enter",
                     target=str(target),
-                    output=str(out),
+                    output=str(watch_output or output_template.preview_path()),
                     debounce=watch_debounce,
                 )
                 run_with_watch(lambda: invoke(exit_app=False), watch_paths, debounce=watch_debounce)
@@ -211,7 +230,7 @@ def register(app: typer.Typer) -> None:
 def _execute_json_command(
     *,
     target: str,
-    out: Path,
+    output_template: OutputTemplate,
     count: int,
     jsonl: bool,
     indent: int | None,
@@ -323,6 +342,11 @@ def _execute_json_command(
     model_id = model_identifier(model_cls)
     model_digest = compute_model_digest(model_cls)
 
+    template_context = OutputTemplateContext(
+        model=model_cls.__name__,
+        timestamp=datetime.datetime.now(datetime.timezone.utc),
+    )
+
     if freeze_manager is not None:
         default_seed = derive_default_model_seed(app_config.seed, model_id)
         selected_seed: int | None = default_seed
@@ -357,20 +381,24 @@ def _execute_json_command(
 
     context = EmitterContext(
         models=(model_cls,),
-        output=out,
+        output=output_template.render(
+            context=template_context,
+            case_index=1 if output_template.uses_case_index() else None,
+        ),
         parameters={
             "count": count,
             "jsonl": jsonl,
             "indent": indent_value,
             "shard_size": shard_size,
             "use_orjson": use_orjson_value,
+            "path_template": output_template.raw,
         },
     )
     if emit_artifact("json", context):
         logger.info(
             "JSON generation handled by plugin",
             event="json_generation_delegated",
-            output=str(out),
+            output=str(context.output),
             time_anchor=anchor_iso,
         )
         return
@@ -378,13 +406,15 @@ def _execute_json_command(
     try:
         paths = emit_json_samples(
             sample_factory,
-            output_path=out,
+            output_path=output_template.raw,
             count=count,
             jsonl=jsonl,
             indent=indent_value,
             shard_size=shard_size,
             use_orjson=use_orjson_value,
             ensure_ascii=False,
+            template=output_template,
+            template_context=template_context,
         )
     except RuntimeError as exc:
         constraint_summary = _summarize_constraint_report(generator)

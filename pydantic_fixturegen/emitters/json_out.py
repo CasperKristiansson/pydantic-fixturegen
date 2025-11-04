@@ -14,6 +14,8 @@ from typing import Any, cast
 
 from pydantic import BaseModel
 
+from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
+
 orjson: ModuleType | None
 try:  # Optional dependency
     import orjson as _orjson
@@ -32,6 +34,8 @@ class JsonEmitConfig:
 
     output_path: Path
     count: int
+    template: OutputTemplate | None = None
+    template_context: OutputTemplateContext | None = None
     jsonl: bool = False
     indent: int | None = DEFAULT_INDENT
     shard_size: int | None = None
@@ -51,6 +55,8 @@ def emit_json_samples(
     use_orjson: bool = False,
     ensure_ascii: bool = False,
     max_workers: int | None = None,
+    template: OutputTemplate | None = None,
+    template_context: OutputTemplateContext | None = None,
 ) -> list[Path]:
     """Emit generated samples to JSON or JSONL files.
 
@@ -73,9 +79,20 @@ def emit_json_samples(
         List of ``Path`` objects for the created file(s), ordered by shard index.
     """
 
+    template_obj = template or OutputTemplate(output_path)
+    context = template_context or OutputTemplateContext()
+
+    if template_obj.fields:
+        initial_index = 1 if template_obj.uses_case_index() else None
+        resolved_path = template_obj.render(context=context, case_index=initial_index)
+    else:
+        resolved_path = template_obj.render(context=context)
+
     config = JsonEmitConfig(
-        output_path=Path(output_path),
+        output_path=resolved_path,
         count=count,
+        template=template_obj if template_obj.fields else None,
+        template_context=context,
         jsonl=jsonl,
         indent=_normalise_indent(indent, jsonl=jsonl),
         shard_size=_normalise_shard_size(shard_size, count),
@@ -95,13 +112,13 @@ def emit_json_samples(
         if config.jsonl:
             path = _stream_jsonl(
                 samples_iter,
-                config.output_path,
+                _resolve_base_path(config, index=1),
                 encoder,
             )
         else:
             path = _stream_json_array(
                 samples_iter,
-                config.output_path,
+                _resolve_base_path(config, index=1),
                 encoder,
                 indent=config.indent,
             )
@@ -258,7 +275,13 @@ def _write_chunked_samples(
 
     chunk = list(islice(iterator, chunk_size))
     if not chunk:
-        results.append(_write_empty_shard(config.output_path, config.jsonl, encoder))
+        results.append(
+            _write_empty_shard(
+                _resolve_base_path(config, index=1),
+                config.jsonl,
+                encoder,
+            )
+        )
         return results
 
     index = 1
@@ -266,7 +289,7 @@ def _write_chunked_samples(
         next_chunk = list(islice(iterator, chunk_size))
         is_last = not next_chunk
         path = _chunk_path(
-            config.output_path,
+            config,
             index=index,
             is_last=is_last,
             jsonl=config.jsonl,
@@ -288,18 +311,39 @@ def _write_chunked_samples(
 
 
 def _chunk_path(
-    base_path: Path,
+    config: JsonEmitConfig,
     *,
     index: int,
     is_last: bool,
     jsonl: bool,
 ) -> Path:
+    template = config.template
+    if template is not None:
+        base_path = template.render(
+            context=config.template_context,
+            case_index=index if template.uses_case_index() else None,
+        )
+    else:
+        base_path = config.output_path
+
     suffix = ".jsonl" if jsonl else ".json"
+    if template is not None and template.uses_case_index():
+        return _ensure_suffix(base_path, suffix)
     if is_last and index == 1:
         return _ensure_suffix(base_path, suffix)
 
     shard_total = 2 if (index > 1 or not is_last) else 1
     return _shard_path(base_path, index, shard_total, jsonl)
+
+
+def _resolve_base_path(config: JsonEmitConfig, *, index: int) -> Path:
+    template = config.template
+    if template is None:
+        return config.output_path
+    return template.render(
+        context=config.template_context,
+        case_index=index if template.uses_case_index() else None,
+    )
 
 
 def _shard_path(base_path: Path, shard_index: int, shard_count: int, jsonl: bool) -> Path:

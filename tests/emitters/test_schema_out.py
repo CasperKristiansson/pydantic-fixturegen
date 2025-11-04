@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+import datetime
 import json
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
 from pydantic import BaseModel
+from pydantic_fixturegen.core.path_template import (
+    OutputTemplate,
+    OutputTemplateContext,
+    OutputTemplateError,
+)
 from pydantic_fixturegen.emitters.schema_out import emit_model_schema, emit_models_schema
 
 
@@ -52,3 +59,36 @@ def test_emit_schema_compact(tmp_path: Path) -> None:
     text = path.read_text(encoding="utf-8")
     assert text.endswith("\n")
     assert "\n" not in text[:-1]
+
+
+def test_emit_model_schema_with_template(tmp_path: Path) -> None:
+    template = OutputTemplate(tmp_path / "{model}" / "schema-{timestamp}.json")
+    context = OutputTemplateContext(
+        model="User",
+        timestamp=datetime.datetime(2024, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
+    )
+
+    path = emit_model_schema(
+        User,
+        output_path=template.raw,
+        template=template,
+        template_context=context,
+    )
+
+    assert path.parent.name == "User"
+    assert path.name.startswith("schema-20240101")
+    assert path.suffix == ".json"
+
+
+def test_emit_models_schema_template_requires_model(tmp_path: Path) -> None:
+    template = OutputTemplate(tmp_path / "{model}" / "bundle.json")
+
+    with pytest.raises(OutputTemplateError):
+        emit_models_schema(
+            [Account, User],
+            output_path=template.raw,
+            template=template,
+            template_context=OutputTemplateContext(
+                timestamp=datetime.datetime.now(datetime.timezone.utc)
+            ),
+        )

@@ -11,6 +11,7 @@ from pydantic_fixturegen.core.config import AppConfig, ConfigError
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError
 from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult
 from pydantic_fixturegen.core.io_utils import WriteResult
+from pydantic_fixturegen.core.path_template import OutputTemplate
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -132,6 +133,31 @@ def test_gen_fixtures_factory_dict(tmp_path: Path) -> None:
     assert "def user_factory(" in text
     assert "def builder(" in text
     assert "return dict(" in text
+
+
+def test_gen_fixtures_out_template(tmp_path: Path) -> None:
+    module_path = _write_module(tmp_path)
+    template = tmp_path / "generated" / "{model}" / "fixtures-{timestamp}.py"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "fixtures",
+            str(module_path),
+            "--out",
+            str(template),
+            "--include",
+            "models.User",
+        ],
+    )
+
+    assert result.exit_code == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    generated_dir = tmp_path / "generated" / "User"
+    files = list(generated_dir.glob("fixtures-*.py"))
+    assert len(files) == 1
+    content = files[0].read_text(encoding="utf-8")
+    assert "def user(" in content
 
 
 def test_gen_fixtures_class_style_scope(tmp_path: Path) -> None:
@@ -291,7 +317,7 @@ def test_execute_fixtures_command_warnings(
 
     fixtures_mod._execute_fixtures_command(
         target=str(module_path),
-        out=out_path,
+        output_template=OutputTemplate(str(out_path)),
         style="factory",
         scope="module",
         cases=2,
@@ -334,7 +360,7 @@ def test_execute_fixtures_command_errors(tmp_path: Path, monkeypatch: pytest.Mon
     with pytest.raises(DiscoveryError):
         fixtures_mod._execute_fixtures_command(
             target=str(module_path),
-            out=module_path,
+            output_template=OutputTemplate(str(module_path)),
             style=None,
             scope=None,
             cases=1,
@@ -355,7 +381,7 @@ def test_execute_fixtures_command_path_checks(tmp_path: Path) -> None:
     with pytest.raises(DiscoveryError):
         fixtures_mod._execute_fixtures_command(
             target=str(missing),
-            out=missing,
+            output_template=OutputTemplate(str(missing)),
             style=None,
             scope=None,
             cases=1,
@@ -375,7 +401,7 @@ def test_execute_fixtures_command_path_checks(tmp_path: Path) -> None:
     with pytest.raises(DiscoveryError):
         fixtures_mod._execute_fixtures_command(
             target=str(directory),
-            out=directory,
+            output_template=OutputTemplate(str(directory)),
             style=None,
             scope=None,
             cases=1,
@@ -426,7 +452,7 @@ def test_execute_fixtures_command_emit_error(
     with pytest.raises(EmitError):
         fixtures_mod._execute_fixtures_command(
             target=str(module_path),
-            out=module_path,
+            output_template=OutputTemplate(str(module_path)),
             style=None,
             scope=None,
             cases=1,
@@ -484,7 +510,7 @@ def test_execute_fixtures_command_applies_preset(
 
     fixtures_mod._execute_fixtures_command(
         target=str(module_path),
-        out=result_obj.path,
+        output_template=OutputTemplate(str(result_obj.path)),
         style=None,
         scope=None,
         cases=1,

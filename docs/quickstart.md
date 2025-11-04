@@ -62,6 +62,8 @@ models.Address
 pfg gen json ./models.py --include models.User --n 2 --indent 2 --out ./out/User
 ```
 
+> Tip: `--out` accepts templated paths such as `artifacts/{model}/sample-{case_index}.json`. Placeholders `{model}`, `{case_index}`, and `{timestamp}` are normalised to safe segments and keep writes inside the working directory.
+
 **What it does**: Builds two deterministic instances per model and writes pretty-printed JSON.
 **Files written**:
 

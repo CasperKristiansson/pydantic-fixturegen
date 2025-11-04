@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,7 @@ import typer
 
 from pydantic_fixturegen.core.config import ConfigError, load_config
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, PFGError
+from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
 from pydantic_fixturegen.emitters.schema_out import emit_model_schema, emit_models_schema
 from pydantic_fixturegen.plugins.hookspecs import EmitterContext
 from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
@@ -85,11 +87,24 @@ def register(app: typer.Typer) -> None:
     ) -> None:
         logger = get_logger()
 
+        try:
+            output_template = OutputTemplate(str(out))
+        except PFGError as exc:
+            render_cli_error(exc, json_errors=json_errors)
+            return
+
+        watch_output: Path | None = None
+        watch_extra: list[Path] | None = None
+        if output_template.has_dynamic_directories():
+            watch_extra = [output_template.watch_parent()]
+        else:
+            watch_output = output_template.preview_path()
+
         def invoke(exit_app: bool) -> None:
             try:
                 _execute_schema_command(
                     target=target,
-                    out=out,
+                    output_template=output_template,
                     indent=indent,
                     include=include,
                     exclude=exclude,
@@ -110,13 +125,17 @@ def register(app: typer.Typer) -> None:
                 )
 
         if watch:
-            watch_paths = gather_default_watch_paths(Path(target), output=out)
+            watch_paths = gather_default_watch_paths(
+                Path(target),
+                output=watch_output,
+                extra=watch_extra,
+            )
             try:
                 logger.debug(
                     "Entering watch loop",
                     event="watch_loop_enter",
                     target=str(target),
-                    output=str(out),
+                    output=str(watch_output or output_template.preview_path()),
                     debounce=watch_debounce,
                 )
                 run_with_watch(lambda: invoke(exit_app=False), watch_paths, debounce=watch_debounce)
@@ -129,7 +148,7 @@ def register(app: typer.Typer) -> None:
 def _execute_schema_command(
     *,
     target: str,
-    out: Path,
+    output_template: OutputTemplate,
     indent: int | None,
     include: str | None,
     exclude: str | None,
@@ -189,16 +208,36 @@ def _execute_schema_command(
 
     indent_value = indent if indent is not None else app_config.json.indent
 
+    timestamp = datetime.datetime.now(datetime.timezone.utc)
+    if len(model_classes) == 1:
+        template_context = OutputTemplateContext(
+            model=model_classes[0].__name__,
+            timestamp=timestamp,
+        )
+    else:
+        if "model" in output_template.fields:
+            names = ", ".join(cls.__name__ for cls in model_classes)
+            raise EmitError(
+                "Template variable '{model}' requires a single model selection.",
+                details={"models": names},
+            )
+        template_context = OutputTemplateContext(timestamp=timestamp)
+
+    resolved_output = output_template.render(
+        context=template_context,
+        case_index=1 if output_template.uses_case_index() else None,
+    )
+
     context = EmitterContext(
         models=tuple(model_classes),
-        output=out,
-        parameters={"indent": indent_value},
+        output=resolved_output,
+        parameters={"indent": indent_value, "path_template": output_template.raw},
     )
     if emit_artifact("schema", context):
         logger.info(
             "Schema generation handled by plugin",
             event="schema_generation_delegated",
-            output=str(out),
+            output=str(resolved_output),
         )
         return
 
@@ -206,16 +245,20 @@ def _execute_schema_command(
         if len(model_classes) == 1:
             emitted_path = emit_model_schema(
                 model_classes[0],
-                output_path=out,
+                output_path=output_template.raw,
                 indent=indent_value,
                 ensure_ascii=False,
+                template=output_template,
+                template_context=template_context,
             )
         else:
             emitted_path = emit_models_schema(
                 model_classes,
-                output_path=out,
+                output_path=output_template.raw,
                 indent=indent_value,
                 ensure_ascii=False,
+                template=output_template,
+                template_context=template_context,
             )
     except Exception as exc:
         raise EmitError(str(exc)) from exc

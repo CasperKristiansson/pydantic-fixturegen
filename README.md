@@ -206,6 +206,28 @@ Environment variables mirror keys using `PFG_` (e.g., `PFG_SEED=99`). **CLI flag
 
 _All generated JSON, schema, and fixture artifacts are emitted with canonical key ordering and a trailing newline to keep diffs stable across platforms and runs._
 
+### Templated output paths
+
+`pfg gen json`, `pfg gen schema`, and `pfg gen fixtures` accept templated `--out` destinations. Use Python-style `{placeholder}` markers to inject context:
+
+| Placeholder    | Description                                                                                          |
+|----------------|------------------------------------------------------------------------------------------------------|
+| `{model}`      | Discovered model's class name (or `combined` when a fixture/schema aggregates multiple models).       |
+| `{case_index}` | 1-based index of the emitted shard/case. Single-file outputs resolve to `1`.                          |
+| `{timestamp}`  | UTC execution timestamp. Defaults to `YYYYMMDDTHHMMSS`, and honours `strftime` format specifiers.     |
+
+Example commands:
+
+```bash
+pfg gen json models.py --include models.User --n 3 --shard-size 1 \
+  --out "artifacts/{model}/sample-{case_index}.json"
+
+pfg gen fixtures models.py --include models.User \
+  --out "tests/generated/{model}/fixtures-{timestamp:%Y%m%d}.py"
+```
+
+Rendered segments are normalised to `[A-Za-z0-9._-]`, and templates that traverse above the working directory (for example `../…`) are rejected to preserve sandbox guarantees.
+
 ### Explain command examples
 
 ````markdown

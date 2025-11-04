@@ -9,6 +9,7 @@ from pydantic_fixturegen.cli.gen import schema as schema_mod
 from pydantic_fixturegen.core.config import ConfigError
 from pydantic_fixturegen.core.errors import DiscoveryError
 from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult
+from pydantic_fixturegen.core.path_template import OutputTemplate
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -107,6 +108,49 @@ def test_gen_schema_indent_override(tmp_path: Path) -> None:
     text = output.read_text(encoding="utf-8")
     assert text.endswith("\n")
     assert "\n" not in text[:-1]
+
+
+def test_gen_schema_out_template(tmp_path: Path) -> None:
+    module_path = _write_module(tmp_path)
+    template = tmp_path / "schemas" / "{model}" / "schema-{timestamp}.json"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "schema",
+            str(module_path),
+            "--out",
+            str(template),
+            "--include",
+            "models.User",
+        ],
+    )
+
+    assert result.exit_code == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    emitted = list((tmp_path / "schemas" / "User").glob("schema-*.json"))
+    assert len(emitted) == 1
+    payload = json.loads(emitted[0].read_text(encoding="utf-8"))
+    assert payload["title"] == "User"
+
+
+def test_gen_schema_template_model_requires_single_selection(tmp_path: Path) -> None:
+    module_path = _write_module(tmp_path)
+    template = tmp_path / "{model}" / "bundle.json"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "schema",
+            str(module_path),
+            "--out",
+            str(template),
+        ],
+    )
+
+    assert result.exit_code == 30
+    assert "requires a single model" in result.stderr
 
 
 def test_gen_schema_missing_path(tmp_path: Path) -> None:
@@ -233,7 +277,7 @@ def test_execute_schema_command_warnings(
     with pytest.raises(DiscoveryError):
         schema_mod._execute_schema_command(
             target=str(module_path),
-            out=module_path,
+            output_template=OutputTemplate(str(module_path)),
             indent=None,
             include=None,
             exclude=None,
@@ -271,7 +315,7 @@ def test_execute_schema_command_errors(tmp_path: Path, monkeypatch: pytest.Monke
     with pytest.raises(DiscoveryError):
         schema_mod._execute_schema_command(
             target=str(module_path),
-            out=module_path,
+            output_template=OutputTemplate(str(module_path)),
             indent=None,
             include=None,
             exclude=None,
@@ -308,7 +352,7 @@ def test_execute_schema_command_load_failure(
     with pytest.raises(DiscoveryError):
         schema_mod._execute_schema_command(
             target=str(module_path),
-            out=module_path,
+            output_template=OutputTemplate(str(module_path)),
             indent=None,
             include=None,
             exclude=None,
