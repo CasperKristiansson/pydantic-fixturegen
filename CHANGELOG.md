@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.0] - 2025-10-25
+## [1.1.0] - 2025-11-04
 
 ### Added
 
@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `pfg doctor` now enumerates unsupported type coverage, aggregates remediation guidance, and supports `--fail-on-gaps` to raise CI-friendly exit codes when uncovered fields remain.
 - JSON, schema, and fixture emitters now enforce canonical key ordering and trailing newline policy for deterministic artifacts.
 - Enhanced `pfg gen explain` with a structured `--json` payload, ASCII `--tree` visualization, and `--max-depth` controls for nested strategy exploration.
+- Major documentation overhaul: README trimmed to a quick-start landing page, deep content moved into dedicated `/docs` guides, added cookbook alias, and expanded sections for configuration, CLI usage, presets, seeds, security, and troubleshooting.
 
 ### Fixed
 

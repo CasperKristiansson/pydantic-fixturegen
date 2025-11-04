@@ -1,32 +1,14 @@
-# Quickstart: Generate deterministic Pydantic fixtures in minutes (quickstart)
+# Quick start: Build deterministic Pydantic fixtures fast
 
-> Install, list models, generate deterministic JSON and pytest fixtures, and learn the sandbox and config precedence.
+> Follow one file from discovery to fixtures, learn config precedence, and watch artifacts regenerate on change.
 
----
+## You need
 
-## 1) Why this tool vs hand-written fixtures (value-proposition)
+- Python 3.10–3.13.
+- `pip install pydantic-fixturegen` (add extras like `orjson`, `regex`, `hypothesis`, or `watch` as needed).
+- A small Pydantic v2 model module.
 
-- **Deterministic test data**: a single seed cascades across `random`, Faker, and optional NumPy per model/field.
-- **Secure**: safe-import sandbox blocks sockets, jails writes, and caps memory; timeouts exit with code **40**.
-- **Automated**: CLI emits JSON/JSONL, pytest fixtures, and JSON Schema. Works in Linux/macOS/Windows, Python 3.10–3.13.
-- **Extensible**: Pluggy hooks for providers, strategies, and emitters.
-
----
-
-## 2) Installation matrix (install-the-cli)
-
-| Tooling          | Command                                                                                                                                                                               |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **pip**          | `pip install pydantic-fixturegen`                                                                                                                                                     |
-| **pip + extras** | `pip install 'pydantic-fixturegen[orjson]'` · `pip install 'pydantic-fixturegen[regex]'` · `pip install 'pydantic-fixturegen[hypothesis]'` · `pip install 'pydantic-fixturegen[all]'` |
-| **Poetry**       | `poetry add pydantic-fixturegen` then `poetry run pfg --help`                                                                                                                         |
-| **Hatch**        | Add `pydantic-fixturegen` to `project.dependencies`, then `hatch run pfg --help`                                                                                                      |
-
----
-
-## 3) Five-minute guided tour (guided-tour)
-
-### 3.1 Create a model (create-model)
+## Step 1 — Create a model file
 
 ```python
 # models.py
@@ -42,36 +24,36 @@ class User(BaseModel):
     address: Address
 ```
 
-### 3.2 Discover models (discover)
+You can drop this file alongside your test suite or inside a sample project root.
+
+## Step 2 — Discover models
 
 ```bash
 pfg list ./models.py
 ```
 
-**What it does**: Enumerates Pydantic v2 models via **AST** or **safe-import** (combined by default).
-**Representative output**:
+You see fully-qualified names such as:
 
-```
+```text
 models.User
 models.Address
 ```
 
-### 3.3 Generate deterministic JSON (gen-json)
+Use `--include`/`--exclude` to target specific classes, `--public-only` to respect `__all__`, or `--ast` when imports are unsafe.
+Machine-readable errors are available with `--json-errors`; discovery failures surface error code `20`.
+
+## Step 3 — Generate JSON artifacts
 
 ```bash
 pfg gen json ./models.py --include models.User --n 2 --indent 2 --out ./out/User
 ```
 
-> Tip: `--out` accepts templated paths such as `artifacts/{model}/sample-{case_index}.json`. Placeholders `{model}`, `{case_index}`, and `{timestamp}` are normalised to safe segments and keep writes inside the working directory.
+- `--include` narrows generation when the module exposes many models.
+- `--out` accepts template placeholders like `{model}`, `{case_index}`, and `{timestamp}`.
+- `--indent` adds a metadata banner containing `seed`, `version`, and `digest`.
+- Add `--jsonl` and `--shard-size` when you stream large datasets.
 
-**What it does**: Builds two deterministic instances per model and writes pretty-printed JSON.
-**Files written**:
-
-- `out/User.json` with a **metadata header comment** containing `seed/version/digest` when `--indent` is used.
-
-> **Note:** When your module exposes several models, add `--include module.Model` so the generator focuses on a single target.
-
-Example excerpt:
+The command writes `out/User.json` with deterministic content:
 
 ```json
 /* seed=42 version=1.0.0 digest=<sha256> */
@@ -80,72 +62,58 @@ Example excerpt:
     "id": 1,
     "name": "Alice",
     "nickname": null,
-    "address": { "street": "42 Main St" }
+    "address": {"street": "42 Main St"}
   },
   {
     "id": 2,
     "name": "Bob",
     "nickname": "b",
-    "address": { "street": "1 Side Rd" }
+    "address": {"street": "1 Side Rd"}
   }
 ]
 ```
 
-### 3.4 Emit pytest fixtures (gen-fixtures)
+## Step 4 — Emit pytest fixtures
 
 ```bash
 pfg gen fixtures ./models.py \
   --out tests/fixtures/test_user_fixtures.py \
-  --style functions --scope module --p-none 0.25 --cases 3 --return-type model
+  --style functions --scope module --cases 3 --return-type model
 ```
 
-**What it does**: Outputs a fixture module with deduped imports and a banner holding `seed/version/digest`.
-**Representative output snippet**:
+You receive a formatted module with deduplicated imports and a banner:
 
 ```python
 # pydantic-fixturegen v1.0.0  seed=42  digest=<sha256>
 import pytest
 from models import User, Address
 
-@pytest.fixture(scope="module", params=[0,1,2])
+@pytest.fixture(scope="module", params=[0, 1, 2], ids=lambda i: f"user_case_{i}")
 def user(request) -> User:
     ...
 ```
 
-### 3.5 Generate JSON Schema (gen-schema)
+Tune `--style` (`functions`, `factory`, `class`), `--scope` (`function`, `module`, `session`), and `--return-type` (`model`, `dict`) to match your test style.
+Add `--p-none` to bias optional fields.
+
+## Step 5 — Export JSON Schema
 
 ```bash
 pfg gen schema ./models.py --out ./schema
 ```
 
-**What it does**: Calls `model_json_schema()` and writes files **atomically** to avoid partial artifacts.
+Schema files write atomically to avoid partial artifacts.
+Combine with `--watch` to rebuild on file changes.
 
-### 3.5 Python API (generate programmatically)
-
-```python
-from pydantic_fixturegen.api import generate_json
-
-paths = generate_json(
-    "./models.py",
-    out="artifacts/{model}/sample-{case_index}.json",
-    include=["models.User"],
-).paths
-
-print(paths)
-```
-
-The API returns dataclasses capturing emitted paths, discovery warnings, and configuration snapshots so you can integrate generation into build systems without invoking the CLI.
-
-### 3.6 Explain strategy decisions (gen-explain)
+## Step 6 — Explain generation strategies
 
 ```bash
-pfg gen explain ./models.py
+pfg gen explain ./models.py --tree
 ```
 
-**What it does**: Prints a **provider/strategy tree** per field with active policies and plugin overrides.
-**Example (textual)**:
+You see an ASCII tree per field. Switch to machine-readable output with `--json`, cap recursion with `--max-depth`, and limit models with `--include` or `--exclude`.
 
-```
+```text
 User
  ├─ id: int ← number_provider(int)
  ├─ name: str ← string_provider
@@ -153,136 +121,57 @@ User
  └─ address: Address ← nested model
 ```
 
----
+Use this view to confirm plugin overrides or preset tweaks.
 
-## 4) Configuration overview and precedence (configuration)
+## Watch mode
 
-Add to `pyproject.toml`:
+<a id="watch-mode"></a>
 
-```toml
-[tool.pydantic_fixturegen]
-seed = 42
-locale = "en_US"
-union_policy = "weighted"
-enum_policy = "random"
-
-[tool.pydantic_fixturegen.json]
-indent = 2
-orjson = false
-
-[tool.pydantic_fixturegen.emitters.pytest]
-style = "functions"
-scope = "module"
-
-# Editor tooling: opt into validation/autocomplete
-$schema = "https://raw.githubusercontent.com/CasperKristiansson/pydantic-fixturegen/main/pydantic_fixturegen/schemas/config.schema.json"
-
-Prefer running `pfg init` in a fresh repository to generate this snippet automatically:
+Install the `watch` extra, then run:
 
 ```bash
-pfg init
-# add --yaml to emit pydantic-fixturegen.yaml alongside pyproject.toml
-```
+pip install 'pydantic-fixturegen[watch]'
+pfg gen json ./models.py --out ./out/User.json --watch
 ```
 
-**Environment variables**: Mirror keys with `PFG_` prefix, e.g.:
+- The CLI monitors Python and configuration files beneath the working directory.
+- `--watch-debounce <seconds>` controls the filesystem event throttle (default `0.5`).
+- Combine with `--freeze-seeds` to keep deterministic outputs even as models change.
+
+Watch mode is available on `gen json`, `gen fixtures`, and `gen schema`.
+
+## Configuration checkpoints
+
+- Run `pfg init` to scaffold `[tool.pydantic_fixturegen]` with sensible defaults (seed `42`, union policy `weighted`, enum policy `random`, pytest scope `module`).
+- The precedence order is `CLI > environment (PFG_*) > pyproject.toml/YAML > defaults`.
+- Reference the schema directly with `pfg schema config --out schema/config.schema.json`.
+- Use `.pfg-seeds.json` with `--freeze-seeds` for reproducible CI runs; see [docs/seeds.md](./seeds.md).
+
+## Quick command reference
 
 ```bash
-export PFG_SEED=99
-export PFG_EMITTERS__JSON__INDENT=0
-```
+# Scaffold configuration files
+pfg init --yaml
 
-**CLI flags** always win:
+# Diff regenerated artifacts against stored outputs
+pfg diff models.py --json-out out/current.json --show-diff
 
-```bash
-pfg gen json ./models.py --seed 777 --indent 0
-```
+# Validate configuration without generating artifacts
+pfg check models.py --json-errors
 
-**Precedence summary**:
-
-| Priority | Source                                                       |
-| -------- | ------------------------------------------------------------ |
-| 1        | **CLI arguments**                                            |
-| 2        | **Environment** `PFG_*`                                      |
-| 3        | **`[tool.pydantic_fixturegen]`** in `pyproject.toml` or YAML |
-| 4        | Defaults                                                     |
-
----
-
-## 5) Security & sandbox guarantees (security)
-
-- **Network lockdown**: all socket constructors/functions monkey-patched to raise `RuntimeError`.
-- **Env scrub**: `NO_PROXY=*`, proxies cleared, `PYTHONSAFEPATH=1`; HOME/tmp redirected into sandbox.
-- **Filesystem jail**: `open`, `io.open`, `os.open` deny writes **outside** the working directory.
-- **Resource caps**: `resource.RLIMIT_AS` and `RLIMIT_DATA` enforced where available.
-- **Timeouts**: exceeded time returns **exit code 40**.
-- Use `pfg doctor` to surface **risky imports** and **coverage gaps**; `--fail-on-gaps=N` makes gaps CI-blocking.
-- JSON, schema, and fixture emitters always output sorted keys with a trailing newline so diffs stay stable across runs.
-
----
-
-## 6) Troubleshooting checklist (troubleshooting)
-
-- **Discovery import error?** Use `--ast` to skip runtime import or fix import path. For machine output use `--json-errors`.
-- **Non-deterministic outputs?** Pin `seed` via CLI or env; verify with banner/header metadata.
-- **Large JSON files?** Use `--jsonl` and `--shard-size`; consider `--indent 0` or enable `--orjson`.
-- **Optional fields too sparse/dense?** Tune `--p-none` or set it in `pyproject.toml`.
-- **Schema writes partial?** `pfg gen schema` uses atomic writes; ensure destination is writable.
-- **Socket/FS denied?** That is sandboxed by design. Keep generation within the working directory.
-
----
-
-## Quick Reference (quick-reference)
-
-```bash
-# Scaffold config and directories
-pfg init  # add --yaml to emit YAML alongside pyproject.toml
-
-# Diff regenerated artifacts against stored output
-pfg diff models.py --json-out /tmp/sample.json --show-diff
-
-# Regenerate JSON automatically when files change (requires `pip install pydantic-fixturegen[watch]`)
+# Regenerate JSON automatically (requires [watch] extra)
 pfg gen json models.py --out out/models.json --watch
 
-# Export the authoritative configuration schema
+# Export configuration schema
 pfg schema config --out schema/config.schema.json
-
-# Validate configuration and discovery without generating artifacts
-pfg check models.py --json-out /tmp/sample.json --fixtures-out tests/fixtures/generated.py
-
-# List models
-pfg list <module_or_path>
-
-# Deterministic JSON / JSONL (narrow to one model when files contain many)
-pfg gen json <target> --include package.Model --n 100 --jsonl --indent 2 --orjson --shard-size 1000 --out ./out --seed 42
-
-# JSON Schema
-pfg gen schema <target> --out ./schema --json-errors
-
-# Pytest fixtures
-pfg gen fixtures <target> --out tests/fixtures/test_models.py \
-  --style {functions,factory,class} --scope {function,module,session} \
-  --p-none 0.1 --cases 3 --return-type {model,dict} --seed 42
-
-# Explain strategy tree
-pfg gen explain <target>   # textual tree; --json if exposed
-
-# Doctor audit
-pfg doctor <target> --fail-on-gaps 0 --json-errors
 ```
 
----
+## Troubleshooting tips
 
-## Comparison table (comparison)
+- Discovery import errors? Switch to `--ast` or fix `PYTHONPATH`. Capture machine-readable details with `--json-errors`.
+- Non-deterministic outputs? Pin `--seed` or `PFG_SEED` and inspect banner metadata.
+- Large files choking CI? Use `--jsonl` and `--shard-size`, or enable `--orjson` via the `orjson` extra.
+- Optional fields feel off? Adjust `--p-none` or configure `field_policies` in `pyproject.toml`.
+- Sandbox blocked a write or socket? Move output beneath the working directory; network calls are intentionally disabled.
 
-| Tooling                     | Determinism Guarantees           | Plugin Model                                                                            | Sandboxing                         | CLI Coverage                        | Best For                                      |
-| --------------------------- | -------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------- | ----------------------------------- | --------------------------------------------- |
-| **pydantic-fixturegen**     | Strong, cascaded seeds           | **Pluggy** hooks (`pfg_register_providers`, `pfg_modify_strategy`, `pfg_emit_artifact`) | **Yes** (network + FS jail + caps) | **Broad** (list/gen/explain/doctor) | Deterministic Pydantic fixtures and artifacts |
-| factory_boy                 | Manual seeding                   | Extensible classes                                                                      | No                                 | N/A                                 | App factories tied to ORM                     |
-| `hypothesis.extra.pydantic` | Generative, not fixed by default | Strategy composition                                                                    | No                                 | N/A                                 | Property-based exploration                    |
-
----
-
-## Next steps (next-steps)
-
-- Continue to the **[Cookbook](./cookbook.md)** for advanced recipes.
+Next: explore deeper recipes in the [Cookbook](./cookbook.md) or tighten config options in the [Configuration guide](./configuration.md).
