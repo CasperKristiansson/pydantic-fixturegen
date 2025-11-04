@@ -176,6 +176,8 @@ Safely evaluate untrusted models.
 
    ```bash
    pfg doctor ./third_party_models.py --fail-on-gaps 0
+
+Stable artifacts tip: JSON, schema, and fixture emitters sort keys and append a trailing newline so version-control diffs remain minimal.
    ```
 
 ### Guarantees

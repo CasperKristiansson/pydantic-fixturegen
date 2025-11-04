@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added `--now` option to JSON/fixture/diff workflows to pin temporal data to a reproducible anchor timestamp and surface the chosen value in artifact metadata.
 - Field policies now support glob or regex patterns targeting model names, nested field paths (for example `User.address.city`), and plain field names in addition to fully-qualified module paths.
 - `pfg doctor` now enumerates unsupported type coverage, aggregates remediation guidance, and supports `--fail-on-gaps` to raise CI-friendly exit codes when uncovered fields remain.
+- JSON, schema, and fixture emitters now enforce canonical key ordering and trailing newline policy for deterministic artifacts.
 - Enhanced `pfg gen explain` with a structured `--json` payload, ASCII `--tree` visualization, and `--max-depth` controls for nested strategy exploration.
 
 ### Fixed

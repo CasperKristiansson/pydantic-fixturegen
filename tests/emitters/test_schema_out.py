@@ -13,6 +13,11 @@ class User(BaseModel):
     name: str
 
 
+class Account(BaseModel):
+    z: int
+    a: int
+
+
 @dataclass
 class Profile:
     active: bool
@@ -30,13 +35,13 @@ def test_emit_single_model_schema(tmp_path: Path) -> None:
 
 def test_emit_multiple_models_schema(tmp_path: Path) -> None:
     output = tmp_path / "bundle.json"
-    path = emit_models_schema([User], output_path=output, indent=None)
+    path = emit_models_schema([Account, User], output_path=output, indent=None)
 
     assert path == output
     text = path.read_text(encoding="utf-8")
-    assert "User" in text
+    assert text.endswith("\n")
     payload = json.loads(text)
-    assert list(payload) == ["User"]
+    assert list(payload) == ["Account", "User"]
 
 
 def test_emit_schema_compact(tmp_path: Path) -> None:
@@ -45,4 +50,5 @@ def test_emit_schema_compact(tmp_path: Path) -> None:
 
     assert path == output
     text = path.read_text(encoding="utf-8")
-    assert "\n" not in text
+    assert text.endswith("\n")
+    assert "\n" not in text[:-1]

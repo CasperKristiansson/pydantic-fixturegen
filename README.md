@@ -204,6 +204,8 @@ Environment variables mirror keys using `PFG_` (e.g., `PFG_SEED=99`). **CLI flag
 - `pfg gen explain <target>` — inspect provider/strategy composition (`--json` for structured output, `--tree` for ASCII visualization, `--max-depth N` to cap nested expansion).
 - `pfg doctor <target>` — audit provider coverage, constraint gaps, risky imports (`--fail-on-gaps=N`, `--json-errors`).
 
+_All generated JSON, schema, and fixture artifacts are emitted with canonical key ordering and a trailing newline to keep diffs stable across platforms and runs._
+
 ### Explain command examples
 
 ````markdown

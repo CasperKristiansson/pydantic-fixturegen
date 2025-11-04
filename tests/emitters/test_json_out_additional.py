@@ -38,6 +38,29 @@ def test_emit_json_samples_jsonl_threadpool(tmp_path: Path) -> None:
     assert all(path.read_text(encoding="utf-8").strip() for path in paths[:-1])
 
 
+def test_emit_json_samples_appends_newline_and_sorts_keys(tmp_path: Path) -> None:
+    output = tmp_path / "data.json"
+    payload = [{"z": 1, "a": 2}]
+
+    paths = json_out.emit_json_samples(payload, output_path=output, count=1, jsonl=False)
+
+    text = paths[0].read_text(encoding="utf-8")
+    assert text.endswith("\n")
+    decoded = json.loads(text)
+    assert isinstance(decoded, list)
+    assert list(decoded[0]) == ["a", "z"]
+
+
+def test_emit_json_samples_jsonl_trailing_newline(tmp_path: Path) -> None:
+    output = tmp_path / "data.jsonl"
+
+    paths = json_out.emit_json_samples([{"b": 2, "a": 1}], output_path=output, count=1, jsonl=True)
+
+    text = paths[0].read_text(encoding="utf-8")
+    assert text.endswith("\n")
+    assert list(json.loads(text.strip()).keys()) == ["a", "b"]
+
+
 def test_json_encoder_orjson(monkeypatch: pytest.MonkeyPatch) -> None:
     class DummyOrjson:
         OPT_SORT_KEYS = 1

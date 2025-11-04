@@ -105,7 +105,8 @@ def test_gen_schema_indent_override(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
     text = output.read_text(encoding="utf-8")
-    assert "\n" not in text
+    assert text.endswith("\n")
+    assert "\n" not in text[:-1]
 
 
 def test_gen_schema_missing_path(tmp_path: Path) -> None:

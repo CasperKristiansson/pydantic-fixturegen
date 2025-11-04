@@ -167,7 +167,7 @@ def _write_empty_shard(
     path = _shard_path(base_path, 1, 1, jsonl)
     empty_payload = "" if jsonl else encoder.encode([])
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(empty_payload, encoding="utf-8")
+    path.write_text(empty_payload, encoding="utf-8", newline="\n")
     return path
 
 
@@ -179,14 +179,19 @@ def _prepare_payload(
     workers: int,
 ) -> str:
     if not jsonl:
-        return encoder.encode(list(chunk))
+        payload = encoder.encode(list(chunk))
+        if payload and not payload.endswith("\n"):
+            payload += "\n"
+        return payload
 
     if workers <= 1:
         lines = [encoder.encode(item) for item in chunk]
     else:
         with ThreadPoolExecutor(max_workers=workers) as executor:
             lines = list(executor.map(encoder.encode, chunk))
-    return "\n".join(lines) + ("\n" if lines else "")
+    if not lines:
+        return ""
+    return "\n".join(lines) + "\n"
 
 
 def _stream_jsonl(
@@ -196,7 +201,7 @@ def _stream_jsonl(
 ) -> Path:
     path = _ensure_suffix(base_path, ".jsonl")
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as stream:
+    with path.open("w", encoding="utf-8", newline="\n") as stream:
         for record in iterator:
             stream.write(encoder.encode(record))
             stream.write("\n")
@@ -214,7 +219,7 @@ def _stream_json_array(
     path.parent.mkdir(parents=True, exist_ok=True)
 
     if indent is None:
-        with path.open("w", encoding="utf-8") as stream:
+        with path.open("w", encoding="utf-8", newline="\n") as stream:
             first = True
             stream.write("[")
             for record in iterator:
@@ -222,11 +227,11 @@ def _stream_json_array(
                     stream.write(",")
                 stream.write(encoder.encode(record))
                 first = False
-            stream.write("]")
+            stream.write("]\n")
         return path
 
     spacing = " " * indent
-    with path.open("w", encoding="utf-8") as stream:
+    with path.open("w", encoding="utf-8", newline="\n") as stream:
         written = False
         for record in iterator:
             encoded = encoder.encode(record)
@@ -237,9 +242,9 @@ def _stream_json_array(
             stream.write(f"{spacing}{encoded}")
             written = True
         if not written:
-            stream.write("[]")
+            stream.write("[]\n")
         else:
-            stream.write("\n]")
+            stream.write("\n]\n")
     return path
 
 
@@ -273,7 +278,7 @@ def _write_chunked_samples(
             workers=_worker_count(config.max_workers, len(chunk)),
         )
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(payload, encoding="utf-8")
+        path.write_text(payload, encoding="utf-8", newline="\n")
         results.append(path)
 
         chunk = next_chunk

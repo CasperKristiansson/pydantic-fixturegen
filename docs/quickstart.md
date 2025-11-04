@@ -199,6 +199,7 @@ pfg gen json ./models.py --seed 777 --indent 0
 - **Resource caps**: `resource.RLIMIT_AS` and `RLIMIT_DATA` enforced where available.
 - **Timeouts**: exceeded time returns **exit code 40**.
 - Use `pfg doctor` to surface **risky imports** and **coverage gaps**; `--fail-on-gaps=N` makes gaps CI-blocking.
+- JSON, schema, and fixture emitters always output sorted keys with a trailing newline so diffs stay stable across runs.
 
 ---
 

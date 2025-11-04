@@ -40,6 +40,8 @@ def emit_model_schema(
         sort_keys=True,
     )
     config.output_path.parent.mkdir(parents=True, exist_ok=True)
+    if payload and not payload.endswith("\n"):
+        payload += "\n"
     config.output_path.write_text(payload, encoding="utf-8")
     return config.output_path
 
@@ -59,7 +61,7 @@ def emit_models_schema(
         ensure_ascii=ensure_ascii,
     )
     combined: dict[str, Any] = {}
-    for model in models:
+    for model in sorted(models, key=lambda m: m.__name__):
         combined[model.__name__] = model.model_json_schema()
 
     payload = json.dumps(
@@ -69,6 +71,8 @@ def emit_models_schema(
         sort_keys=True,
     )
     config.output_path.parent.mkdir(parents=True, exist_ok=True)
+    if payload and not payload.endswith("\n"):
+        payload += "\n"
     config.output_path.write_text(payload, encoding="utf-8")
     return config.output_path
 
