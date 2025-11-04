@@ -62,6 +62,49 @@ def split_patterns(raw: str | None) -> list[str]:
     return [part.strip() for part in raw.split(",") if part.strip()]
 
 
+def _package_hierarchy(module_path: Path) -> list[Path]:
+    hierarchy: list[Path] = []
+    current = module_path.parent.resolve()
+
+    while True:
+        init_file = current / "__init__.py"
+        if not init_file.exists():
+            break
+        hierarchy.append(current)
+        parent = current.parent.resolve()
+        if parent == current:
+            break
+        current = parent
+
+    hierarchy.reverse()
+    return hierarchy
+
+
+def _module_sys_path_entries(module_path: Path) -> list[str]:
+    resolved_path = module_path.resolve()
+    candidates: list[Path] = []
+    packages = _package_hierarchy(resolved_path)
+
+    if packages:
+        root_parent = packages[0].parent.resolve()
+        if root_parent != packages[0] and root_parent.is_dir():
+            candidates.append(root_parent)
+
+    parent_dir = resolved_path.parent
+    if parent_dir.is_dir():
+        candidates.append(parent_dir.resolve())
+
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for entry in candidates:
+        entry_str = str(entry)
+        if entry_str in seen:
+            continue
+        ordered.append(entry_str)
+        seen.add(entry_str)
+    return ordered
+
+
 DiscoveryMethod = Literal["ast", "import", "hybrid"]
 
 
@@ -200,9 +243,10 @@ def _import_module_by_path(module_name: str, path: Path) -> ModuleType:
     if not path.exists():
         raise RuntimeError(f"Could not locate module source at {path}.")
 
-    sys_path_entry = str(path.parent.resolve())
-    if sys_path_entry not in sys.path:
-        sys.path.insert(0, sys_path_entry)
+    sys_path_entries = _module_sys_path_entries(path)
+    for entry in reversed(sys_path_entries):
+        if entry not in sys.path:
+            sys.path.insert(0, entry)
 
     unique_name = module_name
     if module_name in sys.modules:

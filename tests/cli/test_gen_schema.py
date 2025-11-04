@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -40,6 +41,47 @@ class Product(BaseModel):
         encoding="utf-8",
     )
     return module_path
+
+
+def _write_relative_import_package(tmp_path: Path) -> Path:
+    package_root = tmp_path / "lib" / "models"
+    package_root.mkdir(parents=True)
+
+    (tmp_path / "lib" / "__init__.py").write_text("", encoding="utf-8")
+    (package_root / "__init__.py").write_text("", encoding="utf-8")
+
+    (package_root / "shared_model.py").write_text(
+        textwrap.dedent(
+            """
+            from pydantic import BaseModel
+
+
+            class SharedPayload(BaseModel):
+                path: str
+                size: int
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    target_module = package_root / "example_model.py"
+    target_module.write_text(
+        textwrap.dedent(
+            """
+            from pydantic import BaseModel
+
+            from .shared_model import SharedPayload
+
+
+            class ExampleRequest(BaseModel):
+                project_id: str
+                payload: SharedPayload
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    return target_module
 
 
 def test_gen_schema_single_model(tmp_path: Path) -> None:
@@ -350,3 +392,26 @@ def test_execute_schema_command_load_failure(
             include=None,
             exclude=None,
         )
+
+
+def test_gen_schema_handles_relative_imports(tmp_path: Path) -> None:
+    target_module = _write_relative_import_package(tmp_path)
+    output = tmp_path / "schema.json"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "schema",
+            str(target_module),
+            "--out",
+            str(output),
+            "--include",
+            "lib.models.example_model.ExampleRequest",
+        ],
+    )
+
+    assert result.exit_code == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    assert output.exists()
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload.get("title") == "ExampleRequest"

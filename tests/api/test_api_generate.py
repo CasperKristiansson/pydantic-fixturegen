@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -33,6 +34,47 @@ class Order(BaseModel):
         encoding="utf-8",
     )
     return module_path
+
+
+def _write_relative_import_package(tmp_path: Path) -> Path:
+    package_root = tmp_path / "lib" / "models"
+    package_root.mkdir(parents=True)
+
+    (tmp_path / "lib" / "__init__.py").write_text("", encoding="utf-8")
+    (package_root / "__init__.py").write_text("", encoding="utf-8")
+
+    (package_root / "shared_model.py").write_text(
+        textwrap.dedent(
+            """
+            from pydantic import BaseModel
+
+
+            class SharedPayload(BaseModel):
+                path: str
+                size: int
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    target_module = package_root / "example_model.py"
+    target_module.write_text(
+        textwrap.dedent(
+            """
+            from pydantic import BaseModel
+
+            from .shared_model import SharedPayload
+
+
+            class ExampleRequest(BaseModel):
+                project_id: str
+                payload: SharedPayload
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    return target_module
 
 
 def test_generate_json_api(tmp_path: Path) -> None:
@@ -177,3 +219,33 @@ def test_generate_schema_error_details(tmp_path: Path, monkeypatch: pytest.Monke
 
     assert exc_info.value.details
     assert exc_info.value.details.get("base_output")
+
+
+def test_generate_api_handles_relative_imports(tmp_path: Path) -> None:
+    module_path = _write_relative_import_package(tmp_path)
+
+    json_out = tmp_path / "request.json"
+    fixtures_out = tmp_path / "fixtures.py"
+    schema_out = tmp_path / "schema.json"
+    include = ["lib.models.example_model.ExampleRequest"]
+
+    json_result = generate_json(
+        module_path,
+        out=json_out,
+        include=include,
+    )
+    assert json_result.paths and json_result.paths[0].exists()
+
+    fixtures_result = generate_fixtures(
+        module_path,
+        out=fixtures_out,
+        include=include,
+    )
+    assert fixtures_result.path is not None and fixtures_result.path.exists()
+
+    schema_result = generate_schema(
+        module_path,
+        out=schema_out,
+        include=include,
+    )
+    assert schema_result.path is not None and schema_result.path.exists()
