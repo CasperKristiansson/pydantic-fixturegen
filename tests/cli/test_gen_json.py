@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -116,6 +117,41 @@ def test_gen_json_respects_config_env(tmp_path: Path) -> None:
     assert result.exit_code == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
     text = output.read_text(encoding="utf-8")
     assert "\n" not in text
+
+
+def test_gen_json_now_option(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "anchored.json"
+
+    captured: dict[str, datetime.datetime | None] = {}
+    original_builder = json_mod._build_instance_generator
+
+    def spy_builder(app_config: AppConfig, *, seed_override: int | None = None):
+        captured["now"] = app_config.now
+        return original_builder(app_config, seed_override=seed_override)
+
+    monkeypatch.setattr(json_mod, "_build_instance_generator", spy_builder)
+
+    now_value = "2024-12-01T08:09:10Z"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(output),
+            "--include",
+            "models.User",
+            "--now",
+            now_value,
+        ],
+    )
+
+    assert result.exit_code == 0, result.stderr
+    assert captured["now"] == datetime.datetime(2024, 12, 1, 8, 9, 10, tzinfo=datetime.timezone.utc)
+    assert output.exists()
 
 
 def test_gen_json_mapping_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -302,6 +338,7 @@ def test_execute_json_command_warnings(
         include="pkg.User",
         exclude=None,
         seed=42,
+        now=None,
         freeze_seeds=False,
         freeze_seeds_file=None,
         preset=None,
@@ -337,6 +374,7 @@ def test_execute_json_command_discovery_errors(
             include=None,
             exclude=None,
             seed=None,
+            now=None,
             freeze_seeds=False,
             freeze_seeds_file=None,
             preset=None,
@@ -420,6 +458,7 @@ def test_execute_json_command_emit_error(tmp_path: Path, monkeypatch: pytest.Mon
             include=None,
             exclude=None,
             seed=None,
+            now=None,
             freeze_seeds=False,
             freeze_seeds_file=None,
             preset=None,
@@ -442,6 +481,7 @@ def test_execute_json_command_path_checks(tmp_path: Path) -> None:
             include=None,
             exclude=None,
             seed=None,
+            now=None,
             freeze_seeds=False,
             freeze_seeds_file=None,
             preset=None,
@@ -462,6 +502,7 @@ def test_execute_json_command_path_checks(tmp_path: Path) -> None:
             include=None,
             exclude=None,
             seed=None,
+            now=None,
             freeze_seeds=False,
             freeze_seeds_file=None,
             preset=None,
@@ -527,6 +568,7 @@ def test_execute_json_command_applies_preset(
         include=None,
         exclude=None,
         seed=None,
+        now=None,
         freeze_seeds=False,
         freeze_seeds_file=None,
         preset="boundary",

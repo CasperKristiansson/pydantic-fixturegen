@@ -15,9 +15,19 @@ def generate_temporal(
     summary: FieldSummary,
     *,
     faker: Faker | None = None,
+    time_anchor: datetime.datetime | None = None,
 ) -> Any:
     faker = faker or Faker()
     type_name = summary.type
+
+    if time_anchor is not None:
+        anchor = time_anchor
+        if type_name == "datetime":
+            return anchor
+        if type_name == "date":
+            return anchor.date()
+        if type_name == "time":
+            return anchor.timetz() if anchor.tzinfo else anchor.time()
 
     if type_name == "datetime":
         return faker.date_time(tzinfo=datetime.timezone.utc)

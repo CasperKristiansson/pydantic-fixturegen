@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import difflib
 import tempfile
 from collections.abc import Iterable
@@ -42,6 +43,7 @@ from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_pl
 
 from .gen._common import (
     JSON_ERRORS_OPTION,
+    NOW_OPTION,
     DiscoveryMethod,
     clear_module_cache,
     discover_models,
@@ -230,6 +232,7 @@ class DiffReport:
     diff_outputs: list[tuple[str, str]]
     summary: str | None
     constraint_report: dict[str, Any] | None = None
+    time_anchor: str | None = None
 
     @property
     def changed(self) -> bool:
@@ -247,6 +250,7 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
     memory_limit_mb: int = MEMORY_LIMIT_OPTION,
     seed: int | None = SEED_OPTION,
     p_none: float | None = PNONE_OPTION,
+    now: str | None = NOW_OPTION,
     json_out: Path | None = JSON_OUT_OPTION,
     json_count: int = JSON_COUNT_OPTION,
     json_jsonl: bool = JSON_JSONL_OPTION,
@@ -301,6 +305,7 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
             preset=preset,
             freeze_seeds=freeze_seeds,
             freeze_seeds_file=freeze_seeds_file,
+            now_override=now,
         )
     except PFGError as exc:
         render_cli_error(exc, json_errors=json_errors)
@@ -320,6 +325,7 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
                         {"path": path, "diff": diff_text} for path, diff_text in report.diff_outputs
                     ],
                     "constraints": report.constraint_report,
+                    "time_anchor": report.time_anchor,
                 }
                 for report in reports
                 if report.kind and (report.changed or report.messages or report.checked_paths)
@@ -379,6 +385,7 @@ def _execute_diff(
     freeze_seeds: bool,
     freeze_seeds_file: Path | None,
     preset: str | None,
+    now_override: str | None,
 ) -> list[DiffReport]:
     if not any((json_options.out, fixtures_options.out, schema_options.out)):
         raise DiscoveryError("Provide at least one artifact path to diff.")
@@ -409,10 +416,21 @@ def _execute_diff(
     config_cli_overrides: dict[str, Any] = {}
     if preset is not None:
         config_cli_overrides["preset"] = preset
+    if now_override is not None:
+        config_cli_overrides["now"] = now_override
 
     app_config = load_config(
         root=Path.cwd(), cli=config_cli_overrides if config_cli_overrides else None
     )
+
+    anchor_iso = app_config.now.isoformat() if app_config.now else None
+
+    if anchor_iso:
+        logger.info(
+            "Using temporal anchor",
+            event="temporal_anchor_set",
+            time_anchor=anchor_iso,
+        )
 
     include_patterns = split_patterns(include) if include is not None else list(app_config.include)
     exclude_patterns = split_patterns(exclude) if exclude is not None else list(app_config.exclude)
@@ -490,6 +508,7 @@ def _execute_diff(
                 app_config_enum=app_config.enum_policy,
                 app_config_union=app_config.union_policy,
                 app_config_p_none=p_none_value,
+                app_config_now=app_config.now,
                 options=json_options,
             )
         )
@@ -504,6 +523,7 @@ def _execute_diff(
                 app_config_scope=app_config.emitters.pytest.scope,
                 options=fixtures_options,
                 per_model_seeds=per_model_seeds if freeze_manager is not None else None,
+                app_config_now=app_config.now,
             )
         )
 
@@ -538,6 +558,7 @@ def _diff_json_artifact(
     app_config_enum: str,
     app_config_union: str,
     app_config_p_none: float | None,
+    app_config_now: datetime.datetime | None,
     options: JsonDiffOptions,
 ) -> DiffReport:
     if not model_classes:
@@ -565,6 +586,7 @@ def _diff_json_artifact(
             union_policy=app_config_union,
             enum_policy=app_config_enum,
             p_none=app_config_p_none,
+            time_anchor=app_config_now,
         )
 
         def sample_factory() -> BaseModel:
@@ -644,6 +666,8 @@ def _diff_json_artifact(
     if not messages:
         summary = f"JSON artifacts match ({len(checked_paths)} file(s))."
 
+    anchor_iso = app_config_now.isoformat() if app_config_now else None
+
     return DiffReport(
         kind="json",
         target=output_path,
@@ -652,6 +676,7 @@ def _diff_json_artifact(
         diff_outputs=diff_outputs,
         summary=summary,
         constraint_report=(constraint_summary if constraint_summary.get("models") else None),
+        time_anchor=anchor_iso,
     )
 
 
@@ -664,6 +689,7 @@ def _diff_fixtures_artifact(
     app_config_scope: str,
     options: FixturesDiffOptions,
     per_model_seeds: dict[str, int] | None,
+    app_config_now: datetime.datetime | None,
 ) -> DiffReport:
     if options.out is None:
         raise DiscoveryError("Fixtures diff requires --fixtures-out.")
@@ -699,6 +725,7 @@ def _diff_fixtures_artifact(
             seed=header_seed,
             optional_p_none=app_config_p_none,
             per_model_seeds=per_model_seeds,
+            time_anchor=app_config_now,
         )
 
         context = EmitterContext(
@@ -762,6 +789,8 @@ def _diff_fixtures_artifact(
     if not messages:
         summary = "Fixtures artifact matches."
 
+    anchor_iso = app_config_now.isoformat() if app_config_now else None
+
     return DiffReport(
         kind="fixtures",
         target=output_path,
@@ -772,6 +801,7 @@ def _diff_fixtures_artifact(
         constraint_report=(
             constraint_summary if constraint_summary and constraint_summary.get("models") else None
         ),
+        time_anchor=anchor_iso,
     )
 
 
@@ -869,6 +899,7 @@ def _build_instance_generator(
     union_policy: str,
     enum_policy: str,
     p_none: float | None,
+    time_anchor: datetime.datetime | None,
 ) -> InstanceGenerator:
     normalized_seed: int | None = None
     if seed_value is not None:
@@ -882,6 +913,7 @@ def _build_instance_generator(
         union_policy=union_policy,
         default_p_none=p_none_value,
         optional_p_none=p_none_value,
+        time_anchor=time_anchor,
     )
     return InstanceGenerator(config=gen_config)
 
@@ -922,6 +954,9 @@ def _render_reports(
         else:
             if report.summary:
                 typer.echo(report.summary)
+
+        if report.time_anchor:
+            typer.echo(f"  Temporal anchor: {report.time_anchor}")
 
         if report.constraint_report:
             emit_constraint_summary(

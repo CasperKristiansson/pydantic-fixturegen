@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import datetime
 import enum
 import inspect
 import random
@@ -37,6 +38,7 @@ class GenerationConfig:
     default_p_none: float = 0.0
     optional_p_none: float = 0.0
     seed: int | None = None
+    time_anchor: datetime.datetime | None = None
 
 
 class InstanceGenerator:
@@ -347,6 +349,7 @@ class InstanceGenerator:
             "summary": strategy.summary,
             "faker": self.faker,
             "random_generator": self.random,
+            "time_anchor": self.config.time_anchor,
         }
         kwargs.update(strategy.provider_kwargs)
 

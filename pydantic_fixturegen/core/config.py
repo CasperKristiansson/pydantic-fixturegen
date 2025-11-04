@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import os
 from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -71,6 +72,7 @@ class AppConfig:
     p_none: float | None = None
     union_policy: str = "first"
     enum_policy: str = "first"
+    now: datetime.datetime | None = None
     overrides: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     emitters: EmittersConfig = field(default_factory=EmittersConfig)
     json: JsonConfig = field(default_factory=JsonConfig)
@@ -119,6 +121,7 @@ def _config_defaults_dict() -> dict[str, Any]:
         "p_none": DEFAULT_CONFIG.p_none,
         "union_policy": DEFAULT_CONFIG.union_policy,
         "enum_policy": DEFAULT_CONFIG.enum_policy,
+        "now": DEFAULT_CONFIG.now,
         "overrides": {},
         "emitters": {
             "pytest": {
@@ -262,6 +265,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
 
     emitters_value = _normalize_emitters(data.get("emitters"))
     json_value = _normalize_json(data.get("json"))
+    now_value = _coerce_datetime(data.get("now"), "now")
 
     seed_value: int | str | None
     if isinstance(seed, (int, str)) or seed is None:
@@ -278,6 +282,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         p_none=p_none_value,
         union_policy=union_policy,
         enum_policy=enum_policy,
+        now=now_value,
         overrides=overrides_value,
         emitters=emitters_value,
         json=json_value,
@@ -319,6 +324,30 @@ def _coerce_policy(value: Any, allowed: set[str], field_name: str) -> str:
     if value not in allowed:
         raise ConfigError(f"{field_name} must be one of {sorted(allowed)}.")
     return value
+
+
+def _coerce_datetime(value: Any, field_name: str) -> datetime.datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime.datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=datetime.timezone.utc)
+        return value
+    if isinstance(value, datetime.date):
+        return datetime.datetime.combine(value, datetime.time(), tzinfo=datetime.timezone.utc)
+    if isinstance(value, str):
+        text = value.strip()
+        if not text or text.lower() == "none":
+            return None
+        normalized = text.replace("Z", "+00:00")
+        try:
+            parsed = datetime.datetime.fromisoformat(normalized)
+        except ValueError as exc:
+            raise ConfigError(f"{field_name} must be an ISO 8601 datetime string.") from exc
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+        return parsed
+    raise ConfigError(f"{field_name} must be an ISO 8601 datetime string or datetime object.")
 
 
 def _normalize_overrides(value: Any) -> Mapping[str, Mapping[str, Any]]:

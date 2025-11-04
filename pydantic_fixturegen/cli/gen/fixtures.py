@@ -26,6 +26,7 @@ from ...logging import get_logger
 from ..watch import gather_default_watch_paths, run_with_watch
 from ._common import (
     JSON_ERRORS_OPTION,
+    NOW_OPTION,
     clear_module_cache,
     discover_models,
     emit_constraint_summary,
@@ -149,6 +150,7 @@ def register(app: typer.Typer) -> None:
         cases: int = CASES_OPTION,
         return_type: str | None = RETURN_OPTION,
         seed: int | None = SEED_OPTION,
+        now: str | None = NOW_OPTION,
         p_none: float | None = P_NONE_OPTION,
         include: str | None = INCLUDE_OPTION,
         exclude: str | None = EXCLUDE_OPTION,
@@ -171,6 +173,7 @@ def register(app: typer.Typer) -> None:
                     cases=cases,
                     return_type=return_type,
                     seed=seed,
+                    now=now,
                     p_none=p_none,
                     include=include,
                     exclude=exclude,
@@ -219,6 +222,7 @@ def _execute_fixtures_command(
     cases: int,
     return_type: str | None,
     seed: int | None,
+    now: str | None,
     p_none: float | None,
     include: str | None,
     exclude: str | None,
@@ -257,6 +261,8 @@ def _execute_fixtures_command(
         cli_overrides["preset"] = preset
     if seed is not None:
         cli_overrides["seed"] = seed
+    if now is not None:
+        cli_overrides["now"] = now
     if p_none is not None:
         cli_overrides["p_none"] = p_none
     emitter_overrides: dict[str, Any] = {}
@@ -273,13 +279,23 @@ def _execute_fixtures_command(
 
     app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
 
+    anchor_iso = app_config.now.isoformat() if app_config.now else None
+
     logger.debug(
         "Loaded configuration",
         event="config_loaded",
         seed=app_config.seed,
         include=list(app_config.include),
         exclude=list(app_config.exclude),
+        time_anchor=anchor_iso,
     )
+
+    if anchor_iso:
+        logger.info(
+            "Using temporal anchor",
+            event="temporal_anchor_set",
+            time_anchor=anchor_iso,
+        )
 
     discovery = discover_models(
         path,
@@ -355,6 +371,7 @@ def _execute_fixtures_command(
         seed=header_seed,
         optional_p_none=app_config.p_none,
         per_model_seeds=per_model_seeds if freeze_manager is not None else None,
+        time_anchor=app_config.now,
     )
 
     context = EmitterContext(
@@ -374,6 +391,7 @@ def _execute_fixtures_command(
             output=str(out),
             style=style_final,
             scope=scope_final,
+            time_anchor=anchor_iso,
         )
         return
 
@@ -397,6 +415,7 @@ def _execute_fixtures_command(
             "Fixtures unchanged",
             event="fixtures_generation_unchanged",
             output=str(out),
+            time_anchor=anchor_iso,
         )
     else:
         logger.info(
@@ -405,6 +424,7 @@ def _execute_fixtures_command(
             output=str(result.path),
             style=style_final,
             scope=scope_final,
+            time_anchor=anchor_iso,
         )
     typer.echo(message)
 

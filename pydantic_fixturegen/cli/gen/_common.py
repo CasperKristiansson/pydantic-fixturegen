@@ -24,6 +24,7 @@ from pydantic_fixturegen.logging import Logger
 
 __all__ = [
     "JSON_ERRORS_OPTION",
+    "NOW_OPTION",
     "clear_module_cache",
     "discover_models",
     "load_model_class",
@@ -40,6 +41,12 @@ JSON_ERRORS_OPTION = typer.Option(
     False,
     "--json-errors",
     help="Emit structured JSON errors to stdout.",
+)
+
+NOW_OPTION = typer.Option(
+    None,
+    "--now",
+    help="Anchor timestamp (ISO 8601) used for temporal value generation.",
 )
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,7 @@ def test_default_configuration(tmp_path: Path) -> None:
     assert config.include == ()
     assert config.emitters.pytest == PytestEmitterConfig()
     assert config.json == JsonConfig()
+    assert config.now is None
 
 
 def test_load_from_pyproject(tmp_path: Path) -> None:
@@ -114,6 +116,7 @@ def test_env_overrides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         "PFG_P_NONE": "0.1",
         "PFG_EMITTERS__PYTEST__SCOPE": "session",
         "PFG_JSON__ORJSON": "true",
+        "PFG_NOW": "2024-01-02T03:04:05Z",
     }
 
     config = load_config(root=tmp_path, env=env)
@@ -123,6 +126,7 @@ def test_env_overrides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert config.p_none == pytest.approx(0.1)
     assert config.emitters.pytest.scope == "session"
     assert config.json.orjson is True
+    assert config.now == datetime.datetime(2024, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc)
 
 
 def test_cli_overrides_env(tmp_path: Path) -> None:
@@ -195,6 +199,24 @@ def test_cli_invalid_json_options(tmp_path: Path) -> None:
 
     with pytest.raises(ConfigError):
         load_config(root=tmp_path, cli={"json": {"indent": -2}})
+
+
+def test_cli_now_parses_iso(tmp_path: Path) -> None:
+    config = load_config(root=tmp_path, cli={"now": "2025-02-03T04:05:06Z"})
+
+    assert config.now == datetime.datetime(2025, 2, 3, 4, 5, 6, tzinfo=datetime.timezone.utc)
+
+
+def test_cli_now_rejects_invalid(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"now": "not-a-time"})
+
+
+def test_cli_now_accepts_datetime_instance(tmp_path: Path) -> None:
+    value = datetime.datetime(2025, 1, 1, 12, 0, 0)
+    config = load_config(root=tmp_path, cli={"now": value})
+
+    assert config.now == value.replace(tzinfo=datetime.timezone.utc)
 
 
 def test_preset_applies_policies(tmp_path: Path) -> None:

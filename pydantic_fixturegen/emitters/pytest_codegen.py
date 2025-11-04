@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 import re
 import shutil
@@ -38,6 +39,7 @@ class PytestEmitConfig:
     model_digest: str | None = None
     hash_compare: bool = True
     per_model_seeds: Mapping[str, int] | None = None
+    time_anchor: datetime.datetime | None = None
 
 
 def emit_pytest_fixtures(
@@ -62,7 +64,10 @@ def emit_pytest_fixtures(
         raise ValueError(f"Unsupported return_type: {cfg.return_type!r}")
 
     def _build_generator(seed_value: int | None) -> InstanceGenerator:
-        generation_config = GenerationConfig(seed=seed_value)
+        generation_config = GenerationConfig(
+            seed=seed_value,
+            time_anchor=cfg.time_anchor,
+        )
         if cfg.optional_p_none is not None:
             generation_config.optional_p_none = cfg.optional_p_none
         return InstanceGenerator(config=generation_config)
@@ -127,6 +132,10 @@ def emit_pytest_fixtures(
         for reporter in constraint_reporters:
             aggregate_report.merge_from(reporter)
 
+    if cfg.time_anchor is not None:
+        result.metadata = result.metadata or {}
+        result.metadata["time_anchor"] = cfg.time_anchor.isoformat()
+
     summary = aggregate_report.summary()
     if summary.get("models"):
         result.metadata = result.metadata or {}
@@ -148,16 +157,20 @@ def _render_module(*, entries: Iterable[_ModelEntry], config: PytestEmitConfig) 
     models_metadata = ", ".join(
         f"{entry.model.__module__}.{entry.model.__name__}" for entry in entries_list
     )
+    header_extras = {
+        "style": config.style,
+        "scope": config.scope,
+        "return": config.return_type,
+        "cases": config.cases,
+        "models": models_metadata,
+    }
+    if config.time_anchor is not None:
+        header_extras["time_anchor"] = config.time_anchor.isoformat()
+
     header = build_artifact_header(
         seed=config.seed,
         model_digest=config.model_digest,
-        extras={
-            "style": config.style,
-            "scope": config.scope,
-            "return": config.return_type,
-            "cases": config.cases,
-            "models": models_metadata,
-        },
+        extras=header_extras,
     )
 
     needs_any = config.return_type == "dict" or config.style in {"factory", "class"}

@@ -424,3 +424,37 @@ def test_string_provider_regex_padding(monkeypatch) -> None:
     )
     adjusted_value = provider.func(summary=adjusted_summary, faker=Faker(seed=9))
     assert len(adjusted_value) == 5
+
+
+def test_temporal_provider_uses_anchor() -> None:
+    registry = ProviderRegistry()
+    register_temporal_providers(registry)
+
+    anchor = datetime.datetime(2025, 1, 1, 12, 30, 45, tzinfo=datetime.timezone.utc)
+    faker = Faker(seed=10)
+
+    datetime_summary = FieldSummary(type="datetime", constraints=FieldConstraints())
+    datetime_provider = registry.get("datetime")
+    assert datetime_provider is not None
+    datetime_value = datetime_provider.func(
+        summary=datetime_summary,
+        faker=faker,
+        time_anchor=anchor,
+    )
+    assert datetime_value == anchor
+
+    date_summary = FieldSummary(type="date", constraints=FieldConstraints())
+    date_provider = registry.get("date")
+    assert date_provider is not None
+    date_value = date_provider.func(
+        summary=date_summary,
+        faker=faker,
+        time_anchor=anchor,
+    )
+    assert date_value == anchor.date()
+
+    time_summary = FieldSummary(type="time", constraints=FieldConstraints())
+    time_provider = registry.get("time")
+    assert time_provider is not None
+    time_value = time_provider.func(summary=time_summary, faker=faker, time_anchor=anchor)
+    assert time_value.isoformat() == anchor.timetz().isoformat()

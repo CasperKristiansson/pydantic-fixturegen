@@ -26,6 +26,7 @@ def _stub_config() -> SimpleNamespace:
         exclude=[],
         seed=None,
         p_none=None,
+        now=None,
         json=SimpleNamespace(indent=None, orjson=False),
         enum_policy="name",
         union_policy="smart",
@@ -130,6 +131,7 @@ def test_execute_diff_surfaces_discovery_errors(
             freeze_seeds=False,
             freeze_seeds_file=None,
             preset=None,
+            now_override=None,
         )
 
 
@@ -168,6 +170,7 @@ def test_execute_diff_reports_warnings_and_missing_models(
             freeze_seeds=False,
             freeze_seeds_file=None,
             preset=None,
+            now_override=None,
         )
 
     err = capsys.readouterr().err
@@ -210,6 +213,7 @@ def test_execute_diff_wraps_load_errors(tmp_path: Path, monkeypatch: pytest.Monk
             freeze_seeds=False,
             freeze_seeds_file=None,
             preset=None,
+            now_override=None,
         )
 
     assert "load failed" in str(exc_info.value)
@@ -233,6 +237,7 @@ def test_diff_json_requires_models() -> None:
             app_config_enum="name",
             app_config_union="smart",
             app_config_p_none=0.0,
+            app_config_now=None,
             options=_json_options(Path("unused.json")),
         )
 
@@ -247,6 +252,7 @@ def test_diff_json_rejects_multiple_models(tmp_path: Path) -> None:
             app_config_enum="name",
             app_config_union="smart",
             app_config_p_none=0.0,
+            app_config_now=None,
             options=_json_options(tmp_path / "artifact.json"),
         )
 
@@ -272,6 +278,7 @@ def test_diff_json_requires_output(tmp_path: Path) -> None:
             app_config_enum="name",
             app_config_union="smart",
             app_config_p_none=0.0,
+            app_config_now=None,
             options=options,
         )
 
@@ -300,6 +307,7 @@ def test_diff_json_handles_mapping_failure(tmp_path: Path, monkeypatch: pytest.M
             app_config_enum="name",
             app_config_union="smart",
             app_config_p_none=0.0,
+            app_config_now=None,
             options=_json_options(output_path),
         )
 
@@ -332,6 +340,7 @@ def test_diff_json_detects_directory_targets(
         app_config_enum="name",
         app_config_union="smart",
         app_config_p_none=0.0,
+        app_config_now=None,
         options=_json_options(output_path),
     )
 
@@ -369,6 +378,7 @@ def test_diff_json_ignores_extra_directories(
         app_config_enum="name",
         app_config_union="smart",
         app_config_p_none=0.0,
+        app_config_now=None,
         options=_json_options(output_path),
     )
 
@@ -386,6 +396,7 @@ def test_diff_fixtures_require_output() -> None:
             app_config_scope="function",
             options=_fixtures_options(None),
             per_model_seeds=None,
+            app_config_now=None,
         )
 
 
@@ -411,6 +422,7 @@ def test_diff_fixtures_emit_artifact_success(
         app_config_scope="function",
         options=_fixtures_options(output_path),
         per_model_seeds=None,
+        app_config_now=None,
     )
 
     assert report.summary == "Fixtures artifact matches."
@@ -432,6 +444,7 @@ def test_diff_fixtures_emit_artifact_without_file(
             app_config_scope="function",
             options=_fixtures_options(output_path),
             per_model_seeds=None,
+            app_config_now=None,
         )
 
 
@@ -447,6 +460,7 @@ def test_diff_fixtures_detect_directory_target(tmp_path: Path) -> None:
         app_config_scope="function",
         options=_fixtures_options(output_path),
         per_model_seeds=None,
+        app_config_now=None,
     )
 
     assert "Fixtures path is a directory" in report.messages[0]
@@ -579,8 +593,13 @@ def test_render_reports_handles_cases(capsys: pytest.CaptureFixture[str]) -> Non
         summary=None,
     )
 
+    matching.time_anchor = "2024-01-01T00:00:00+00:00"
+    changed.time_anchor = "2024-01-02T00:00:00+00:00"
+
     diff_module._render_reports([matching, changed], show_diff=True, logger=logger, json_mode=False)
     output = capsys.readouterr()
     assert "All good" in output.out
     assert "FIXTURES differences detected" in output.out
     assert "Problem" in output.out
+    assert "2024-01-01T00:00:00+00:00" in output.out
+    assert "2024-01-02T00:00:00+00:00" in output.out

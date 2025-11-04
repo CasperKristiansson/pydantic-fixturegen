@@ -80,6 +80,30 @@ def test_gen_fixtures_basic_functions_style(tmp_path: Path) -> None:
     assert rerun.exit_code == 0
 
 
+def test_gen_fixtures_with_now(tmp_path: Path) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "anchored.py"
+
+    now_value = "2024-09-10T12:34:56Z"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "fixtures",
+            str(module_path),
+            "--out",
+            str(output),
+            "--now",
+            now_value,
+        ],
+    )
+
+    assert result.exit_code == 0, result.stderr
+    text = output.read_text(encoding="utf-8")
+    assert f"time_anchor={now_value.replace('Z', '+00:00')}" in text
+
+
 def test_gen_fixtures_factory_dict(tmp_path: Path) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "factories.py"
@@ -273,6 +297,7 @@ def test_execute_fixtures_command_warnings(
         cases=2,
         return_type="model",
         seed=123,
+        now=None,
         p_none=0.2,
         include="pkg.User",
         exclude=None,
@@ -315,6 +340,7 @@ def test_execute_fixtures_command_errors(tmp_path: Path, monkeypatch: pytest.Mon
             cases=1,
             return_type=None,
             seed=None,
+            now=None,
             p_none=None,
             include=None,
             exclude=None,
@@ -335,6 +361,7 @@ def test_execute_fixtures_command_path_checks(tmp_path: Path) -> None:
             cases=1,
             return_type=None,
             seed=None,
+            now=None,
             p_none=None,
             include=None,
             exclude=None,
@@ -354,6 +381,7 @@ def test_execute_fixtures_command_path_checks(tmp_path: Path) -> None:
             cases=1,
             return_type=None,
             seed=None,
+            now=None,
             p_none=None,
             include=None,
             exclude=None,
@@ -404,6 +432,7 @@ def test_execute_fixtures_command_emit_error(
             cases=1,
             return_type=None,
             seed=None,
+            now=None,
             p_none=None,
             include=None,
             exclude=None,
@@ -461,6 +490,7 @@ def test_execute_fixtures_command_applies_preset(
         cases=1,
         return_type=None,
         seed=None,
+        now=None,
         p_none=None,
         include=None,
         exclude=None,

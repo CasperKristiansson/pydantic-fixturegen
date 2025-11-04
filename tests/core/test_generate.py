@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import enum
 from dataclasses import dataclass
 
@@ -98,3 +99,22 @@ def test_dataclass_field_generation() -> None:
     assert isinstance(account, Account)
     assert isinstance(account.profile, Profile)
     assert isinstance(account.user.address, Address)
+
+
+class TemporalModel(BaseModel):
+    created_at: datetime.datetime
+    birthday: datetime.date
+    alarm: datetime.time
+
+
+def test_time_anchor_produces_deterministic_temporal_values() -> None:
+    anchor = datetime.datetime(2025, 2, 3, 4, 5, 6, tzinfo=datetime.timezone.utc)
+    generator = InstanceGenerator(config=GenerationConfig(seed=123, time_anchor=anchor))
+
+    instance = generator.generate_one(TemporalModel)
+    assert instance is not None
+    assert instance.created_at == anchor
+    assert instance.birthday == anchor.date()
+    # allow either naive or aware time depending on anchor tzinfo
+    expected_time = anchor.timetz() if anchor.tzinfo else anchor.time()
+    assert instance.alarm.isoformat() == expected_time.isoformat()

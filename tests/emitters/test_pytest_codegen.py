@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -68,3 +69,18 @@ def test_emit_pytest_fixtures_multiple_cases(tmp_path: Path) -> None:
     text = output.read_text(encoding="utf-8")
     assert "params=" in text
     assert "def user(request)" in text
+
+
+def test_emit_pytest_fixtures_records_time_anchor(tmp_path: Path) -> None:
+    output = tmp_path / "anchored.py"
+    anchor = datetime.datetime(2024, 7, 1, 9, 30, tzinfo=datetime.timezone.utc)
+    result = emit_pytest_fixtures(
+        [User],
+        output_path=output,
+        config=PytestEmitConfig(seed=5, time_anchor=anchor),
+    )
+
+    assert result.metadata is not None
+    assert result.metadata.get("time_anchor") == anchor.isoformat()
+    header = output.read_text(encoding="utf-8").splitlines()[2]
+    assert f"time_anchor={anchor.isoformat()}" in header

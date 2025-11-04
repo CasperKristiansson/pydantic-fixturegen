@@ -28,6 +28,7 @@ from ...logging import get_logger
 from ..watch import gather_default_watch_paths, run_with_watch
 from ._common import (
     JSON_ERRORS_OPTION,
+    NOW_OPTION,
     clear_module_cache,
     discover_models,
     emit_constraint_summary,
@@ -147,6 +148,7 @@ def register(app: typer.Typer) -> None:
         include: str | None = INCLUDE_OPTION,
         exclude: str | None = EXCLUDE_OPTION,
         seed: int | None = SEED_OPTION,
+        now: str | None = NOW_OPTION,
         json_errors: bool = JSON_ERRORS_OPTION,
         watch: bool = WATCH_OPTION,
         watch_debounce: float = WATCH_DEBOUNCE_OPTION,
@@ -172,6 +174,7 @@ def register(app: typer.Typer) -> None:
                     freeze_seeds=freeze_seeds,
                     freeze_seeds_file=freeze_seeds_file,
                     preset=preset,
+                    now=now,
                 )
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors, exit_app=exit_app)
@@ -217,6 +220,7 @@ def _execute_json_command(
     include: str | None,
     exclude: str | None,
     seed: int | None,
+    now: str | None,
     freeze_seeds: bool,
     freeze_seeds_file: Path | None,
     preset: str | None,
@@ -248,6 +252,8 @@ def _execute_json_command(
         cli_overrides["preset"] = preset
     if seed is not None:
         cli_overrides["seed"] = seed
+    if now is not None:
+        cli_overrides["now"] = now
     json_overrides: dict[str, Any] = {}
     if indent is not None:
         json_overrides["indent"] = indent
@@ -262,13 +268,23 @@ def _execute_json_command(
 
     app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
 
+    anchor_iso = app_config.now.isoformat() if app_config.now else None
+
     logger.debug(
         "Loaded configuration",
         event="config_loaded",
         seed=app_config.seed,
         include=list(app_config.include),
         exclude=list(app_config.exclude),
+        time_anchor=anchor_iso,
     )
+
+    if anchor_iso:
+        logger.info(
+            "Using temporal anchor",
+            event="temporal_anchor_set",
+            time_anchor=anchor_iso,
+        )
 
     discovery = discover_models(
         path,
@@ -355,6 +371,7 @@ def _execute_json_command(
             "JSON generation handled by plugin",
             event="json_generation_delegated",
             output=str(out),
+            time_anchor=anchor_iso,
         )
         return
 
@@ -393,6 +410,7 @@ def _execute_json_command(
             event="json_generation_complete",
             files=path_strs,
             count=count,
+            time_anchor=anchor_iso,
         )
         emit_constraint_summary(
             constraint_summary,
@@ -434,6 +452,7 @@ def _build_instance_generator(
         union_policy=app_config.union_policy,
         default_p_none=p_none,
         optional_p_none=p_none,
+        time_anchor=app_config.now,
     )
     return InstanceGenerator(config=gen_config)
 
