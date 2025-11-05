@@ -77,4 +77,4 @@ pfg schema config --out /tmp/config.schema.json
 - `pfg --version` prints the installed version and resolves the entry point declared under `[project.scripts]`.
 - `pfg schema config` confirms Typer loads dynamic subcommands correctly.
 
-You are ready to follow the [Quickstart](./quickstart.md) or dig into configuration defaults.
+You are ready to follow the [Quickstart](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/quickstart.md) or dig into configuration defaults.

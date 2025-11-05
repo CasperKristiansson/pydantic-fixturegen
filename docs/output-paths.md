@@ -34,4 +34,4 @@ pfg gen fixtures models.py --include models.User \
 - Use `{timestamp:%Y%m%d}` when you want dated snapshots while keeping deterministic content via `--seed`.
 - For parametrised fixtures, remember that `case_index` increments per case even when you limit models with `--include`.
 
-See [docs/emitters.md](./emitters.md) for emitter-specific behaviour and atomic IO guarantees.
+See [docs/emitters.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/emitters.md) for emitter-specific behaviour and atomic IO guarantees.

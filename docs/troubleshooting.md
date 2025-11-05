@@ -30,4 +30,4 @@
 4. Drop into `pfg gen explain --tree` to inspect provider choices.
 5. Rebuild with `--seed` and compare outputs via `pfg diff`.
 
-Escalate to [security](./security.md) if sandbox violations persist or to [support channels](../README.md#community) when you need assistance.
+Escalate to [security](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/security.md) if sandbox violations persist or to [support channels](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/README.md#community) when you need assistance.

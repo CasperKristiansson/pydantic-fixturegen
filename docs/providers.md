@@ -52,8 +52,8 @@ registry.register_plugin(plugin)
 
 - Keep providers pure functions. They should accept Faker instances and field summaries, returning deterministic values that respect seeds.
 - Respect configuration overrides (`p_none`, union/enum policies) by reading the field summary rather than global state.
-- Use `pfg_modify_strategy` (see [strategies](./strategies.md)) when you need to tweak probabilities or shape decisions instead of replacing providers.
+- Use `pfg_modify_strategy` (see [strategies](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/strategies.md)) when you need to tweak probabilities or shape decisions instead of replacing providers.
 - Validate new providers by running `pfg gen explain` to confirm they appear in the strategy tree.
 - Ship unit tests that cover provider edge cases; the project uses Faker extensively, so rely on cascaded seeds to stay deterministic.
 
-Continue with [emitters](./emitters.md) to control artifact output once providers deliver their data.
+Continue with [emitters](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/emitters.md) to control artifact output once providers deliver their data.

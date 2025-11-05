@@ -40,4 +40,4 @@ pfg gen json ./models.py --out ./out/users.json --freeze-seeds
 - Combine with `--preset boundary` to explore edge cases while keeping reproducible seeds.
 - Run `pfg diff ... --freeze-seeds` in CI to ensure outputs stay locked before merging.
 
-Continue with [presets](./presets.md) to fine-tune generation policies alongside your frozen seeds.
+Continue with [presets](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/presets.md) to fine-tune generation policies alongside your frozen seeds.

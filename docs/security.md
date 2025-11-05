@@ -30,4 +30,4 @@
 - When debugging blocked writes, move your output path inside the project root or use templates that avoid `../`.
 - Sandbox exit codes: `0` success, `20` structured discovery errors, `40` timeout, others bubble up from Python exceptions.
 
-Pair this with [doctor diagnostics](./doctor.md) for a full audit trail and record structured logs via [logging](./logging.md).
+Pair this with [doctor diagnostics](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/doctor.md) for a full audit trail and record structured logs via [logging](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/logging.md).

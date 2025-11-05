@@ -41,4 +41,4 @@
 - Ruff, mypy, pytest coverage ≥90% enforced in CI.
 - Optional watch mode (`[watch]` extra), JSON logging, and structured diagnostics for CI integration.
 
-Dive deeper into specific areas via [configuration](./configuration.md), [providers](./providers.md), [emitters](./emitters.md), and [security](./security.md).
+Dive deeper into specific areas via [configuration](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md), [providers](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/providers.md), [emitters](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/emitters.md), and [security](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/security.md).

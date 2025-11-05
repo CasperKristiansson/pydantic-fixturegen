@@ -145,7 +145,7 @@ Watch mode is available on `gen json`, `gen fixtures`, and `gen schema`.
 - Run `pfg init` to scaffold `[tool.pydantic_fixturegen]` with sensible defaults (seed `42`, union policy `weighted`, enum policy `random`, pytest scope `module`).
 - The precedence order is `CLI > environment (PFG_*) > pyproject.toml/YAML > defaults`.
 - Reference the schema directly with `pfg schema config --out schema/config.schema.json`.
-- Use `.pfg-seeds.json` with `--freeze-seeds` for reproducible CI runs; see [docs/seeds.md](./seeds.md).
+- Use `.pfg-seeds.json` with `--freeze-seeds` for reproducible CI runs; see [docs/seeds.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/seeds.md).
 
 ## Quick command reference
 
@@ -174,4 +174,4 @@ pfg schema config --out schema/config.schema.json
 - Optional fields feel off? Adjust `--p-none` or configure `field_policies` in `pyproject.toml`.
 - Sandbox blocked a write or socket? Move output beneath the working directory; network calls are intentionally disabled.
 
-Next: explore deeper recipes in the [Cookbook](./cookbook.md) or tighten config options in the [Configuration guide](./configuration.md).
+Next: explore deeper recipes in the [Cookbook](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/cookbook.md) or tighten config options in the [Configuration guide](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md).

@@ -33,4 +33,4 @@
 - JSON and schema content uses sorted keys and trailing newlines for clean diffs.
 - Fixture modules store digest metadata and align with formatters like Ruff/Black.
 
-Keep these concepts in mind as you explore the [quickstart](./quickstart.md), dive into [configuration](./configuration.md), or extend the system via [providers](./providers.md).
+Keep these concepts in mind as you explore the [quickstart](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/quickstart.md), dive into [configuration](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md), or extend the system via [providers](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/providers.md).

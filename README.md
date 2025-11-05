@@ -28,7 +28,7 @@ pip install pydantic-fixturegen
 pip install 'pydantic-fixturegen[all]'
 ```
 
-Other flows → [docs/install.md](./docs/install.md)
+Other flows → [docs/install.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/install.md)
 
 ## Quick start
 
@@ -38,7 +38,7 @@ Other flows → [docs/install.md](./docs/install.md)
 2. List models: `pfg list ./models.py`
 3. Generate JSON: `pfg gen json ./models.py --include models.User --n 2 --indent 2 --out ./out/User`
 4. Generate fixtures: `pfg gen fixtures ./models.py --out tests/fixtures/test_user.py --cases 3`
-   Full steps → [docs/quickstart.md](./docs/quickstart.md)
+   Full steps → [docs/quickstart.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/quickstart.md)
 
 JSON, fixtures, and schema commands all share flags like `--include`, `--exclude`, `--seed`, `--preset`, and `--watch`, so once you learn one flow you can handle the rest without re-reading the help pages.
 
@@ -62,7 +62,7 @@ pfg doctor <target>
 - `pfg gen schema` dumps JSON Schema atomically; point `--out` at a file or directory template.
 - `pfg doctor` audits coverage and sandbox warnings; fail builds with `--fail-on-gaps`.
 
-All commands → [docs/cli.md](./docs/cli.md)
+All commands → [docs/cli.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/cli.md)
 
 ### Basic configuration
 
@@ -86,15 +86,15 @@ seed = 42
 indent = 2
 ```
 
-Full matrix and precedence → [docs/configuration.md](./docs/configuration.md)
+Full matrix and precedence → [docs/configuration.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md)
 
 ### Common tasks
 
-- Freeze seeds for CI determinism → [docs/seeds.md](./docs/seeds.md)
-- Use watch mode → [docs/quickstart.md#watch-mode](./docs/quickstart.md#watch-mode)
-- Templated output paths → [docs/output-paths.md](./docs/output-paths.md)
-- Provider customization → [docs/providers.md](./docs/providers.md)
-- Capture explain trees or JSON diagnostics for review → [docs/explain.md](./docs/explain.md)
+- Freeze seeds for CI determinism → [docs/seeds.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/seeds.md)
+- Use watch mode → [docs/quickstart.md#watch-mode](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/quickstart.md#watch-mode)
+- Templated output paths → [docs/output-paths.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/output-paths.md)
+- Provider customization → [docs/providers.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/providers.md)
+- Capture explain trees or JSON diagnostics for review → [docs/explain.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/explain.md)
 
 ## Documentation
 
@@ -102,7 +102,7 @@ Full matrix and precedence → [docs/configuration.md](./docs/configuration.md)
 <a id="architecture"></a>
 <a id="comparison"></a>
 
-[Index](./docs/index.md) · [Quickstart](./docs/quickstart.md) · [Cookbook](./docs/cookbook.md) · [Configuration](./docs/configuration.md) · [CLI](./docs/cli.md) · [Concepts](./docs/concepts.md) · [Features](./docs/features.md) · [Security](./docs/security.md) · [Architecture](./docs/architecture.md) · [Troubleshooting](./docs/troubleshooting.md) · [Alternatives](./docs/alternatives.md)
+[Index](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/index.md) · [Quickstart](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/quickstart.md) · [Cookbook](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/cookbook.md) · [Configuration](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md) · [CLI](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/cli.md) · [Concepts](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/concepts.md) · [Features](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/features.md) · [Security](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/security.md) · [Architecture](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/architecture.md) · [Troubleshooting](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/troubleshooting.md) · [Alternatives](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/alternatives.md)
 
 ## Community
 
@@ -114,4 +114,4 @@ Open issues for bugs or ideas, start Discussions for design questions, and follo
 
 <a id="license"></a>
 
-MIT. See `LICENSE`.
+MIT. See [`LICENSE`](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/LICENSE).

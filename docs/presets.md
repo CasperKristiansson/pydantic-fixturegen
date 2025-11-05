@@ -29,4 +29,4 @@ pfg gen fixtures ./models.py --out tests/fixtures/test_users.py --preset boundar
 - Any explicit values you pass through CLI or environment take precedence.
 - When you need project-wide defaults, set them directly in `[tool.pydantic_fixturegen]`.
 
-Use presets with [field policies](./configuration.md#field-policy-schemas) for precise overrides on top of the bundled opinion.
+Use presets with [field policies](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md#field-policy-schemas) for precise overrides on top of the bundled opinion.

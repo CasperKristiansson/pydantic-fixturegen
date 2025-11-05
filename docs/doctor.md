@@ -47,5 +47,5 @@ pfg check ./models.py --json-errors --fixtures-out /tmp/fixtures.py
 - Run `pfg doctor` locally when adding new models to reveal missing providers early.
 - Use `pfg diff` in CI to enforce deterministic fixtures before merging pull requests.
 - Insert `pfg check` into lightweight pipelines or commits to block invalid configuration without touching the filesystem.
-- Pair diagnostics with structured [logging](./logging.md) for machine-readable auditing.
-- When you see sandbox violations, review [security](./security.md) to adjust discovery mode or output paths.
+- Pair diagnostics with structured [logging](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/logging.md) for machine-readable auditing.
+- When you see sandbox violations, review [security](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/security.md) to adjust discovery mode or output paths.

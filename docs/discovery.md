@@ -39,5 +39,5 @@ pfg list ./models.py --timeout 10 --memory-limit-mb 512 --json-errors
 
 - Run `pfg list --ast` during code review to ensure models register even without installing optional extras.
 - Use hybrid mode when you rely on runtime registration but still want AST coverage.
-- When sandbox violations occur (attempted network access, forbidden writes), review [security](./security.md) to understand the guardrails.
+- When sandbox violations occur (attempted network access, forbidden writes), review [security](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/security.md) to understand the guardrails.
 - Combine discovery filters with `pfg gen` to avoid generating fixtures for helper or internal models.

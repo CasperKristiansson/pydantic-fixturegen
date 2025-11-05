@@ -30,7 +30,7 @@ plugin = NicknameTweaks()
 
 - Return a new `Strategy` to override attributes; return `None` to keep the original.
 - Use `model_copy` (dataclass copy) to avoid mutating shared state.
-- Register the plugin via entry points or manual registry registration (see [providers](./providers.md)).
+- Register the plugin via entry points or manual registry registration (see [providers](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/providers.md)).
 
 ## Common adjustments
 
@@ -45,4 +45,4 @@ plugin = NicknameTweaks()
 - Combine with `--preset boundary` to ensure presets and custom strategies interact correctly.
 - Use `pfg doctor` to verify no coverage gaps remain after replacing providers.
 
-Strategies work hand-in-hand with [emitters](./emitters.md), which consume provider output to write artifacts.
+Strategies work hand-in-hand with [emitters](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/emitters.md), which consume provider output to write artifacts.

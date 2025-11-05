@@ -157,4 +157,4 @@ pfg schema config --out schema/config.schema.json
 - `--preset boundary` or `--preset boundary-max` applies opinionated strategies; combine with explicit overrides to fine-tune probability.
 - When piping commands, pass `--` before flags for subcommands to avoid Typer proxy conflicts.
 
-Continue to [output paths](./output-paths.md) for templating and [logging](./logging.md) for structured events that pair with automation.
+Continue to [output paths](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/output-paths.md) for templating and [logging](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/logging.md) for structured events that pair with automation.

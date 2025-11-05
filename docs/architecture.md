@@ -39,4 +39,4 @@ Artifacts with metadata (seed/version/digest)
 - `pfg doctor` reports coverage metrics and sandbox issues after discovery and strategy building.
 - Diff/check commands reuse the same pipeline to ensure comparisons match real generation.
 
-For extension guidance, continue to [providers](./providers.md), [strategies](./strategies.md), or [emitters](./emitters.md).
+For extension guidance, continue to [providers](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/providers.md), [strategies](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/strategies.md), or [emitters](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/emitters.md).

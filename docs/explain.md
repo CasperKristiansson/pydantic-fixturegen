@@ -57,4 +57,4 @@ Sample payload:
 - Pipe the JSON output through linters or dashboards to track provider distribution over time.
 - When working with untrusted models, pair explain runs with `pfg doctor` to inspect sandbox warnings.
 
-Return to the [Cookbook](./cookbook.md) for recipes that use explain output to validate plugin behaviour.
+Return to the [Cookbook](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/cookbook.md) for recipes that use explain output to validate plugin behaviour.

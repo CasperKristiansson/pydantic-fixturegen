@@ -93,4 +93,4 @@ from dataclasses import asdict
 summary = asdict(fixtures)
 ```
 
-Use these helpers inside build steps, pre-commit hooks, or custom orchestration without shelling out to the CLI. Pair them with [logging](./logging.md) if you need structured telemetry from embedded runs.
+Use these helpers inside build steps, pre-commit hooks, or custom orchestration without shelling out to the CLI. Pair them with [logging](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/logging.md) if you need structured telemetry from embedded runs.

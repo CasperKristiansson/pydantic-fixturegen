@@ -46,4 +46,4 @@ Inspect logs by piping to `jq`:
 pfg gen fixtures ./models.py --out tests/fixtures/test_users.py --log-json | jq '.event'
 ```
 
-Use structured logs alongside [doctor diagnostics](./doctor.md) and [presets](./presets.md) to maintain observability across CI runs.
+Use structured logs alongside [doctor diagnostics](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/doctor.md) and [presets](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/presets.md) to maintain observability across CI runs.

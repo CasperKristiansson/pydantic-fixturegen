@@ -42,7 +42,7 @@ scope = "module"
 
 | Key            | Type                         | Default | Description                                                                 |
 | -------------- | ---------------------------- | ------- | --------------------------------------------------------------------------- |
-| `preset`       | `str \| null`                | `null`  | Named preset applied before other config. See [presets](./presets.md).      |
+| `preset`       | `str \| null`                | `null`  | Named preset applied before other config. See [presets](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/presets.md).      |
 | `seed`         | `int \| str \| null`         | `null`  | Global seed. Provide an explicit value for reproducible outputs.            |
 | `locale`       | `str`                        | `en_US` | Faker locale used when generating data.                                     |
 | `include`      | `list[str]`                  | `[]`    | Glob patterns of fully-qualified model names to include by default.         |
@@ -126,4 +126,4 @@ Store YAML alongside your project root or pass `--yaml-path` explicitly to CLI c
 - `pfg schema config` prints the JSON Schema so your editor can autocomplete keys.
 - Invalid keys raise `ConfigError` with clear messages indicating the source (CLI, env, file).
 
-Continue tuning determinism with [presets](./presets.md) or lock down reproducibility using [seed freezes](./seeds.md).
+Continue tuning determinism with [presets](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/presets.md) or lock down reproducibility using [seed freezes](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/seeds.md).

@@ -58,4 +58,4 @@
 - JSON diffs noisy? Lower `--indent` or enable `--jsonl` to minimise whitespace differences.
 - Schema missing updates? Check that models expose `model_json_schema()` and rerun `pfg check` to validate destinations.
 
-Review [output paths](./output-paths.md) for templating details and [logging](./logging.md) to capture emitter events.
+Review [output paths](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/output-paths.md) for templating details and [logging](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/logging.md) to capture emitter events.
