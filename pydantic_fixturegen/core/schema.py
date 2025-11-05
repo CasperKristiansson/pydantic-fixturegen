@@ -17,6 +17,11 @@ import pydantic
 from pydantic import BaseModel, SecretBytes, SecretStr
 from pydantic.fields import FieldInfo
 
+try:  # Optional dependency
+    import numpy as _np
+except ModuleNotFoundError:  # pragma: no cover - optional extra not installed
+    _np = None
+
 
 @dataclass(slots=True)
 class FieldConstraints:
@@ -260,6 +265,15 @@ def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None
     if isinstance(annotation, type) and issubclass(annotation, enum.Enum):
         return "enum", None, None
 
+    if _np is not None:
+        ndarray_type = getattr(_np, "ndarray", None)
+        if ndarray_type is not None:
+            if origin is ndarray_type:
+                dtype_name = _resolve_numpy_dtype_name(args[0]) if args else None
+                return "numpy-array", dtype_name, None
+            if isinstance(annotation, type) and issubclass(annotation, ndarray_type):
+                return "numpy-array", None, None
+
     if annotation is Any:
         return "any", None, None
 
@@ -318,3 +332,16 @@ def _unwrap_annotation(annotation: Any) -> Any:
     if origin is Annotated:
         return _unwrap_annotation(get_args(annotation)[0])
     return annotation
+
+
+def _resolve_numpy_dtype_name(arg: Any) -> str | None:
+    if _np is None:
+        return None
+    try:
+        dtype_obj = _np.dtype(arg)
+    except Exception:  # pragma: no cover - defensive
+        return None
+    name = getattr(dtype_obj, "name", None)
+    if isinstance(name, str):
+        return name
+    return str(dtype_obj)

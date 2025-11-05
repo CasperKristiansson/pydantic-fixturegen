@@ -171,6 +171,23 @@ Reflect regional datasets by mapping models or fields to specific locales.
 - Combine with `pfg gen json --seed 42` to verify deterministic outputs across locales.
 - See the configuration reference at [docs/configuration.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md#locale-overrides) for deeper details and validation rules.
 
+## Recipe 8 — Generate NumPy arrays safely
+
+Avoid runaway allocations by capping shapes and dtypes globally.
+
+```toml
+[tool.pydantic_fixturegen.arrays]
+max_ndim = 2
+max_side = 4
+max_elements = 16
+dtypes = ["float32", "int16"]
+```
+
+- Requires the `numpy` extra (`pip install pydantic-fixturegen[numpy]`).
+- Fields annotated as `numpy.ndarray` or `numpy.typing.NDArray[...]` automatically use these caps.
+- Deterministic seeds flow through `SeedManager.numpy_for`, so array contents remain stable across runs.
+- Combine with field policies when you need to override other behaviours (for example `p_none`).
+
 ## More plays
 
 - Automate regeneration with watch mode: `pfg gen fixtures ... --watch`.

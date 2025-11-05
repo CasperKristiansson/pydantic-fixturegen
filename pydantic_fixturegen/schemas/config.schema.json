@@ -1,5 +1,43 @@
 {
   "$defs": {
+    "ArraySettingsSchema": {
+      "additionalProperties": false,
+      "description": "Schema describing NumPy array generation settings.",
+      "properties": {
+        "dtypes": {
+          "description": "Allowed NumPy dtypes (strings accepted by numpy.dtype).",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Dtypes",
+          "type": "array"
+        },
+        "max_elements": {
+          "default": 16,
+          "description": "Maximum total element count for generated arrays.",
+          "minimum": 1,
+          "title": "Max Elements",
+          "type": "integer"
+        },
+        "max_ndim": {
+          "default": 2,
+          "description": "Maximum number of dimensions for generated arrays.",
+          "minimum": 1,
+          "title": "Max Ndim",
+          "type": "integer"
+        },
+        "max_side": {
+          "default": 4,
+          "description": "Maximum size per dimension for generated arrays.",
+          "minimum": 1,
+          "title": "Max Side",
+          "type": "integer"
+        }
+      },
+      "title": "ArraySettingsSchema",
+      "type": "object"
+    },
     "EmittersSchema": {
       "additionalProperties": false,
       "description": "Schema for emitter configuration sections.",
@@ -126,6 +164,10 @@
   "additionalProperties": true,
   "description": "Authoritative schema for `[tool.pydantic_fixturegen]` configuration.",
   "properties": {
+    "arrays": {
+      "$ref": "#/$defs/ArraySettingsSchema",
+      "description": "Configuration for NumPy array generation: max_ndim, max_side, max_elements, dtypes."
+    },
     "emitters": {
       "$ref": "#/$defs/EmittersSchema",
       "description": "Emitter-specific configuration sections."

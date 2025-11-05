@@ -55,6 +55,7 @@ class StrategyBuilder:
         default_p_none: float = 0.0,
         optional_p_none: float | None = None,
         plugin_manager: pluggy.PluginManager | None = None,
+        array_config: Any | None = None,
     ) -> None:
         self.registry = registry
         self.enum_policy = enum_policy
@@ -62,6 +63,7 @@ class StrategyBuilder:
         self.default_p_none = default_p_none
         self.optional_p_none = optional_p_none if optional_p_none is not None else default_p_none
         self._plugin_manager = plugin_manager or get_plugin_manager()
+        self._array_config = array_config
 
     def build_model_strategies(self, model: type[BaseModel]) -> Mapping[str, StrategyResult]:
         summaries = summarize_model_fields(model)
@@ -157,6 +159,8 @@ class StrategyBuilder:
             provider_kwargs={},
             p_none=p_none,
         )
+        if summary.type == "numpy-array" and self._array_config is not None:
+            strategy.provider_kwargs["array_config"] = self._array_config
         return self._apply_strategy_plugins(model, field_name, strategy)
 
     # ------------------------------------------------------------------ utilities

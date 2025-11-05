@@ -91,6 +91,33 @@ class FieldPolicyOptionsSchema(BaseModel):
     )
 
 
+class ArraySettingsSchema(BaseModel):
+    """Schema describing NumPy array generation settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    max_ndim: int = Field(
+        default=DEFAULT_CONFIG.arrays.max_ndim,
+        ge=1,
+        description="Maximum number of dimensions for generated arrays.",
+    )
+    max_side: int = Field(
+        default=DEFAULT_CONFIG.arrays.max_side,
+        ge=1,
+        description="Maximum size per dimension for generated arrays.",
+    )
+    max_elements: int = Field(
+        default=DEFAULT_CONFIG.arrays.max_elements,
+        ge=1,
+        description="Maximum total element count for generated arrays.",
+    )
+    dtypes: list[str] = Field(
+        default_factory=lambda: list(DEFAULT_CONFIG.arrays.dtypes),
+        min_length=1,
+        description="Allowed NumPy dtypes (strings accepted by numpy.dtype).",
+    )
+
+
 class ConfigSchemaModel(BaseModel):
     """Authoritative schema for `[tool.pydantic_fixturegen]` configuration."""
 
@@ -158,6 +185,12 @@ class ConfigSchemaModel(BaseModel):
         default_factory=dict,
         description=(
             "Mapping of glob or regex patterns (models or fields) to Faker locale identifiers."
+        ),
+    )
+    arrays: ArraySettingsSchema = Field(
+        default_factory=ArraySettingsSchema,
+        description=(
+            "Configuration for NumPy array generation: max_ndim, max_side, max_elements, dtypes."
         ),
     )
 

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import pytest
 from pydantic import BaseModel, Field
-from pydantic_fixturegen.core.config import ConfigError
+from pydantic_fixturegen.core.config import ArrayConfig, ConfigError
 from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.providers.registry import ProviderRegistry
@@ -274,6 +274,40 @@ def test_locale_policy_applies_to_field() -> None:
     assert instance is not None
     assert instance.city == "fr_FR"
     assert captured.get("locale") == ["fr_FR"]
+
+
+def test_numpy_array_generation() -> None:
+    np = pytest.importorskip("numpy")
+    from numpy.typing import NDArray
+
+    class ArrayModel(BaseModel):
+        values: np.ndarray
+
+    class TypedModel(BaseModel):
+        values: NDArray[np.int32]
+
+    array_config = ArrayConfig(
+        max_ndim=2,
+        max_side=3,
+        max_elements=9,
+        dtypes=("float32", "int32"),
+    )
+
+    generator = InstanceGenerator(config=GenerationConfig(seed=321, arrays=array_config))
+    array_instance = generator.generate_one(ArrayModel)
+    assert array_instance is not None
+    arr = array_instance.values
+    assert isinstance(arr, np.ndarray)
+    assert arr.size <= array_config.max_elements
+    assert arr.ndim <= array_config.max_ndim
+    assert arr.dtype.name in array_config.dtypes
+
+    typed_generator = InstanceGenerator(config=GenerationConfig(seed=654, arrays=array_config))
+    typed_instance = typed_generator.generate_one(TypedModel)
+    assert typed_instance is not None
+    typed_arr = typed_instance.values
+    assert isinstance(typed_arr, np.ndarray)
+    assert typed_arr.dtype.name == "int32"
 
 
 def test_time_anchor_produces_deterministic_temporal_values() -> None:

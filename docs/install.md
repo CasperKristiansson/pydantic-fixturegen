@@ -64,6 +64,7 @@ hatch run pfg --help
 | `orjson`         | Fast JSON encoder                             | Large JSON/JSONL dumps                     |
 | `hypothesis`     | Property-based helpers                        | Generative testing combos                  |
 | `watch`          | Live regeneration via `watchfiles`            | Watch mode in CI or local loops            |
+| `numpy`          | Deterministic NumPy array providers           | Models embedding `numpy.ndarray` fields    |
 | `all`            | Every runtime extra                           | One-shot enablement                        |
 | `all-dev`        | Runtime extras + mypy, Ruff, pytest, pytest-cov | Local development stacks                  |
 

@@ -114,6 +114,7 @@ Add a `locales` mapping when you need region-specific Faker providers:
 | Fixture style       | `PFG_EMITTERS__PYTEST__STYLE`      | `export PFG_EMITTERS__PYTEST__STYLE=factory` |
 | Fixture scope       | `PFG_EMITTERS__PYTEST__SCOPE`      | `export PFG_EMITTERS__PYTEST__SCOPE=session` |
 | Field policy update | `PFG_FIELD_POLICIES__*.User.nickname__P_NONE` | `export PFG_FIELD_POLICIES__*.User.nickname__P_NONE=0.2` |
+| Array max ndim      | `PFG_ARRAYS__MAX_NDIM`             | `export PFG_ARRAYS__MAX_NDIM=3`          |
 
 Environment values treat `true/false/1/0` as booleans, respect floats for `p_none`, and parse nested segments via double underscores.
 

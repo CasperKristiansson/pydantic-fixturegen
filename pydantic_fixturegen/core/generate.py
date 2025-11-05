@@ -7,7 +7,7 @@ import datetime
 import enum
 import inspect
 from collections.abc import Iterable, Mapping, Sized
-from dataclasses import dataclass, is_dataclass
+from dataclasses import dataclass, field, is_dataclass
 from dataclasses import fields as dataclass_fields
 from typing import Any, get_type_hints
 
@@ -16,7 +16,7 @@ from pydantic import BaseModel, ValidationError
 from pydantic.fields import FieldInfo
 
 from pydantic_fixturegen.core import schema as schema_module
-from pydantic_fixturegen.core.config import ConfigError
+from pydantic_fixturegen.core.config import ArrayConfig, ConfigError
 from pydantic_fixturegen.core.constraint_report import ConstraintReporter
 from pydantic_fixturegen.core.field_policies import (
     FieldPolicy,
@@ -48,6 +48,7 @@ class GenerationConfig:
     field_policies: tuple[FieldPolicy, ...] = ()
     locale: str = DEFAULT_LOCALE
     locale_policies: tuple[FieldPolicy, ...] = ()
+    arrays: ArrayConfig = field(default_factory=ArrayConfig)
 
 
 @dataclass(slots=True)
@@ -76,6 +77,7 @@ class InstanceGenerator:
         self.random = self.seed_manager.base_random
         self.faker = self.seed_manager.faker
         self._faker_cache: dict[tuple[str, str], Faker] = {}
+        self.array_config = self.config.arrays
 
         load_entrypoint_plugins()
         self._plugin_manager = get_plugin_manager()
@@ -90,6 +92,7 @@ class InstanceGenerator:
             default_p_none=self.config.default_p_none,
             optional_p_none=self.config.optional_p_none,
             plugin_manager=self._plugin_manager,
+            array_config=self.array_config,
         )
         self._strategy_cache: dict[type[Any], dict[str, StrategyResult]] = {}
         self._constraint_reporter = ConstraintReporter()
@@ -459,14 +462,14 @@ class InstanceGenerator:
     def _build_dataclass_strategies(self, cls: type[Any]) -> dict[str, StrategyResult]:
         strategies: dict[str, StrategyResult] = {}
         type_hints = get_type_hints(cls)
-        for field in dataclass_fields(cls):
-            if not field.init:
+        for field_info in dataclass_fields(cls):
+            if not field_info.init:
                 continue
-            annotation = type_hints.get(field.name, field.type)
-            summary = self._summarize_dataclass_field(field, annotation)
-            strategies[field.name] = self.builder.build_field_strategy(
+            annotation = type_hints.get(field_info.name, field_info.type)
+            summary = self._summarize_dataclass_field(field_info, annotation)
+            strategies[field_info.name] = self.builder.build_field_strategy(
                 cls,
-                field.name,
+                field_info.name,
                 annotation,
                 summary,
             )
@@ -540,11 +543,13 @@ class InstanceGenerator:
         func = strategy.provider_ref.func
         locale, path_key = self._resolve_locale(field_name)
         faker = self._faker_for_locale(locale, path_key)
+        numpy_rng = self.seed_manager.numpy_for("numpy-array", path_key)
         kwargs = {
             "summary": strategy.summary,
             "faker": faker,
             "random_generator": self.random,
             "time_anchor": self.config.time_anchor,
+            "numpy_rng": numpy_rng,
         }
         kwargs.update(strategy.provider_kwargs)
 

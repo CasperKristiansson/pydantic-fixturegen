@@ -66,6 +66,14 @@ class EmittersConfig:
 
 
 @dataclass(frozen=True)
+class ArrayConfig:
+    max_ndim: int = 2
+    max_side: int = 4
+    max_elements: int = 16
+    dtypes: tuple[str, ...] = ("float64",)
+
+
+@dataclass(frozen=True)
 class AppConfig:
     preset: str | None = None
     seed: int | str | None = None
@@ -79,6 +87,7 @@ class AppConfig:
     overrides: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     field_policies: tuple[FieldPolicy, ...] = ()
     locale_policies: tuple[FieldPolicy, ...] = ()
+    arrays: ArrayConfig = field(default_factory=ArrayConfig)
     emitters: EmittersConfig = field(default_factory=EmittersConfig)
     json: JsonConfig = field(default_factory=JsonConfig)
 
@@ -139,6 +148,12 @@ def _config_defaults_dict() -> dict[str, Any]:
         "json": {
             "indent": DEFAULT_CONFIG.json.indent,
             "orjson": DEFAULT_CONFIG.json.orjson,
+        },
+        "arrays": {
+            "max_ndim": DEFAULT_CONFIG.arrays.max_ndim,
+            "max_side": DEFAULT_CONFIG.arrays.max_side,
+            "max_elements": DEFAULT_CONFIG.arrays.max_elements,
+            "dtypes": list(DEFAULT_CONFIG.arrays.dtypes),
         },
     }
 
@@ -274,6 +289,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
     json_value = _normalize_json(data.get("json"))
     field_policies_value = _normalize_field_policies(data.get("field_policies"))
     locale_policies_value = _normalize_locale_policies(data.get("locales"))
+    arrays_value = _normalize_array_config(data.get("arrays"))
     now_value = _coerce_datetime(data.get("now"), "now")
 
     seed_value: int | str | None
@@ -295,6 +311,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         overrides=overrides_value,
         field_policies=field_policies_value,
         locale_policies=locale_policies_value,
+        arrays=arrays_value,
         emitters=emitters_value,
         json=json_value,
     )
@@ -496,6 +513,62 @@ def _normalize_json(value: Any) -> JsonConfig:
     orjson = _coerce_bool(orjson_raw, "json.orjson")
 
     return JsonConfig(indent=indent, orjson=orjson)
+
+
+def _normalize_array_config(value: Any) -> ArrayConfig:
+    config = ArrayConfig()
+    if value is None:
+        return config
+    if not isinstance(value, Mapping):
+        raise ConfigError("arrays configuration must be a mapping.")
+
+    max_ndim_raw = value.get("max_ndim", config.max_ndim)
+    max_side_raw = value.get("max_side", config.max_side)
+    max_elements_raw = value.get("max_elements", config.max_elements)
+    dtypes_raw = value.get("dtypes", config.dtypes)
+
+    try:
+        max_ndim = int(max_ndim_raw)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError("arrays.max_ndim must be an integer.") from exc
+    if max_ndim <= 0:
+        raise ConfigError("arrays.max_ndim must be >= 1.")
+
+    try:
+        max_side = int(max_side_raw)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError("arrays.max_side must be an integer.") from exc
+    if max_side <= 0:
+        raise ConfigError("arrays.max_side must be >= 1.")
+
+    try:
+        max_elements = int(max_elements_raw)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError("arrays.max_elements must be an integer.") from exc
+    if max_elements <= 0:
+        raise ConfigError("arrays.max_elements must be >= 1.")
+
+    if isinstance(dtypes_raw, str):
+        dtype_values = tuple(val.strip() for val in dtypes_raw.split(",") if val.strip())
+    elif isinstance(dtypes_raw, Sequence):
+        dtype_buffer: list[str] = []
+        for item in dtypes_raw:
+            if not isinstance(item, str) or not item.strip():
+                raise ConfigError("arrays.dtypes entries must be non-empty strings.")
+            dtype_buffer.append(item.strip())
+        dtype_values = tuple(dtype_buffer)
+    else:
+        raise ConfigError("arrays.dtypes must be a list or comma-separated string.")
+
+    if not dtype_values:
+        raise ConfigError("arrays.dtypes must contain at least one dtype string.")
+
+    return ArrayConfig(
+        max_ndim=max_ndim,
+        max_side=max_side,
+        max_elements=max_elements,
+        dtypes=dtype_values,
+    )
 
 
 def _coerce_indent(value: Any) -> int:

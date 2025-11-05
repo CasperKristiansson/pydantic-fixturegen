@@ -274,6 +274,36 @@ def test_field_policies_invalid_option(tmp_path: Path) -> None:
         )
 
 
+def test_array_config_parsing(tmp_path: Path) -> None:
+    config = load_config(
+        root=tmp_path,
+        cli={
+            "arrays": {
+                "max_ndim": 3,
+                "max_side": 5,
+                "max_elements": 30,
+                "dtypes": ["float32", "int16"],
+            }
+        },
+    )
+
+    assert config.arrays.max_ndim == 3
+    assert config.arrays.max_side == 5
+    assert config.arrays.max_elements == 30
+    assert config.arrays.dtypes == ("float32", "int16")
+
+
+def test_array_config_validation(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"arrays": {"max_ndim": 0}})
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"arrays": {"max_side": 0}})
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"arrays": {"max_elements": 0}})
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"arrays": {"dtypes": []}})
+
+
 def test_preset_applies_policies(tmp_path: Path) -> None:
     config = load_config(root=tmp_path, cli={"preset": "boundary"})
 

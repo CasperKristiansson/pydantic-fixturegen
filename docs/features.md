@@ -13,6 +13,7 @@
 
 - Depth-first instance builder with recursion limits and constraint awareness.
 - Deterministic seeds cascade across Python `random`, Faker, and optional NumPy.
+- NumPy array provider with configurable dtype/shape caps (enable the `numpy` extra).
 - Field policies for enums, unions, and optional probabilities (`p_none`).
 - Configuration precedence: CLI → environment (`PFG_*`) → pyproject/YAML → defaults.
 
