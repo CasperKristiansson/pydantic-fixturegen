@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from pydantic_fixturegen.core.seed_freeze import (
     FREEZE_FILE_VERSION,
@@ -9,7 +10,7 @@ from pydantic_fixturegen.core.seed_freeze import (
 )
 
 
-def test_seed_freeze_roundtrip(tmp_path) -> None:
+def test_seed_freeze_roundtrip(tmp_path: Path) -> None:
     freeze_path = tmp_path / ".pfg-seeds.json"
     manager = SeedFreezeFile.load(freeze_path)
     assert manager.records == {}
@@ -23,7 +24,7 @@ def test_seed_freeze_roundtrip(tmp_path) -> None:
     assert data["models"]["pkg.Model"]["model_digest"] == "abc"
 
 
-def test_seed_freeze_stale_detection(tmp_path) -> None:
+def test_seed_freeze_stale_detection(tmp_path: Path) -> None:
     freeze_path = tmp_path / ".pfg-seeds.json"
     freeze_path.write_text(
         json.dumps(
@@ -42,7 +43,7 @@ def test_seed_freeze_stale_detection(tmp_path) -> None:
     assert status is FreezeStatus.STALE
 
 
-def test_seed_freeze_invalid_json_records_message(tmp_path) -> None:
+def test_seed_freeze_invalid_json_records_message(tmp_path: Path) -> None:
     freeze_path = tmp_path / ".pfg-seeds.json"
     freeze_path.write_text("{ not-json }", encoding="utf-8")
 

@@ -3,11 +3,11 @@ from __future__ import annotations
 import datetime
 import uuid
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Annotated, Any, Callable, cast
 
 import annotated_types
 import pytest
-from pydantic import AnyUrl, BaseModel, Field, SecretBytes, SecretStr, conint, constr
+from pydantic import AnyUrl, BaseModel, Field, SecretBytes, SecretStr
 from pydantic_fixturegen.core import schema as schema_module
 from pydantic_fixturegen.core.schema import (
     FieldConstraints,
@@ -17,13 +17,13 @@ from pydantic_fixturegen.core.schema import (
 
 
 class NumericModel(BaseModel):
-    score: conint(ge=0, le=100)
+    score: Annotated[int, Field(ge=0, le=100)]
     length: Annotated[int, Field(gt=1, lt=10)]
     upper: Annotated[int, Field(le=50)]
 
 
 class StringModel(BaseModel):
-    code: constr(pattern="^ABC", min_length=3, max_length=5)
+    code: Annotated[str, Field(pattern="^ABC", min_length=3, max_length=5)]
     name: Annotated[str, Field(min_length=2)]
 
 
@@ -105,19 +105,40 @@ def test_field_constraints_has_constraints() -> None:
 
 def test_normalize_decimal_constraints() -> None:
     constraints = FieldConstraints(max_digits=4, decimal_places=6)
-    schema_module._normalize_decimal_constraints(constraints)  # type: ignore[attr-defined]
+    normalize_decimal = cast(
+        "Callable[[FieldConstraints], None]",
+        getattr(schema_module, "_normalize_decimal_constraints"),
+    )
+    normalize_decimal(constraints)
 
     assert constraints.max_digits == 4
     assert constraints.decimal_places == 4
 
 
 def test_internal_numeric_helpers_cover_existing_values() -> None:
-    assert schema_module._max_value(10.0, 5) == 10.0  # type: ignore[attr-defined]
-    assert schema_module._min_value(2.0, 5) == 2.0  # type: ignore[attr-defined]
-    assert schema_module._max_int(5, 3) == 5  # type: ignore[attr-defined]
-    assert schema_module._min_int(3, 5) == 3  # type: ignore[attr-defined]
-    assert schema_module._max_int(5, None) == 5  # type: ignore[attr-defined]
-    assert schema_module._min_int(5, None) == 5  # type: ignore[attr-defined]
+    max_value = cast(
+        "Callable[[float | None, float | None], float | None]",
+        getattr(schema_module, "_max_value"),
+    )
+    min_value = cast(
+        "Callable[[float | None, float | None], float | None]",
+        getattr(schema_module, "_min_value"),
+    )
+    max_int = cast(
+        "Callable[[int | None, int | None], int | None]",
+        getattr(schema_module, "_max_int"),
+    )
+    min_int = cast(
+        "Callable[[int | None, int | None], int | None]",
+        getattr(schema_module, "_min_int"),
+    )
+
+    assert max_value(10.0, 5) == 10.0
+    assert min_value(2.0, 5) == 2.0
+    assert max_int(5, 3) == 5
+    assert min_int(3, 5) == 3
+    assert max_int(5, None) == 5
+    assert min_int(5, None) == 5
 
 
 def test_summarize_field_basic() -> None:

@@ -8,6 +8,16 @@
 - Providers live in `pydantic_fixturegen.core.providers` and are loaded through a `ProviderRegistry`.
 - Plugins register new providers via Pluggy and can override defaults selectively.
 
+## Scaffold plugin projects
+
+Spin up a ready-to-publish skeleton with:
+
+```bash
+pfg plugin new acme-colorizer --namespace acme.plugins
+```
+
+The scaffold includes entry-point wiring, sample providers, pytest coverage, and a GitHub Actions workflow so teams can start iterating immediately.
+
 ## Register custom providers
 
 Implement `pfg_register_providers` in a module reachable by entry points or manual registration.

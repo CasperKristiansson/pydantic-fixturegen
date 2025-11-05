@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import cast
 
+from pydantic import BaseModel
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from typer.testing import CliRunner
@@ -110,7 +112,7 @@ def test_instance_generation_is_deterministic(tmp_path: Path) -> None:
     module_path = _write_module(tmp_path)
     namespace: dict[str, object] = {}
     exec(module_path.read_text(encoding="utf-8"), namespace)  # noqa: S102
-    user_cls = namespace["User"]
+    user_cls = cast(type[BaseModel], namespace["User"])
 
     generator = InstanceGenerator(config=GenerationConfig(seed=99))
     first = generator.generate(user_cls, count=3)

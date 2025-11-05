@@ -48,6 +48,7 @@ def test_optional_none_probability() -> None:
     config = GenerationConfig(seed=1, optional_p_none=1.0)
     generator = InstanceGenerator(config=config)
     user = generator.generate_one(User)
+    assert isinstance(user, User)
     assert user.nickname is None
 
 
@@ -63,7 +64,7 @@ def test_recursion_guard_depth() -> None:
     config = GenerationConfig(seed=7, max_depth=1)
     generator = InstanceGenerator(config=config)
     node = generator.generate_one(Node)
-    assert node is not None
+    assert isinstance(node, Node)
     assert node.child is None
 
 
@@ -79,6 +80,7 @@ def test_union_random_policy() -> None:
     generator = InstanceGenerator(config=config)
 
     user = generator.generate_one(User)
+    assert isinstance(user, User)
     assert isinstance(user.preference, (int, str))
     assert isinstance(user.teammates, list)
     assert all(isinstance(member, Address) for member in user.teammates)
@@ -100,6 +102,7 @@ class Account(BaseModel):
 def test_dataclass_field_generation() -> None:
     generator = InstanceGenerator(config=GenerationConfig(seed=11))
     account = generator.generate_one(Account)
+    assert account is not None
     assert isinstance(account, Account)
     assert isinstance(account.profile, Profile)
     assert isinstance(account.user.address, Address)
@@ -126,6 +129,7 @@ def test_field_policy_overrides_p_none() -> None:
 
     instance = generator.generate_one(OptionalItem)
     assert instance is not None
+    assert isinstance(instance, OptionalItem)
     assert instance.maybe is not None
 
 
@@ -154,6 +158,7 @@ def test_field_policy_matches_model_name_alias() -> None:
 
     wrapper = generator.generate_one(PolicyWrapper)
     assert wrapper is not None
+    assert isinstance(wrapper, PolicyWrapper)
     assert wrapper.nested.maybe is not None
 
 
@@ -169,6 +174,7 @@ def test_field_policy_matches_field_path_alias() -> None:
 
     wrapper = generator.generate_one(PolicyWrapper)
     assert wrapper is not None
+    assert isinstance(wrapper, PolicyWrapper)
     assert wrapper.nested.maybe is not None
 
 
@@ -184,6 +190,7 @@ def test_field_policy_matches_field_name_alias() -> None:
 
     wrapper = generator.generate_one(PolicyWrapper)
     assert wrapper is not None
+    assert isinstance(wrapper, PolicyWrapper)
     assert wrapper.nested.maybe is not None
 
 
@@ -203,6 +210,7 @@ def test_field_policy_regex_pattern_matches() -> None:
 
     wrapper = generator.generate_one(PolicyWrapper)
     assert wrapper is not None
+    assert isinstance(wrapper, PolicyWrapper)
     assert wrapper.nested.maybe is not None
 
 
@@ -223,11 +231,14 @@ def test_field_policy_updates_union_strategy() -> None:
     union_strategy = strategies["preference"]
     assert isinstance(union_strategy, UnionStrategy)
 
-    generator._path_stack.append(generator._make_path_entry(User, None))  # type: ignore[attr-defined]
+    path_stack = getattr(generator, "_path_stack")
+    make_path_entry = getattr(generator, "_make_path_entry")
+    path_stack.append(make_path_entry(User, None))
     try:
-        generator._apply_field_policies("preference", union_strategy)  # type: ignore[attr-defined]
+        apply_field_policies = getattr(generator, "_apply_field_policies")
+        apply_field_policies("preference", union_strategy)
     finally:
-        generator._path_stack.pop()
+        path_stack.pop()
 
     assert union_strategy.policy == "random"
     assert all(choice.p_none == 0.0 for choice in union_strategy.choices)
@@ -245,6 +256,7 @@ def test_time_anchor_produces_deterministic_temporal_values() -> None:
 
     instance = generator.generate_one(TemporalModel)
     assert instance is not None
+    assert isinstance(instance, TemporalModel)
     assert instance.created_at == anchor
     assert instance.birthday == anchor.date()
     # allow either naive or aware time depending on anchor tzinfo

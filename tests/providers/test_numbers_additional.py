@@ -9,7 +9,10 @@ from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
 
 
 def _summary(type_id: str, **constraints: float) -> FieldSummary:
-    return FieldSummary(type=type_id, constraints=FieldConstraints(**constraints))
+    data = FieldConstraints()
+    for key, value in constraints.items():
+        setattr(data, key, value)
+    return FieldSummary(type=type_id, constraints=data)
 
 
 def test_generate_numeric_bool() -> None:
@@ -31,7 +34,7 @@ def test_generate_numeric_float_adjusts_exclusive() -> None:
 
 
 def test_generate_numeric_decimal_quantize() -> None:
-    constraints = FieldConstraints(ge=decimal.Decimal("1.2"), decimal_places=2)
+    constraints = FieldConstraints(ge=1.2, decimal_places=2)
     summary = FieldSummary(type="decimal", constraints=constraints)
     value = numbers.generate_numeric(summary, random_generator=random.Random(0))
     assert isinstance(value, decimal.Decimal)
@@ -51,7 +54,7 @@ def test_generate_numeric_float_bounds_adjustment() -> None:
 
 
 def test_generate_numeric_decimal_min_greater_than_max() -> None:
-    constraints = FieldConstraints(ge=decimal.Decimal("5"), le=decimal.Decimal("1"))
+    constraints = FieldConstraints(ge=5.0, le=1.0)
     summary = FieldSummary(type="decimal", constraints=constraints)
     value = numbers.generate_numeric(summary, random_generator=random.Random(0))
     assert value == decimal.Decimal("1")

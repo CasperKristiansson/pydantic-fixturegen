@@ -989,4 +989,10 @@ def _build_unified_diff(
     return "".join(diff)
 
 
-__all__ = ["app"]
+__all__ = [
+    "app",
+    "DiffError",
+    "DiscoveryError",
+    "EmitError",
+    "MappingError",
+]

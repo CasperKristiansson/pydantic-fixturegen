@@ -10,7 +10,7 @@ from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplat
 from pydantic_fixturegen.emitters.json_out import emit_json_samples
 
 try:
-    import orjson  # type: ignore
+    import orjson
 except ImportError:  # pragma: no cover - optional dependency missing
     orjson = None  # type: ignore[assignment]
 

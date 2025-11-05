@@ -227,4 +227,4 @@ def _validate_output_path(path: Path, label: str) -> list[str]:
     return issues
 
 
-__all__ = ["app"]
+__all__ = ["app", "ConfigError", "DiscoveryError"]

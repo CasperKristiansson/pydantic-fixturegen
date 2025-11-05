@@ -58,7 +58,9 @@ def test_register_with_format_and_override() -> None:
         return "override"
 
     registry.register("string", replacement, override=True)
-    assert registry.get("string").func(None) == "override"
+    override_provider = registry.get("string")
+    assert override_provider is not None
+    assert override_provider.func(None) == "override"
     assert list(registry.available())
     registry.clear()
     assert list(registry.available()) == []
@@ -79,7 +81,7 @@ def test_register_plugin_invokes_hook() -> None:
     assert provider.func(None) == 42
 
 
-def test_load_entrypoint_plugins_handles_missing_group(monkeypatch) -> None:
+def test_load_entrypoint_plugins_handles_missing_group(monkeypatch: pytest.MonkeyPatch) -> None:
     registry = ProviderRegistry()
 
     class DummyPlugin:
@@ -93,14 +95,16 @@ def test_load_entrypoint_plugins_handles_missing_group(monkeypatch) -> None:
 
     class DummyEntryPoints:
         @staticmethod
-        def select(group: str):
+        def select(group: str) -> list[DummyEntryPoint]:
             assert group == "pydantic_fixturegen"
             return [DummyEntryPoint()]
 
     monkeypatch.setattr("importlib.metadata.entry_points", lambda: DummyEntryPoints())
 
     registry.load_entrypoint_plugins(force=True)
-    assert registry.get("bool").func(None) is True
+    bool_provider = registry.get("bool")
+    assert bool_provider is not None
+    assert bool_provider.func(None) is True
 
 
 class SecretsExample(BaseModel):
@@ -161,41 +165,60 @@ def test_identifier_provider_formats() -> None:
     )
     assert "@" in email_value
 
-    card_value = registry.get("payment-card").func(
+    card_provider = registry.get("payment-card")
+    assert card_provider is not None
+    card_value = card_provider.func(
         summary=FieldSummary(type="payment-card", constraints=FieldConstraints()),
         faker=faker,
     )
     assert isinstance(card_value, str) and len(card_value) > 0
 
-    url_value = registry.get("url").func(
+    url_provider = registry.get("url")
+    assert url_provider is not None
+    url_value = url_provider.func(
         summary=FieldSummary(type="url", constraints=FieldConstraints()),
         faker=faker,
     )
     assert url_value.startswith("http")
 
-    secret_str = registry.get("secret-str").func(
-        summary=FieldSummary(type="secret-str", constraints=FieldConstraints()), faker=faker
+    secret_str_provider = registry.get("secret-str")
+    assert secret_str_provider is not None
+    secret_str = secret_str_provider.func(
+        summary=FieldSummary(type="secret-str", constraints=FieldConstraints()),
+        faker=faker,
     )
     assert isinstance(secret_str, SecretStr)
 
-    secret_bytes = registry.get("secret-bytes").func(
-        summary=FieldSummary(type="secret-bytes", constraints=FieldConstraints()), faker=faker
+    secret_bytes_provider = registry.get("secret-bytes")
+    assert secret_bytes_provider is not None
+    secret_bytes = secret_bytes_provider.func(
+        summary=FieldSummary(type="secret-bytes", constraints=FieldConstraints()),
+        faker=faker,
     )
     assert isinstance(secret_bytes, SecretBytes)
     assert len(secret_bytes.get_secret_value()) > 0
 
-    ip_value = registry.get("ip-address").func(
-        summary=FieldSummary(type="ip-address", constraints=FieldConstraints()), faker=faker
+    ip_provider = registry.get("ip-address")
+    assert ip_provider is not None
+    ip_value = ip_provider.func(
+        summary=FieldSummary(type="ip-address", constraints=FieldConstraints()),
+        faker=faker,
     )
     assert isinstance(ip_value, str)
 
-    ip_interface = registry.get("ip-interface").func(
-        summary=FieldSummary(type="ip-interface", constraints=FieldConstraints()), faker=faker
+    ip_interface_provider = registry.get("ip-interface")
+    assert ip_interface_provider is not None
+    ip_interface = ip_interface_provider.func(
+        summary=FieldSummary(type="ip-interface", constraints=FieldConstraints()),
+        faker=faker,
     )
     assert "/" in ip_interface
 
-    ip_network = registry.get("ip-network").func(
-        summary=FieldSummary(type="ip-network", constraints=FieldConstraints()), faker=faker
+    ip_network_provider = registry.get("ip-network")
+    assert ip_network_provider is not None
+    ip_network = ip_network_provider.func(
+        summary=FieldSummary(type="ip-network", constraints=FieldConstraints()),
+        faker=faker,
     )
     assert "/" in ip_network
 
@@ -219,7 +242,9 @@ def test_numeric_provider_respects_bounds() -> None:
         constraints=FieldConstraints(ge=1.5, le=2.5),
         format=None,
     )
-    float_value = registry.get("float").func(
+    float_provider = registry.get("float")
+    assert float_provider is not None
+    float_value = float_provider.func(
         summary=float_summary,
         random_generator=random.Random(1),
     )
@@ -228,20 +253,24 @@ def test_numeric_provider_respects_bounds() -> None:
     decimal_summary = FieldSummary(
         type="decimal",
         constraints=FieldConstraints(
-            ge=decimal.Decimal("1.10"),
-            le=decimal.Decimal("1.20"),
+            ge=1.10,
+            le=1.20,
             decimal_places=2,
         ),
         format=None,
     )
-    decimal_value = registry.get("decimal").func(
+    decimal_provider = registry.get("decimal")
+    assert decimal_provider is not None
+    decimal_value = decimal_provider.func(
         summary=decimal_summary,
         random_generator=random.Random(2),
     )
     assert decimal.Decimal("1.10") <= decimal_value <= decimal.Decimal("1.20")
     assert decimal_value.as_tuple().exponent == -2
 
-    bool_value = registry.get("bool").func(
+    bool_provider = registry.get("bool")
+    assert bool_provider is not None
+    bool_value = bool_provider.func(
         summary=FieldSummary(type="bool", constraints=FieldConstraints()),
         random_generator=random.Random(3),
     )
@@ -258,7 +287,9 @@ def test_collection_provider_generates_items() -> None:
         format=None,
         item_type="int",
     )
-    values = registry.get("list").func(
+    list_provider = registry.get("list")
+    assert list_provider is not None
+    values = list_provider.func(
         summary=summary,
         faker=Faker(seed=10),
         random_generator=random.Random(2),
@@ -272,7 +303,9 @@ def test_collection_provider_generates_items() -> None:
         format=None,
         item_type="float",
     )
-    set_values = registry.get("set").func(
+    set_provider = registry.get("set")
+    assert set_provider is not None
+    set_values = set_provider.func(
         summary=set_summary,
         faker=Faker(seed=11),
         random_generator=random.Random(4),
@@ -286,7 +319,9 @@ def test_collection_provider_generates_items() -> None:
         format=None,
         item_type="string",
     )
-    tuple_value = registry.get("tuple").func(
+    tuple_provider = registry.get("tuple")
+    assert tuple_provider is not None
+    tuple_value = tuple_provider.func(
         summary=tuple_summary,
         faker=Faker(seed=12),
         random_generator=random.Random(5),
@@ -300,7 +335,9 @@ def test_collection_provider_generates_items() -> None:
         format=None,
         item_type="int",
     )
-    mapping_value = registry.get("mapping").func(
+    mapping_provider = registry.get("mapping")
+    assert mapping_provider is not None
+    mapping_value = mapping_provider.func(
         summary=mapping_summary,
         faker=Faker(seed=13),
         random_generator=random.Random(6),
@@ -326,17 +363,23 @@ def test_temporal_provider_outputs_types() -> None:
     register_temporal_providers(registry)
     faker = Faker(seed=11)
 
-    dt = registry.get("datetime").func(
+    datetime_provider = registry.get("datetime")
+    assert datetime_provider is not None
+    dt = datetime_provider.func(
         summary=FieldSummary(type="datetime", constraints=FieldConstraints()), faker=faker
     )
     assert isinstance(dt, datetime.datetime)
 
-    d = registry.get("date").func(
+    date_provider = registry.get("date")
+    assert date_provider is not None
+    d = date_provider.func(
         summary=FieldSummary(type="date", constraints=FieldConstraints()), faker=faker
     )
     assert isinstance(d, datetime.date)
 
-    t = registry.get("time").func(
+    time_provider = registry.get("time")
+    assert time_provider is not None
+    t = time_provider.func(
         summary=FieldSummary(type="time", constraints=FieldConstraints()), faker=faker
     )
     assert isinstance(t, datetime.time)
@@ -372,20 +415,28 @@ def test_string_provider_temporal_and_uuid() -> None:
     summary = schema_module.summarize_model_fields(TemporalModel)
     faker = Faker(seed=5)
 
-    identifier = registry.get("uuid").func(summary=summary["identifier"], faker=faker)
+    uuid_provider = registry.get("uuid")
+    assert uuid_provider is not None
+    identifier = uuid_provider.func(summary=summary["identifier"], faker=faker)
     assert isinstance(identifier, uuid.UUID)
 
-    created = registry.get("datetime").func(summary=summary["created_at"], faker=faker)
+    datetime_provider = registry.get("datetime")
+    assert datetime_provider is not None
+    created = datetime_provider.func(summary=summary["created_at"], faker=faker)
     assert isinstance(created, datetime.datetime)
 
-    birthday = registry.get("date").func(summary=summary["birthday"], faker=faker)
+    birthday_provider = registry.get("date")
+    assert birthday_provider is not None
+    birthday = birthday_provider.func(summary=summary["birthday"], faker=faker)
     assert isinstance(birthday, datetime.date)
 
-    wake = registry.get("time").func(summary=summary["wake_up"], faker=faker)
+    wake_provider = registry.get("time")
+    assert wake_provider is not None
+    wake = wake_provider.func(summary=summary["wake_up"], faker=faker)
     assert isinstance(wake, datetime.time)
 
 
-def test_string_provider_regex_padding(monkeypatch) -> None:
+def test_string_provider_regex_padding(monkeypatch: pytest.MonkeyPatch) -> None:
     registry = ProviderRegistry()
     register_string_providers(registry)
     provider = registry.get("string")

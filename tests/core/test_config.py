@@ -291,7 +291,8 @@ def test_env_value_coercion_helpers() -> None:
         "PFG_EMITTERS__PYTEST__STYLE": "hybrid",
     }
 
-    result = config_mod._load_env_config(env)  # type: ignore[attr-defined]
+    load_env_config = getattr(config_mod, "_load_env_config")
+    result = load_env_config(env)
 
     assert result["flag"] is True
     assert result["number"] == 7
@@ -358,7 +359,8 @@ def test_boolean_false_string(tmp_path: Path) -> None:
 def test_ensure_mutable_handles_nested() -> None:
     data = {"a": {"b": 1}, "c": [{"d": 2}]}
 
-    result = config_mod._ensure_mutable(data)  # type: ignore[attr-defined]
+    ensure_mutable = getattr(config_mod, "_ensure_mutable")
+    result = ensure_mutable(data)
 
     assert result["a"]["b"] == 1
     assert result["c"][0]["d"] == 2
@@ -368,7 +370,8 @@ def test_deep_merge_merges_nested() -> None:
     target: dict[str, Any] = {"a": {"b": 1}, "list": [1]}
     source = {"a": {"c": 2}, "list": [1, 2], "d": 3}
 
-    config_mod._deep_merge(target, source)  # type: ignore[attr-defined]
+    deep_merge = getattr(config_mod, "_deep_merge")
+    deep_merge(target, source)
 
     assert target["a"]["b"] == 1
     assert target["a"]["c"] == 2

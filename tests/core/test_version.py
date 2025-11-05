@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, NoReturn
 
 import pydantic_fixturegen
 import pytest
@@ -43,8 +43,8 @@ def test_build_artifact_header_handles_missing_extras() -> None:
 def test_get_tool_version_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """Fallback string should be used when distribution metadata is missing."""
 
-    def _raise_package_not_found(_: str) -> str:
-        raise version_mod.metadata.PackageNotFoundError  # type: ignore[no-untyped-call]
+    def _raise_package_not_found(_: str) -> NoReturn:
+        raise version_mod.metadata.PackageNotFoundError
 
     monkeypatch.setattr(version_mod.metadata, "version", _raise_package_not_found)
     version_mod.get_tool_version.cache_clear()

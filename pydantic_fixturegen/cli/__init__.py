@@ -101,6 +101,11 @@ _proxy(
     "Scaffold configuration and directories for new projects.",
 )
 _proxy(
+    "plugin",
+    "pydantic_fixturegen.cli.plugin:app",
+    "Scaffold provider plugin projects.",
+)
+_proxy(
     "doctor",
     "pydantic_fixturegen.cli.doctor:app",
     "Inspect models for coverage and risks.",

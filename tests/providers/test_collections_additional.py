@@ -6,7 +6,7 @@ from pydantic_fixturegen.core.providers import collections
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
 
 
-def test_generate_collection_mapping(tmp_path=None) -> None:
+def test_generate_collection_mapping() -> None:
     summary = FieldSummary(
         type="mapping",
         constraints=FieldConstraints(min_length=2, max_length=2),

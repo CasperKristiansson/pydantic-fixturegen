@@ -131,6 +131,21 @@ pfg init \
 - Accepts `--no-pyproject` if you only want YAML.
 - Adds `.gitkeep` inside `tests/fixtures/` unless you pass `--no-fixtures-dir`.
 
+## `pfg plugin`
+
+```bash
+pfg plugin new acme-colorizer \
+  --namespace acme.plugins \
+  --distribution acme-pfg-colorizer \
+  --entrypoint acme-colorizer \
+  --directory ./acme-colorizer
+```
+
+- Generates a pluggy provider project with `pyproject.toml`, README, tests, and GitHub Actions workflow.
+- `--namespace` builds a nested package layout (for example `src/acme/plugins/acme_colorizer`).
+- Override packaging metadata with `--distribution`, `--entrypoint`, `--description`, and `--author`.
+- Use `--force` to overwrite existing files when iterating on a scaffold in-place.
+
 ## `pfg doctor`
 
 ```bash

@@ -50,3 +50,6 @@ def build_artifact_header(
             segments.append(f"{key}={value}")
 
     return " | ".join(segments)
+
+
+__all__ = ["build_artifact_header", "get_tool_version", "metadata"]

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import dataclasses
 from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
+from pydantic_fixturegen.core.strategies import Strategy
 from pydantic_fixturegen.plugins.hookspecs import EmitterContext, hookimpl
 from pydantic_fixturegen.plugins.loader import get_plugin_manager, register_plugin
 from typer.testing import CliRunner
@@ -20,8 +20,8 @@ class _StrategyPlugin:
         self,
         model: type[BaseModel],
         field_name: str,
-        strategy,
-    ) -> Any:
+        strategy: Strategy,
+    ) -> Strategy | None:
         if model.__name__ == "User" and field_name == "nickname":
             return dataclasses.replace(strategy, p_none=1.0)
         return None
@@ -58,7 +58,7 @@ def test_strategy_plugin_modifies_strategy() -> None:
     try:
         generator = InstanceGenerator(config=GenerationConfig(seed=42))
         user = generator.generate_one(User)
-        assert user is not None
+        assert isinstance(user, User)
         assert user.nickname is None
     finally:
         manager.unregister(plugin)

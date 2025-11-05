@@ -385,4 +385,4 @@ def _render_report(reports: list[ModelReport], gap_summary: GapSummary) -> None:
     typer.echo("")
 
 
-__all__ = ["app"]
+__all__ = ["app", "get_plugin_manager"]
