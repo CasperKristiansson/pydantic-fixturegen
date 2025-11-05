@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import datetime
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from pydantic_fixturegen.core import config as config_mod
@@ -291,7 +292,7 @@ def test_env_value_coercion_helpers() -> None:
         "PFG_EMITTERS__PYTEST__STYLE": "hybrid",
     }
 
-    load_env_config = getattr(config_mod, "_load_env_config")
+    load_env_config = cast(Callable[[dict[str, str]], dict[str, Any]], config_mod._load_env_config)
     result = load_env_config(env)
 
     assert result["flag"] is True
@@ -359,7 +360,10 @@ def test_boolean_false_string(tmp_path: Path) -> None:
 def test_ensure_mutable_handles_nested() -> None:
     data = {"a": {"b": 1}, "c": [{"d": 2}]}
 
-    ensure_mutable = getattr(config_mod, "_ensure_mutable")
+    ensure_mutable = cast(
+        Callable[[dict[str, Any]], dict[str, Any]],
+        config_mod._ensure_mutable,
+    )
     result = ensure_mutable(data)
 
     assert result["a"]["b"] == 1
@@ -370,7 +374,10 @@ def test_deep_merge_merges_nested() -> None:
     target: dict[str, Any] = {"a": {"b": 1}, "list": [1]}
     source = {"a": {"c": 2}, "list": [1, 2], "d": 3}
 
-    deep_merge = getattr(config_mod, "_deep_merge")
+    deep_merge = cast(
+        Callable[[dict[str, Any], dict[str, Any]], None],
+        config_mod._deep_merge,
+    )
     deep_merge(target, source)
 
     assert target["a"]["b"] == 1

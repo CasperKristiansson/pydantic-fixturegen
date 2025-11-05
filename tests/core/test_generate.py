@@ -231,11 +231,11 @@ def test_field_policy_updates_union_strategy() -> None:
     union_strategy = strategies["preference"]
     assert isinstance(union_strategy, UnionStrategy)
 
-    path_stack = getattr(generator, "_path_stack")
-    make_path_entry = getattr(generator, "_make_path_entry")
+    path_stack = getattr(generator, "_path_stack")  # noqa: B009
+    make_path_entry = getattr(generator, "_make_path_entry")  # noqa: B009
     path_stack.append(make_path_entry(User, None))
     try:
-        apply_field_policies = getattr(generator, "_apply_field_policies")
+        apply_field_policies = getattr(generator, "_apply_field_policies")  # noqa: B009
         apply_field_policies("preference", union_strategy)
     finally:
         path_stack.pop()

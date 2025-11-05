@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import pytest
-
 from pydantic_fixturegen.core.providers import strings
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
+from pytest import MonkeyPatch
 
 
-def test_generate_string_regex_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_generate_string_regex_fallback(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(strings, "rstr", None)
     summary = FieldSummary(
         type="string",

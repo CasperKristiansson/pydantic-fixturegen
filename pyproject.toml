@@ -80,6 +80,9 @@ pfg = "pydantic_fixturegen.cli:app"
 [project.entry-points."pydantic_fixturegen"]
 builtin = "pydantic_fixturegen.plugins.builtin"
 
+[project.entry-points."pytest11"]
+pydantic_fixturegen = "pydantic_fixturegen.testing.pytest_plugin"
+
 [tool.pytest.ini_options]
 addopts = [
   "-q",

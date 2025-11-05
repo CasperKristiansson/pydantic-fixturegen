@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import datetime
 import uuid
+from collections.abc import Callable
 from decimal import Decimal
-from typing import Annotated, Any, Callable, cast
+from typing import Annotated, Any, cast
 
 import annotated_types
 import pytest
@@ -107,7 +108,7 @@ def test_normalize_decimal_constraints() -> None:
     constraints = FieldConstraints(max_digits=4, decimal_places=6)
     normalize_decimal = cast(
         "Callable[[FieldConstraints], None]",
-        getattr(schema_module, "_normalize_decimal_constraints"),
+        schema_module._normalize_decimal_constraints,
     )
     normalize_decimal(constraints)
 
@@ -118,19 +119,19 @@ def test_normalize_decimal_constraints() -> None:
 def test_internal_numeric_helpers_cover_existing_values() -> None:
     max_value = cast(
         "Callable[[float | None, float | None], float | None]",
-        getattr(schema_module, "_max_value"),
+        schema_module._max_value,
     )
     min_value = cast(
         "Callable[[float | None, float | None], float | None]",
-        getattr(schema_module, "_min_value"),
+        schema_module._min_value,
     )
     max_int = cast(
         "Callable[[int | None, int | None], int | None]",
-        getattr(schema_module, "_max_int"),
+        schema_module._max_int,
     )
     min_int = cast(
         "Callable[[int | None, int | None], int | None]",
-        getattr(schema_module, "_min_int"),
+        schema_module._min_int,
     )
 
     assert max_value(10.0, 5) == 10.0

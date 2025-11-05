@@ -130,6 +130,32 @@ pfg gen explain ./models.py --json | jq '.models["app.models.User"].fields.nickn
 
 You see probability adjustments, active presets, and provider names, making policy mismatches easy to spot.
 
+## Recipe 6 — Assert artifacts with pytest snapshots
+
+Lean on the built-in pytest helper to keep JSON, fixtures, or schema outputs in sync with snapshots.
+
+```python
+from pathlib import Path
+
+from pydantic_fixturegen.testing import JsonSnapshotConfig
+
+
+def test_user_snapshot(pfg_snapshot):
+    config = JsonSnapshotConfig(out=Path("tests/snapshots/users.json"), indent=2)
+    pfg_snapshot.assert_artifacts(
+        target="./models.py",
+        json=config,
+        include=["app.models.User"],
+    )
+```
+
+- The `pfg_snapshot` fixture ships via the `pytest11` entry point; no manual plugin registration needed.
+- Pass one or more configs (`JsonSnapshotConfig`, `FixturesSnapshotConfig`, `SchemaSnapshotConfig`) to cover the artifacts you want to track.
+- Run `pytest --pfg-update-snapshots=update` or set `PFG_SNAPSHOT_UPDATE=update` to refresh snapshots when behaviour changes; by default the helper fails with the unified diff from `pfg diff`.
+- All `pfg diff` knobs are available—`include`, `exclude`, `seed`, `preset`, `freeze_seeds`, etc.—so update determinism is preserved.
+
+Use this in tandem with Recipe 3 (freeze seeds) to keep fixtures stable across machines.
+
 ## More plays
 
 - Automate regeneration with watch mode: `pfg gen fixtures ... --watch`.

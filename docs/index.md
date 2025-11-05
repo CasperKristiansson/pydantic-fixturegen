@@ -16,6 +16,7 @@
 - [Seeds](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/seeds.md) & [Presets](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/presets.md) — Freeze seeds, apply presets, and manage probability policies.
 - [Logging](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/logging.md) — Emit JSON logs, inspect event schemas, and tune verbosity.
 - [Doctor & diagnostics](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/doctor.md) — Validate coverage, run diff/check, and harden discovery.
+- [Testing helpers](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/testing.md) — Adopt the pytest snapshot plugin and CLI guardrails for your suites.
 - [Security](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/security.md) — Review sandbox guards, exit codes, and safe-import behaviour.
 - [Output paths](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/output-paths.md) — Use templated destinations and understand the validation rules.
 - [API reference](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/api.md) — Call `generate_json`, `generate_fixtures`, `generate_schema`, and inspect return types.
