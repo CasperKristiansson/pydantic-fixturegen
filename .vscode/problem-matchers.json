@@ -1,0 +1,29 @@
+{
+  "version": "1.0.0",
+  "problemMatchers": [
+    {
+      "name": "pfg-json-errors",
+      "label": "pfg JSON errors",
+      "owner": "pfg",
+      "fileLocation": [
+        "relative",
+        "${workspaceFolder}"
+      ],
+      "pattern": [
+        {
+          "regexp": "^\\{.*\\}$",
+          "json": {
+            "message": "$.message",
+            "severity": "$.level",
+            "code": "$.code",
+            "location": {
+              "path": "$.location.path",
+              "startLine": "$.location.line",
+              "startColumn": "$.location.column"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "PFG: Generate JSON",
+      "type": "shell",
+      "command": "pfg",
+      "args": [
+        "gen",
+        "json",
+        "${input:modulePath}",
+        "--out",
+        "${input:outputPath}",
+        "--include",
+        "${input:modelFilter}",
+        "--seed",
+        "${input:seed}",
+        "--json-errors"
+      ],
+      "problemMatcher": [
+        "$pfg-json-errors"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "PFG: Generate Fixtures",
+      "type": "shell",
+      "command": "pfg",
+      "args": [
+        "gen",
+        "fixtures",
+        "${input:modulePath}",
+        "--out",
+        "${input:outputPath}",
+        "--include",
+        "${input:modelFilter}",
+        "--seed",
+        "${input:seed}",
+        "--json-errors"
+      ],
+      "problemMatcher": [
+        "$pfg-json-errors"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "PFG: Generate Schema",
+      "type": "shell",
+      "command": "pfg",
+      "args": [
+        "gen",
+        "schema",
+        "${input:modulePath}",
+        "--out",
+        "${input:outputPath}",
+        "--include",
+        "${input:modelFilter}",
+        "--json-errors"
+      ],
+      "problemMatcher": [
+        "$pfg-json-errors"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "PFG: Check",
+      "type": "shell",
+      "command": "pfg",
+      "args": [
+        "check",
+        "${input:modulePath}",
+        "--json-errors"
+      ],
+      "problemMatcher": [
+        "$pfg-json-errors"
+      ],
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "PFG: Doctor",
+      "type": "shell",
+      "command": "pfg",
+      "args": [
+        "doctor",
+        "${input:modulePath}",
+        "--json-errors"
+      ],
+      "problemMatcher": [
+        "$pfg-json-errors"
+      ],
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "modulePath",
+      "type": "promptString",
+      "description": "Path to module or package that exports Pydantic models",
+      "default": "./models.py"
+    },
+    {
+      "id": "outputPath",
+      "type": "promptString",
+      "description": "Destination for generated artifacts",
+      "default": "./out"
+    },
+    {
+      "id": "modelFilter",
+      "type": "promptString",
+      "description": "Comma-separated model filters (include patterns)",
+      "default": ""
+    },
+    {
+      "id": "seed",
+      "type": "promptString",
+      "description": "Seed to use for deterministic generation",
+      "default": "42"
+    }
+  ]
+}

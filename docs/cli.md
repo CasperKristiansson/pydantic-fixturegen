@@ -146,6 +146,11 @@ pfg plugin new acme-colorizer \
 - Override packaging metadata with `--distribution`, `--entrypoint`, `--description`, and `--author`.
 - Use `--force` to overwrite existing files when iterating on a scaffold in-place.
 
+## Editor integrations
+
+- Workspace tasks and problem matchers for Visual Studio Code live under `.vscode/`.
+- See [docs/vscode.md](./vscode.md) for details on running `pfg` commands directly from the editor with diagnostics surfaced in the Problems panel.
+
 ## `pfg doctor`
 
 ```bash

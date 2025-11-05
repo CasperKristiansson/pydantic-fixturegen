@@ -20,6 +20,7 @@
 - [Output paths](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/output-paths.md) — Use templated destinations and understand the validation rules.
 - [API reference](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/api.md) — Call `generate_json`, `generate_fixtures`, `generate_schema`, and inspect return types.
 - [Alternatives](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/alternatives.md) — Compare fixture tooling and pick the right approach.
+- [VS Code integration](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/vscode.md) — Run CLI tasks from the editor and surface diagnostics in the Problems panel.
 - [Troubleshooting](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/troubleshooting.md) — Decode error taxonomy, fix watch mode, and unblock CI.
 - [Architecture](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/architecture.md) — Visualise the pipeline and plugin hook flow.
 
