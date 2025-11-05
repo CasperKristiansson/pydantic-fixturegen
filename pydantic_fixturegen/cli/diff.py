@@ -526,6 +526,8 @@ def _execute_diff(
                 per_model_seeds=per_model_seeds if freeze_manager is not None else None,
                 app_config_now=app_config.now,
                 app_config_field_policies=app_config.field_policies,
+                app_config_locale=app_config.locale,
+                app_config_locale_policies=app_config.locale_policies,
             )
         )
 
@@ -693,6 +695,8 @@ def _diff_fixtures_artifact(
     per_model_seeds: dict[str, int] | None,
     app_config_now: datetime.datetime | None,
     app_config_field_policies: tuple[FieldPolicy, ...],
+    app_config_locale: str,
+    app_config_locale_policies: tuple[FieldPolicy, ...],
 ) -> DiffReport:
     if options.out is None:
         raise DiscoveryError("Fixtures diff requires --fixtures-out.")
@@ -730,6 +734,8 @@ def _diff_fixtures_artifact(
             per_model_seeds=per_model_seeds,
             time_anchor=app_config_now,
             field_policies=app_config_field_policies,
+            locale=app_config_locale,
+            locale_policies=app_config_locale_policies,
         )
 
         context = EmitterContext(

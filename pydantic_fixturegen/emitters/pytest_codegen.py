@@ -20,6 +20,7 @@ from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.io_utils import WriteResult, write_atomic_text
 from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
+from pydantic_fixturegen.core.seed import DEFAULT_LOCALE
 from pydantic_fixturegen.core.version import build_artifact_header
 
 DEFAULT_SCOPE = "function"
@@ -43,6 +44,8 @@ class PytestEmitConfig:
     per_model_seeds: Mapping[str, int] | None = None
     field_policies: tuple[FieldPolicy, ...] = ()
     time_anchor: datetime.datetime | None = None
+    locale: str = DEFAULT_LOCALE
+    locale_policies: tuple[FieldPolicy, ...] = ()
 
 
 def emit_pytest_fixtures(
@@ -73,6 +76,8 @@ def emit_pytest_fixtures(
             seed=seed_value,
             time_anchor=cfg.time_anchor,
             field_policies=cfg.field_policies,
+            locale=cfg.locale,
+            locale_policies=cfg.locale_policies,
         )
         if cfg.optional_p_none is not None:
             generation_config.optional_p_none = cfg.optional_p_none

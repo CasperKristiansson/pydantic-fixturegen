@@ -10,6 +10,8 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, TypeVar, cast
 
+from faker import Faker
+
 from .field_policies import FieldPolicy
 from .presets import get_preset_spec, normalize_preset_name
 from .seed import DEFAULT_LOCALE
@@ -76,6 +78,7 @@ class AppConfig:
     now: datetime.datetime | None = None
     overrides: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     field_policies: tuple[FieldPolicy, ...] = ()
+    locale_policies: tuple[FieldPolicy, ...] = ()
     emitters: EmittersConfig = field(default_factory=EmittersConfig)
     json: JsonConfig = field(default_factory=JsonConfig)
 
@@ -124,6 +127,7 @@ def _config_defaults_dict() -> dict[str, Any]:
         "union_policy": DEFAULT_CONFIG.union_policy,
         "enum_policy": DEFAULT_CONFIG.enum_policy,
         "now": DEFAULT_CONFIG.now,
+        "locales": {},
         "field_policies": {},
         "overrides": {},
         "emitters": {
@@ -269,6 +273,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
     emitters_value = _normalize_emitters(data.get("emitters"))
     json_value = _normalize_json(data.get("json"))
     field_policies_value = _normalize_field_policies(data.get("field_policies"))
+    locale_policies_value = _normalize_locale_policies(data.get("locales"))
     now_value = _coerce_datetime(data.get("now"), "now")
 
     seed_value: int | str | None
@@ -289,6 +294,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         now=now_value,
         overrides=overrides_value,
         field_policies=field_policies_value,
+        locale_policies=locale_policies_value,
         emitters=emitters_value,
         json=json_value,
     )
@@ -424,6 +430,34 @@ def _normalize_field_policies(value: Any) -> tuple[FieldPolicy, ...]:
 
         options = {"p_none": p_none, "enum_policy": enum_policy, "union_policy": union_policy}
         policies.append(FieldPolicy(pattern=pattern, options=options, index=index))
+
+    return tuple(policies)
+
+
+def _normalize_locale_policies(value: Any) -> tuple[FieldPolicy, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, Mapping):
+        raise ConfigError("locales must be a mapping of pattern to locale strings.")
+
+    policies: list[FieldPolicy] = []
+    for index, (pattern, raw_locale) in enumerate(value.items()):
+        if not isinstance(pattern, str) or not pattern.strip():
+            raise ConfigError("Locale mapping keys must be non-empty strings.")
+        if not isinstance(raw_locale, str) or not raw_locale.strip():
+            raise ConfigError(f"Locale mapping '{pattern}' must specify a non-empty string value.")
+
+        locale_value = raw_locale.strip()
+        try:
+            Faker(locale_value)
+        except Exception as exc:  # pragma: no cover - defensive against Faker internals
+            raise ConfigError(
+                f"Locale mapping '{pattern}' references unsupported locale '{locale_value}'."
+            ) from exc
+
+        policies.append(
+            FieldPolicy(pattern=pattern, options={"locale": locale_value}, index=index)
+        )
 
     return tuple(policies)
 

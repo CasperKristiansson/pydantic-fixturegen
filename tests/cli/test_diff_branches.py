@@ -399,6 +399,8 @@ def test_diff_fixtures_require_output() -> None:
             per_model_seeds=None,
             app_config_now=None,
             app_config_field_policies=(),
+            app_config_locale="en_US",
+            app_config_locale_policies=(),
         )
 
 
@@ -426,6 +428,8 @@ def test_diff_fixtures_emit_artifact_success(
         per_model_seeds=None,
         app_config_now=None,
         app_config_field_policies=(),
+        app_config_locale="en_US",
+        app_config_locale_policies=(),
     )
 
     assert report.summary == "Fixtures artifact matches."
@@ -449,6 +453,8 @@ def test_diff_fixtures_emit_artifact_without_file(
             per_model_seeds=None,
             app_config_now=None,
             app_config_field_policies=(),
+            app_config_locale="en_US",
+            app_config_locale_policies=(),
         )
 
 
@@ -466,6 +472,8 @@ def test_diff_fixtures_detect_directory_target(tmp_path: Path) -> None:
         per_model_seeds=None,
         app_config_now=None,
         app_config_field_policies=(),
+        app_config_locale="en_US",
+        app_config_locale_policies=(),
     )
 
     assert "Fixtures path is a directory" in report.messages[0]

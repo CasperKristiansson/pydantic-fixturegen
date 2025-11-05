@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added `pfg plugin new` to scaffold pluggy provider projects with packaging metadata, tests, and CI workflow templates.
 - Added VS Code workspace tasks and JSON problem matcher to run `pfg` commands with inline diagnostics.
 - Added a pytest snapshot helper (`pfg_snapshot`) with update modes for JSON, fixture, and schema artifacts.
+- Added per-model/field Faker locale mapping with validation and runtime overrides.
 
 ## [1.1.0] - 2025-11-04
 

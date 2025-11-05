@@ -28,6 +28,7 @@ def test_default_configuration(tmp_path: Path) -> None:
     assert config.emitters.pytest == PytestEmitterConfig()
     assert config.json == JsonConfig()
     assert config.field_policies == ()
+    assert config.locale_policies == ()
     assert config.now is None
 
 
@@ -73,6 +74,7 @@ def test_load_from_pyproject(tmp_path: Path) -> None:
     assert config.json.orjson is True
     assert config.overrides["app.models.User"]["email"]["provider"] == "email"
     assert config.field_policies == ()
+    assert config.locale_policies == ()
 
 
 @pytest.mark.skipif(not HAS_YAML, reason="PyYAML not installed")
@@ -240,6 +242,28 @@ def test_field_policies_parsing(tmp_path: Path) -> None:
     assert "re:^app\\.models\\.User\\..*$" in patterns
     first = config.field_policies[0]
     assert first.options["p_none"] == 0.0
+
+
+def test_locale_policies_parsing(tmp_path: Path) -> None:
+    config = load_config(
+        root=tmp_path,
+        cli={
+            "locales": {
+                "app.models.User.*": "sv_SE",
+                "app.models.User.email": "en_GB",
+            }
+        },
+    )
+
+    assert len(config.locale_policies) == 2
+    locales = {policy.pattern: policy.options["locale"] for policy in config.locale_policies}
+    assert locales["app.models.User.*"] == "sv_SE"
+    assert locales["app.models.User.email"] == "en_GB"
+
+
+def test_locale_policies_invalid_locale(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"locales": {"*.name": "not_a_locale"}})
 
 
 def test_field_policies_invalid_option(tmp_path: Path) -> None:

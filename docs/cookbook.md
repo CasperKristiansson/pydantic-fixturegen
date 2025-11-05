@@ -156,6 +156,21 @@ def test_user_snapshot(pfg_snapshot):
 
 Use this in tandem with Recipe 3 (freeze seeds) to keep fixtures stable across machines.
 
+## Recipe 7 — Mix Faker locales per model
+
+Reflect regional datasets by mapping models or fields to specific locales.
+
+```toml
+[tool.pydantic_fixturegen.locales]
+"app.models.Customer.*" = "de_DE"
+"app.models.Customer.email" = "en_GB"
+```
+
+- Patterns accept glob wildcards or regex (`re:` prefix).
+- Field matches override broader model patterns, so the example keeps German defaults while forcing `.email` to the UK locale.
+- Combine with `pfg gen json --seed 42` to verify deterministic outputs across locales.
+- See the configuration reference at [docs/configuration.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md#locale-overrides) for deeper details and validation rules.
+
 ## More plays
 
 - Automate regeneration with watch mode: `pfg gen fixtures ... --watch`.

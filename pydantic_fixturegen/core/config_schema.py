@@ -154,6 +154,12 @@ class ConfigSchemaModel(BaseModel):
             "names or dotted field paths."
         ),
     )
+    locales: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Mapping of glob or regex patterns (models or fields) to Faker locale identifiers."
+        ),
+    )
 
 
 def build_config_schema() -> dict[str, Any]:

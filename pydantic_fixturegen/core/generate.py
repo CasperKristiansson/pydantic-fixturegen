@@ -6,7 +6,6 @@ import dataclasses
 import datetime
 import enum
 import inspect
-import random
 from collections.abc import Iterable, Mapping, Sized
 from dataclasses import dataclass, is_dataclass
 from dataclasses import fields as dataclass_fields
@@ -26,6 +25,7 @@ from pydantic_fixturegen.core.field_policies import (
 )
 from pydantic_fixturegen.core.providers import ProviderRegistry, create_default_registry
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary, extract_constraints
+from pydantic_fixturegen.core.seed import DEFAULT_LOCALE, SeedManager
 from pydantic_fixturegen.core.strategies import (
     Strategy,
     StrategyBuilder,
@@ -46,6 +46,8 @@ class GenerationConfig:
     seed: int | None = None
     time_anchor: datetime.datetime | None = None
     field_policies: tuple[FieldPolicy, ...] = ()
+    locale: str = DEFAULT_LOCALE
+    locale_policies: tuple[FieldPolicy, ...] = ()
 
 
 @dataclass(slots=True)
@@ -70,11 +72,10 @@ class InstanceGenerator:
     ) -> None:
         self.config = config or GenerationConfig()
         self.registry = registry or create_default_registry(load_plugins=False)
-        self.random = random.Random(self.config.seed)
-        self.faker = Faker()
-        if self.config.seed is not None:
-            Faker.seed(self.config.seed)
-            self.faker.seed_instance(self.config.seed)
+        self.seed_manager = SeedManager(seed=self.config.seed, locale=self.config.locale)
+        self.random = self.seed_manager.base_random
+        self.faker = self.seed_manager.faker
+        self._faker_cache: dict[tuple[str, str], Faker] = {}
 
         load_entrypoint_plugins()
         self._plugin_manager = get_plugin_manager()
@@ -94,6 +95,9 @@ class InstanceGenerator:
         self._constraint_reporter = ConstraintReporter()
         self._field_policy_set = (
             FieldPolicySet(self.config.field_policies) if self.config.field_policies else None
+        )
+        self._locale_policy_set = (
+            FieldPolicySet(self.config.locale_policies) if self.config.locale_policies else None
         )
         self._path_stack: list[_PathEntry] = []
 
@@ -274,6 +278,33 @@ class InstanceGenerator:
             seen[path] = None
         return tuple(seen.keys())
 
+    def _resolve_locale(self, field_name: str) -> tuple[str, str]:
+        base_locale = self.config.locale
+        full_path, aliases = self._current_field_paths(field_name)
+
+        if self._locale_policy_set is None:
+            return base_locale, full_path
+
+        try:
+            policy_values = self._locale_policy_set.resolve(full_path, aliases=aliases)
+        except FieldPolicyConflictError as exc:
+            raise ConfigError(str(exc)) from exc
+
+        locale_value = policy_values.get("locale")
+        return (locale_value or base_locale, full_path)
+
+    def _faker_for_locale(self, locale: str, path_key: str) -> Faker:
+        if locale == self.config.locale:
+            return self.faker
+
+        cache_key = (locale, path_key)
+        if cache_key not in self._faker_cache:
+            seed = self.seed_manager.derive_child_seed("faker", locale, path_key)
+            faker = Faker(locale)
+            faker.seed_instance(seed)
+            self._faker_cache[cache_key] = faker
+        return self._faker_cache[cache_key]
+
     def _apply_field_policy_to_strategy(
         self,
         strategy: Strategy,
@@ -324,19 +355,25 @@ class InstanceGenerator:
                         via_field=field_name,
                     )
                 elif summary.type in {"list", "set", "tuple", "mapping"}:
-                    value = self._evaluate_collection(strategy, depth)
+                    value = self._evaluate_collection(model_type, field_name, strategy, depth)
                 else:
                     if strategy.provider_ref is None:
                         value = None
                     else:
-                        value = self._call_strategy_provider(strategy)
+                        value = self._call_strategy_provider(model_type, field_name, strategy)
 
         self._constraint_reporter.record_field_value(field_name, value)
         return value
 
-    def _evaluate_collection(self, strategy: Strategy, depth: int) -> Any:
+    def _evaluate_collection(
+        self,
+        model_type: type[Any],
+        field_name: str,
+        strategy: Strategy,
+        depth: int,
+    ) -> Any:
         summary = strategy.summary
-        base_value = self._call_strategy_provider(strategy)
+        base_value = self._call_strategy_provider(model_type, field_name, strategy)
 
         item_annotation = summary.item_annotation
         if item_annotation is None or not self._is_model_like(item_annotation):
@@ -491,14 +528,21 @@ class InstanceGenerator:
         except TypeError:
             return False
 
-    def _call_strategy_provider(self, strategy: Strategy) -> Any:
+    def _call_strategy_provider(
+        self,
+        model_type: type[Any],
+        field_name: str,
+        strategy: Strategy,
+    ) -> Any:
         if strategy.provider_ref is None:
             return None
 
         func = strategy.provider_ref.func
+        locale, path_key = self._resolve_locale(field_name)
+        faker = self._faker_for_locale(locale, path_key)
         kwargs = {
             "summary": strategy.summary,
-            "faker": self.faker,
+            "faker": faker,
             "random_generator": self.random,
             "time_anchor": self.config.time_anchor,
         }

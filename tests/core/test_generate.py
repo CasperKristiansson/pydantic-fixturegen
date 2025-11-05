@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from pydantic_fixturegen.core.config import ConfigError
 from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
+from pydantic_fixturegen.core.providers.registry import ProviderRegistry
 from pydantic_fixturegen.core.strategies import UnionStrategy
 
 
@@ -248,6 +249,31 @@ class TemporalModel(BaseModel):
     created_at: datetime.datetime
     birthday: datetime.date
     alarm: datetime.time
+
+
+class LocaleModel(BaseModel):
+    city: str
+
+
+def test_locale_policy_applies_to_field() -> None:
+    registry = ProviderRegistry()
+    captured: dict[str, list[str]] = {}
+
+    def locale_provider(summary, *, faker, random_generator, **kwargs):  # type: ignore[override]
+        locales = getattr(faker, "locales", [])
+        captured["locale"] = locales
+        return locales[0] if locales else "unknown"
+
+    registry.register("string", locale_provider)
+
+    policy = FieldPolicy(pattern="*LocaleModel.city", options={"locale": "fr_FR"}, index=0)
+    config = GenerationConfig(seed=456, locale_policies=(policy,))
+    generator = InstanceGenerator(registry=registry, config=config)
+
+    instance = generator.generate_one(LocaleModel)
+    assert instance is not None
+    assert instance.city == "fr_FR"
+    assert captured.get("locale") == ["fr_FR"]
 
 
 def test_time_anchor_produces_deterministic_temporal_values() -> None:

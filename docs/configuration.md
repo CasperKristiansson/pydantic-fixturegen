@@ -53,6 +53,7 @@ scope = "module"
 | `now`          | `datetime \| null`           | `null`  | Anchor timestamp used for temporal values.                                  |
 | `overrides`    | `dict[str, dict[str, Any]]`  | `{}`    | Per-model overrides keyed by fully-qualified model name.                    |
 | `field_policies` | `dict[str, FieldPolicy]`   | `{}`    | Pattern-based overrides for specific fields.                                |
+| `locales`      | `dict[str, str]`             | `{}`    | Pattern-based Faker locale overrides for models or fields.                  |
 | `emitters`     | object                       | see below | Configure emitters such as pytest fixtures.                              |
 | `json`         | object                       | see below | Configure JSON emitters (shared by JSON/JSONL).                           |
 
@@ -88,6 +89,20 @@ enum_policy = "random"
 - Patterns accept glob-style wildcards or regex (enable `regex` extra).
 - Values match the schema defined under `$defs.FieldPolicyOptionsSchema`.
 - Use `pfg gen explain` to confirm the overrides take effect.
+
+### Locale overrides
+
+Add a `locales` mapping when you need region-specific Faker providers:
+
+```toml
+[tool.pydantic_fixturegen.locales]
+"app.models.User.*" = "sv_SE"
+"app.models.User.email" = "en_GB"
+```
+
+- Patterns follow the same rules as `field_policies` (glob or `re:`-prefixed regex).
+- Field-level entries override broader model matches; unmatched paths fall back to the global `locale`.
+- Configuration loading validates locales by instantiating `Faker(locale)`, so typos raise descriptive errors.
 
 ## Environment variable cheatsheet
 

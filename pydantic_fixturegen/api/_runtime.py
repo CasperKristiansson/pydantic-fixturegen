@@ -127,6 +127,8 @@ def _build_instance_generator(
         optional_p_none=p_none,
         time_anchor=app_config.now,
         field_policies=app_config.field_policies,
+        locale=app_config.locale,
+        locale_policies=app_config.locale_policies,
     )
     return InstanceGenerator(config=gen_config)
 
@@ -488,6 +490,8 @@ def generate_fixtures_artifacts(
         per_model_seeds=per_model_seeds if freeze_manager is not None else None,
         time_anchor=app_config.now,
         field_policies=app_config.field_policies,
+        locale=app_config.locale,
+        locale_policies=app_config.locale_policies,
     )
 
     timestamp = _dt.datetime.now(_dt.timezone.utc)
