@@ -193,9 +193,10 @@ def _ensure_directory(path: Path) -> bool:
 
 def _format_relative(path: Path, root: Path) -> str:
     try:
-        return str(path.relative_to(root))
+        relative = path.relative_to(root)
     except ValueError:
         return str(path)
+    return relative.as_posix()
 
 
 def _write_pyproject(root: Path, config: InitConfig, *, force: bool) -> WriteResult | None:
