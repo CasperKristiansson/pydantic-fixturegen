@@ -18,6 +18,23 @@ from tests._cli import create_cli_runner
 runner = create_cli_runner()
 
 
+class FakeLogger:
+    def __init__(self) -> None:
+        self.debug_calls: list[tuple[str, dict[str, object]]] = []
+        self.info_calls: list[tuple[str, dict[str, object]]] = []
+        self.warn_calls: list[tuple[str, dict[str, object]]] = []
+        self.config = type("Config", (), {"json": False})()
+
+    def debug(self, message: str, **kwargs: object) -> None:
+        self.debug_calls.append((message, kwargs))
+
+    def info(self, message: str, **kwargs: object) -> None:
+        self.info_calls.append((message, kwargs))
+
+    def warn(self, message: str, **kwargs: object) -> None:
+        self.warn_calls.append((message, kwargs))
+
+
 def _write_module(tmp_path: Path, name: str = "models") -> Path:
     module_path = tmp_path / f"{name}.py"
     module_path.write_text(
@@ -698,3 +715,77 @@ def test_gen_json_handles_relative_imports(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
     assert output.exists()
+
+
+def test_log_generation_snapshot_records_paths(tmp_path: Path) -> None:
+    logger = FakeLogger()
+    result = JsonGenerationResult(
+        paths=(tmp_path / "data.json",),
+        base_output=tmp_path,
+        model=None,
+        config=ConfigSnapshot(
+            seed=123,
+            include=("A",),
+            exclude=(),
+            time_anchor=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+        ),
+        constraint_summary={"fields": 1},
+        warnings=("warn",),
+        delegated=False,
+    )
+
+    delegated = json_mod._log_generation_snapshot(logger, result, count=2)
+
+    assert delegated is False
+    assert logger.debug_calls and logger.debug_calls[0][1]["event"] == "config_loaded"
+    assert any(info[1].get("event") == "json_generation_complete" for info in logger.info_calls)
+    assert logger.warn_calls[0][0] == "warn"
+
+
+def test_log_generation_snapshot_delegated(tmp_path: Path) -> None:
+    logger = FakeLogger()
+    result = JsonGenerationResult(
+        paths=(),
+        base_output=tmp_path,
+        model=None,
+        config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+        constraint_summary=None,
+        warnings=(),
+        delegated=True,
+    )
+
+    delegated = json_mod._log_generation_snapshot(logger, result, count=1)
+
+    assert delegated is True
+    assert any(info[1].get("event") == "json_generation_delegated" for info in logger.info_calls)
+
+
+def test_handle_generation_error_logs_details(monkeypatch: pytest.MonkeyPatch) -> None:
+    logger = FakeLogger()
+    captured: list[dict[str, Any]] = []
+
+    monkeypatch.setattr(
+        json_mod,
+        "emit_constraint_summary",
+        lambda summary, logger, json_mode: captured.append(summary),  # noqa: ARG005
+    )
+
+    error = EmitError(
+        "bad",
+        details={
+            "config": {
+                "seed": 1,
+                "include": ["A"],
+                "exclude": [],
+                "time_anchor": "2024-01-01T00:00:00+00:00",
+            },
+            "warnings": ["warn1"],
+            "constraint_summary": {"fields": 3},
+        },
+    )
+
+    json_mod._handle_generation_error(logger, error)
+
+    assert logger.debug_calls and logger.debug_calls[0][1]["event"] == "config_loaded"
+    assert logger.warn_calls[0][0] == "warn1"
+    assert captured == [{"fields": 3}]

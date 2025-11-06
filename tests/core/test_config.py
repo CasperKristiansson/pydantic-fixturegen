@@ -491,3 +491,96 @@ def test_deep_merge_merges_nested() -> None:
     assert target["a"]["c"] == 2
     assert target["list"] == [1, 2]
     assert target["d"] == 3
+
+
+def test_coerce_env_value_parses_types() -> None:
+    assert config_mod._coerce_env_value(" true ") is True
+    assert config_mod._coerce_env_value("off") is False
+    assert config_mod._coerce_env_value("a, b , c") == ["a", "b", "c"]
+    assert config_mod._coerce_env_value("42") == 42
+    assert config_mod._coerce_env_value("3.14") == pytest.approx(3.14)
+    assert config_mod._coerce_env_value("text") == "text"
+
+
+def test_normalize_sequence_and_policy_validation() -> None:
+    assert config_mod._normalize_sequence("a, b") == ("a", "b")
+    assert config_mod._normalize_sequence(["c", "d"]) == ("c", "d")
+    with pytest.raises(ConfigError):
+        config_mod._normalize_sequence([1, 2])
+    with pytest.raises(ConfigError):
+        config_mod._normalize_sequence(123)
+
+    allowed = {"first", "random"}
+    assert (
+        config_mod._coerce_policy(None, allowed, "union_policy")
+        == config_mod.DEFAULT_CONFIG.union_policy
+    )
+    with pytest.raises(ConfigError):
+        config_mod._coerce_policy("invalid", allowed, "union_policy")
+
+
+def test_coerce_datetime_accepts_multiple_inputs() -> None:
+    naive = datetime.datetime(2024, 1, 1, 12, 0, 0)
+    coerced = config_mod._coerce_datetime(naive, "now")
+    assert coerced.tzinfo == datetime.timezone.utc
+
+    date_only = datetime.date(2024, 1, 2)
+    date_coerced = config_mod._coerce_datetime(date_only, "now")
+    assert date_coerced.tzinfo == datetime.timezone.utc
+
+    text = config_mod._coerce_datetime("2024-01-03T01:02:03Z", "now")
+    assert text.tzinfo == datetime.timezone.utc
+
+    with pytest.raises(ConfigError):
+        config_mod._coerce_datetime("bad", "now")
+
+
+def test_normalize_overrides_and_field_policy_errors() -> None:
+    overrides = config_mod._normalize_overrides({"Model": {"field": {"provider": "faker"}}})
+    assert overrides["Model"]["field"]["provider"] == "faker"
+
+    with pytest.raises(ConfigError):
+        config_mod._normalize_overrides({"Model": []})
+
+    with pytest.raises(ConfigError):
+        config_mod._normalize_field_policies({"": {}})
+
+
+def test_normalize_identifier_config_and_errors() -> None:
+    config = config_mod._normalize_identifier_config(
+        {
+            "secret_str_length": "12",
+            "secret_bytes_length": "8",
+            "url_schemes": "http, https",
+            "url_include_path": False,
+            "uuid_version": 4,
+        }
+    )
+    assert config.secret_str_length == 12
+    assert config.secret_bytes_length == 8
+    assert config.url_schemes == ("http", "https")
+    assert config.url_include_path is False
+
+    with pytest.raises(ConfigError):
+        config_mod._normalize_identifier_config({"url_schemes": []})
+
+
+def test_normalize_path_config_targets_and_errors() -> None:
+    config = config_mod._normalize_path_config(
+        {"default_os": "mac", "models": {"pkg.*": "windows"}}
+    )
+    assert config.default_os == "mac"
+    assert config.model_targets == (("pkg.*", "windows"),)
+
+    with pytest.raises(ConfigError):
+        config_mod._normalize_path_config({"models": {"pkg.*": "unsupported"}})
+
+
+def test_coerce_path_target_and_indent() -> None:
+    assert config_mod._coerce_path_target(" POSIX ", "paths.default_os") == "posix"
+    with pytest.raises(ConfigError):
+        config_mod._coerce_path_target("unknown", "paths.default_os")
+
+    assert config_mod._coerce_indent("2") == 2
+    with pytest.raises(ConfigError):
+        config_mod._coerce_indent("not-int")

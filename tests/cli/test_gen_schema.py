@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import textwrap
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from pydantic import BaseModel
 from pydantic_fixturegen.api.models import ConfigSnapshot, SchemaGenerationResult
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.cli.gen import schema as schema_mod
@@ -14,6 +16,26 @@ from pydantic_fixturegen.core.path_template import OutputTemplate
 from tests._cli import create_cli_runner
 
 runner = create_cli_runner()
+
+
+class FakeLogger:
+    def __init__(self) -> None:
+        self.debug_calls: list[tuple[str, dict[str, object]]] = []
+        self.info_calls: list[tuple[str, dict[str, object]]] = []
+        self.warn_calls: list[tuple[str, dict[str, object]]] = []
+
+    def debug(self, message: str, **kwargs: object) -> None:  # noqa: D401
+        self.debug_calls.append((message, kwargs))
+
+    def info(self, message: str, **kwargs: object) -> None:
+        self.info_calls.append((message, kwargs))
+
+    def warn(self, message: str, **kwargs: object) -> None:
+        self.warn_calls.append((message, kwargs))
+
+
+class DummyModel(BaseModel):
+    value: int
 
 
 def _write_module(tmp_path: Path, name: str = "models") -> Path:
@@ -390,8 +412,8 @@ def test_execute_schema_command_load_failure(
             output_template=OutputTemplate(str(tmp_path / "schema.json")),
             indent=None,
             include=None,
-            exclude=None,
-        )
+        exclude=None,
+    )
 
 
 def test_gen_schema_handles_relative_imports(tmp_path: Path) -> None:
@@ -415,3 +437,72 @@ def test_gen_schema_handles_relative_imports(tmp_path: Path) -> None:
     assert output.exists()
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload.get("title") == "ExampleRequest"
+
+
+def test_log_schema_snapshot_records_events(tmp_path: Path) -> None:
+    logger = FakeLogger()
+    time_anchor = datetime(2024, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+    result = SchemaGenerationResult(
+        path=tmp_path / "schema.json",
+        base_output=tmp_path,
+        models=(DummyModel,),
+        config=ConfigSnapshot(
+            seed=None,
+            include=("A",),
+            exclude=(),
+            time_anchor=time_anchor,
+        ),
+        warnings=("warn1",),
+        delegated=False,
+    )
+
+    delegated = schema_mod._log_schema_snapshot(logger, result)
+
+    assert delegated is False
+    assert logger.debug_calls[0][0] == "Loaded configuration"
+    assert any(info[1].get("event") == "schema_generation_complete" for info in logger.info_calls)
+    assert logger.info_calls[0][1]["event"] == "temporal_anchor_set"
+    assert logger.warn_calls and logger.warn_calls[0][0] == "warn1"
+
+
+def test_log_schema_snapshot_delegated(tmp_path: Path) -> None:
+    logger = FakeLogger()
+    result = SchemaGenerationResult(
+        path=None,
+        base_output=tmp_path,
+        models=(DummyModel,),
+        config=ConfigSnapshot(
+            seed=None,
+            include=(),
+            exclude=(),
+            time_anchor=None,
+        ),
+        warnings=(),
+        delegated=True,
+    )
+
+    delegated = schema_mod._log_schema_snapshot(logger, result)
+
+    assert delegated is True
+    assert any(info[1].get("event") == "schema_generation_delegated" for info in logger.info_calls)
+
+
+def test_handle_schema_error_logs_config() -> None:
+    logger = FakeLogger()
+    error = EmitError(
+        "bad",
+        details={
+            "config": {
+                "include": ["A"],
+                "exclude": [],
+                "time_anchor": "2024-01-01T00:00:00+00:00",
+            },
+            "warnings": ["warnA", "warnB"],
+        },
+    )
+
+    schema_mod._handle_schema_error(logger, error)
+
+    assert logger.debug_calls and logger.debug_calls[0][1]["event"] == "config_loaded"
+    assert any(info[1].get("event") == "temporal_anchor_set" for info in logger.info_calls)
+    assert [call[0] for call in logger.warn_calls] == ["warnA", "warnB"]
