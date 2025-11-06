@@ -55,4 +55,6 @@ jobs:
         run: mypy pydantic_fixturegen
 
       - name: Run tests
-        run: pytest --cov=pydantic_fixturegen --cov-report=term-missing
+        run: |
+          coverage run -m pytest
+          coverage report --show-missing

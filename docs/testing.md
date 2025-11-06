@@ -85,6 +85,22 @@ Combine snapshots with features that keep outputs stable:
 - Make sure the models you target are importable and that entry points (if any) are registered before the assertion runs. Use module-level imports or autouse fixtures to register plugins when needed.
 - If you run pytest from a different working directory, convert `target` and `snapshot` paths to absolute paths or anchor them on `Path(__file__).parent`.
 
+## Coverage tips
+
+To capture code that is imported while pytest is still bootstrapping (for example, package
+`__init__` modules or CLI entry points), invoke pytest through `coverage` rather than relying
+on `pytest --cov`:
+
+```bash
+coverage run -m pytest
+coverage report --show-missing
+```
+
+`coverage run` starts measurement before pytest loads plugins or helper modules, so those early
+imports are included in the report. The project’s coverage configuration lives in `pyproject.toml`,
+so the usual flags (`branch`, `fail_under`, etc.) still apply. Use `coverage erase` before rerunning
+when you need a clean slate, and `coverage html` if you want a browsable report.
+
 ## CLI aids for testing
 
 Even without the pytest plugin, you can script CLI commands inside tests:
