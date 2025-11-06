@@ -9,8 +9,6 @@ from pydantic_fixturegen.testing import JsonSnapshotConfig, SnapshotRunner
 from pydantic_fixturegen.testing.snapshot import SnapshotUpdateMode
 from pytest import MonkeyPatch
 
-pytest_plugins = ["pydantic_fixturegen.testing.pytest_plugin"]
-
 
 def _write_module(root: Path, content: str) -> Path:
     module_path = root / "models.py"
