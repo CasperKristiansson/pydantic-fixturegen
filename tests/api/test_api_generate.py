@@ -5,7 +5,7 @@ import textwrap
 from pathlib import Path
 
 import pytest
-from pydantic_fixturegen.api import generate_fixtures, generate_json, generate_schema
+from pydantic_fixturegen import api as api_module
 from pydantic_fixturegen.core.errors import EmitError
 
 
@@ -81,7 +81,7 @@ def test_generate_json_api(tmp_path: Path) -> None:
     module_path = _write_module(tmp_path)
     out_template = tmp_path / "artifacts" / "{model}" / "sample-{case_index}"
 
-    result = generate_json(
+    result = api_module.generate_json(
         module_path,
         out=out_template,
         count=2,
@@ -102,7 +102,7 @@ def test_generate_fixtures_api(tmp_path: Path) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "fixtures" / "{model}" / "fixtures.py"
 
-    result = generate_fixtures(
+    result = api_module.generate_fixtures(
         module_path,
         out=output,
         include=["models.User"],
@@ -119,7 +119,7 @@ def test_generate_schema_api(tmp_path: Path) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "schemas" / "{model}" / "schema.json"
 
-    result = generate_schema(
+    result = api_module.generate_schema(
         module_path,
         out=output,
         include=["models.User"],
@@ -136,7 +136,7 @@ def test_generate_json_with_freeze_seeds(tmp_path: Path) -> None:
     out_template = tmp_path / "out" / "{model}.json"
     freeze_file = tmp_path / "seeds.json"
 
-    result = generate_json(
+    result = api_module.generate_json(
         module_path,
         out=out_template,
         include=["models.User"],
@@ -153,7 +153,7 @@ def test_generate_fixtures_with_freeze_seeds(tmp_path: Path) -> None:
     output = tmp_path / "fixtures" / "{model}.py"
     freeze_file = tmp_path / "seeds.json"
 
-    result = generate_fixtures(
+    result = api_module.generate_fixtures(
         module_path,
         out=output,
         freeze_seeds=True,
@@ -170,10 +170,12 @@ def test_generate_schema_template_error(tmp_path: Path) -> None:
     template = tmp_path / "{model}" / "schema.json"
 
     with pytest.raises(EmitError):
-        generate_schema(module_path, out=template)
+        api_module.generate_schema(module_path, out=template)
 
 
-def test_generate_json_error_details(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_generate_json_error_details(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     module_path = _write_module(tmp_path)
     out_template = tmp_path / "out" / "{model}.json"
 
@@ -183,13 +185,15 @@ def test_generate_json_error_details(tmp_path: Path, monkeypatch: pytest.MonkeyP
     )
 
     with pytest.raises(EmitError) as exc_info:
-        generate_json(module_path, out=out_template, include=["models.User"])
+        api_module.generate_json(module_path, out=out_template, include=["models.User"])
 
     assert exc_info.value.details
     assert exc_info.value.details.get("base_output")
 
 
-def test_generate_fixtures_error_details(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_generate_fixtures_error_details(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "fixtures" / "{model}.py"
 
@@ -199,13 +203,15 @@ def test_generate_fixtures_error_details(tmp_path: Path, monkeypatch: pytest.Mon
     )
 
     with pytest.raises(EmitError) as exc_info:
-        generate_fixtures(module_path, out=output, include=["models.User"])
+        api_module.generate_fixtures(module_path, out=output, include=["models.User"])
 
     assert exc_info.value.details
     assert exc_info.value.details.get("base_output")
 
 
-def test_generate_schema_error_details(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_generate_schema_error_details(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "schema.json"
 
@@ -215,7 +221,7 @@ def test_generate_schema_error_details(tmp_path: Path, monkeypatch: pytest.Monke
     )
 
     with pytest.raises(EmitError) as exc_info:
-        generate_schema(module_path, out=output, include=["models.User"])
+        api_module.generate_schema(module_path, out=output, include=["models.User"])
 
     assert exc_info.value.details
     assert exc_info.value.details.get("base_output")
@@ -229,21 +235,21 @@ def test_generate_api_handles_relative_imports(tmp_path: Path) -> None:
     schema_out = tmp_path / "schema.json"
     include = ["lib.models.example_model.ExampleRequest"]
 
-    json_result = generate_json(
+    json_result = api_module.generate_json(
         module_path,
         out=json_out,
         include=include,
     )
     assert json_result.paths and json_result.paths[0].exists()
 
-    fixtures_result = generate_fixtures(
+    fixtures_result = api_module.generate_fixtures(
         module_path,
         out=fixtures_out,
         include=include,
     )
     assert fixtures_result.path is not None and fixtures_result.path.exists()
 
-    schema_result = generate_schema(
+    schema_result = api_module.generate_schema(
         module_path,
         out=schema_out,
         include=include,
