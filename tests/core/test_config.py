@@ -304,6 +304,41 @@ def test_array_config_validation(tmp_path: Path) -> None:
         load_config(root=tmp_path, cli={"arrays": {"dtypes": []}})
 
 
+def test_identifier_config_parsing(tmp_path: Path) -> None:
+    config = load_config(
+        root=tmp_path,
+        cli={
+            "identifiers": {
+                "secret_str_length": 12,
+                "secret_bytes_length": 8,
+                "url_schemes": ["http", "https"],
+                "url_include_path": False,
+                "uuid_version": 1,
+            }
+        },
+    )
+
+    identifiers = config.identifiers
+    assert identifiers.secret_str_length == 12
+    assert identifiers.secret_bytes_length == 8
+    assert identifiers.url_schemes == ("http", "https")
+    assert identifiers.url_include_path is False
+    assert identifiers.uuid_version == 1
+
+
+def test_identifier_config_validation(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"identifiers": {"secret_str_length": 0}})
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"identifiers": {"secret_bytes_length": "not-int"}})
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"identifiers": {"url_schemes": []}})
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"identifiers": {"url_include_path": "yes"}})
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"identifiers": {"uuid_version": 5}})
+
+
 def test_preset_applies_policies(tmp_path: Path) -> None:
     config = load_config(root=tmp_path, cli={"preset": "boundary"})
 

@@ -10,6 +10,7 @@ import pytest
 from faker import Faker
 from pydantic import BaseModel, SecretBytes, SecretStr
 from pydantic_fixturegen.core import schema as schema_module
+from pydantic_fixturegen.core.config import IdentifierConfig
 from pydantic_fixturegen.core.providers import (
     ProviderRef,
     ProviderRegistry,
@@ -162,6 +163,7 @@ def test_identifier_provider_formats() -> None:
     email_value = provider.func(
         summary=FieldSummary(type="email", constraints=FieldConstraints()),
         faker=faker,
+        random_generator=random.Random(1),
     )
     assert "@" in email_value
 
@@ -170,6 +172,7 @@ def test_identifier_provider_formats() -> None:
     card_value = card_provider.func(
         summary=FieldSummary(type="payment-card", constraints=FieldConstraints()),
         faker=faker,
+        random_generator=random.Random(2),
     )
     assert isinstance(card_value, str) and len(card_value) > 0
 
@@ -178,6 +181,7 @@ def test_identifier_provider_formats() -> None:
     url_value = url_provider.func(
         summary=FieldSummary(type="url", constraints=FieldConstraints()),
         faker=faker,
+        random_generator=random.Random(3),
     )
     assert url_value.startswith("http")
 
@@ -186,23 +190,28 @@ def test_identifier_provider_formats() -> None:
     secret_str = secret_str_provider.func(
         summary=FieldSummary(type="secret-str", constraints=FieldConstraints()),
         faker=faker,
+        random_generator=random.Random(4),
     )
     assert isinstance(secret_str, SecretStr)
+    assert len(secret_str.get_secret_value()) == IdentifierConfig().secret_str_length
 
     secret_bytes_provider = registry.get("secret-bytes")
     assert secret_bytes_provider is not None
     secret_bytes = secret_bytes_provider.func(
         summary=FieldSummary(type="secret-bytes", constraints=FieldConstraints()),
         faker=faker,
+        random_generator=random.Random(5),
     )
     assert isinstance(secret_bytes, SecretBytes)
     assert len(secret_bytes.get_secret_value()) > 0
+    assert len(secret_bytes.get_secret_value()) == IdentifierConfig().secret_bytes_length
 
     ip_provider = registry.get("ip-address")
     assert ip_provider is not None
     ip_value = ip_provider.func(
         summary=FieldSummary(type="ip-address", constraints=FieldConstraints()),
         faker=faker,
+        random_generator=random.Random(6),
     )
     assert isinstance(ip_value, str)
 
@@ -211,6 +220,7 @@ def test_identifier_provider_formats() -> None:
     ip_interface = ip_interface_provider.func(
         summary=FieldSummary(type="ip-interface", constraints=FieldConstraints()),
         faker=faker,
+        random_generator=random.Random(7),
     )
     assert "/" in ip_interface
 
@@ -219,8 +229,79 @@ def test_identifier_provider_formats() -> None:
     ip_network = ip_network_provider.func(
         summary=FieldSummary(type="ip-network", constraints=FieldConstraints()),
         faker=faker,
+        random_generator=random.Random(8),
     )
     assert "/" in ip_network
+
+
+def test_identifier_provider_respects_configuration() -> None:
+    registry = ProviderRegistry()
+    register_identifier_providers(registry)
+
+    identifier_config = IdentifierConfig(
+        secret_str_length=8,
+        secret_bytes_length=10,
+        url_schemes=("ftp",),
+        url_include_path=False,
+        uuid_version=1,
+    )
+
+    secret_summary = FieldSummary(type="secret-str", constraints=FieldConstraints())
+    secret = registry.get("secret-str")
+    assert secret is not None
+    secret_value = secret.func(
+        summary=secret_summary,
+        faker=Faker(seed=2),
+        random_generator=random.Random(9),
+        identifier_config=identifier_config,
+    )
+    assert isinstance(secret_value, SecretStr)
+    assert len(secret_value.get_secret_value()) == 8
+
+    secret_bytes = registry.get("secret-bytes")
+    assert secret_bytes is not None
+    token = secret_bytes.func(
+        summary=FieldSummary(type="secret-bytes", constraints=FieldConstraints()),
+        faker=Faker(seed=3),
+        random_generator=random.Random(10),
+        identifier_config=identifier_config,
+    )
+    assert isinstance(token, SecretBytes)
+    assert len(token.get_secret_value()) == 10
+
+    url_provider = registry.get("url")
+    assert url_provider is not None
+    url_value = url_provider.func(
+        summary=FieldSummary(type="url", constraints=FieldConstraints()),
+        faker=Faker(seed=4),
+        random_generator=random.Random(11),
+        identifier_config=identifier_config,
+    )
+    assert url_value.startswith("ftp://")
+    assert "/" not in url_value[len("ftp://") :]
+
+    uuid_provider = registry.get("uuid")
+    assert uuid_provider is not None
+    uuid_value = uuid_provider.func(
+        summary=FieldSummary(type="uuid", constraints=FieldConstraints()),
+        faker=Faker(seed=5),
+        random_generator=random.Random(12),
+        identifier_config=identifier_config,
+    )
+    assert uuid_value.version == 1
+
+
+def test_identifier_provider_requires_random_generator() -> None:
+    registry = ProviderRegistry()
+    register_identifier_providers(registry)
+    provider = registry.get("email")
+    assert provider is not None
+
+    with pytest.raises(RuntimeError):
+        provider.func(
+            summary=FieldSummary(type="email", constraints=FieldConstraints()),
+            faker=Faker(seed=6),
+        )
 
 
 def test_numeric_provider_respects_bounds() -> None:
@@ -417,7 +498,11 @@ def test_string_provider_temporal_and_uuid() -> None:
 
     uuid_provider = registry.get("uuid")
     assert uuid_provider is not None
-    identifier = uuid_provider.func(summary=summary["identifier"], faker=faker)
+    identifier = uuid_provider.func(
+        summary=summary["identifier"],
+        faker=faker,
+        random_generator=random.Random(13),
+    )
     assert isinstance(identifier, uuid.UUID)
 
     datetime_provider = registry.get("datetime")

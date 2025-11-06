@@ -107,6 +107,51 @@
       "title": "FieldPolicyOptionsSchema",
       "type": "object"
     },
+    "IdentifierSettingsSchema": {
+      "additionalProperties": false,
+      "description": "Schema describing identifier provider settings.",
+      "properties": {
+        "secret_bytes_length": {
+          "default": 16,
+          "description": "Default length for generated SecretBytes values.",
+          "minimum": 1,
+          "title": "Secret Bytes Length",
+          "type": "integer"
+        },
+        "secret_str_length": {
+          "default": 16,
+          "description": "Default length for generated SecretStr values.",
+          "minimum": 1,
+          "title": "Secret Str Length",
+          "type": "integer"
+        },
+        "url_include_path": {
+          "default": true,
+          "description": "Include a path component when generating URLs.",
+          "title": "Url Include Path",
+          "type": "boolean"
+        },
+        "url_schemes": {
+          "description": "Allowed URL schemes used when generating URLs.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Url Schemes",
+          "type": "array"
+        },
+        "uuid_version": {
+          "default": 4,
+          "description": "UUID version to use (1 or 4).",
+          "maximum": 4,
+          "minimum": 1,
+          "title": "Uuid Version",
+          "type": "integer"
+        }
+      },
+      "title": "IdentifierSettingsSchema",
+      "type": "object"
+    },
     "JsonSchema": {
       "additionalProperties": false,
       "description": "Schema for JSON emitter settings.",
@@ -197,6 +242,10 @@
       "description": "Field policy definitions keyed by glob or regex patterns that may target model names or dotted field paths.",
       "title": "Field Policies",
       "type": "object"
+    },
+    "identifiers": {
+      "$ref": "#/$defs/IdentifierSettingsSchema",
+      "description": "Configuration for identifier providers (secret lengths, URL schemes, UUID version)."
     },
     "include": {
       "description": "Glob patterns of fully-qualified model names to include by default.",

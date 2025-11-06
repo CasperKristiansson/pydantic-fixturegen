@@ -5,7 +5,7 @@ from pathlib import Path
 from pydantic_fixturegen.cli.plugin import app as plugin_app
 from typer.testing import CliRunner
 
-runner = CliRunner()
+runner = CliRunner(mix_stderr=False)
 
 
 def _read(path: Path) -> str:

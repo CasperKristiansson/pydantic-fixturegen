@@ -13,7 +13,7 @@ from typing import Any, cast
 import typer
 from pydantic import BaseModel
 
-from pydantic_fixturegen.core.config import load_config
+from pydantic_fixturegen.core.config import ArrayConfig, IdentifierConfig, load_config
 from pydantic_fixturegen.core.errors import (
     DiffError,
     DiscoveryError,
@@ -510,6 +510,8 @@ def _execute_diff(
                 app_config_union=app_config.union_policy,
                 app_config_p_none=p_none_value,
                 app_config_now=app_config.now,
+                app_config_arrays=app_config.arrays,
+                app_config_identifiers=app_config.identifiers,
                 options=json_options,
             )
         )
@@ -528,6 +530,8 @@ def _execute_diff(
                 app_config_field_policies=app_config.field_policies,
                 app_config_locale=app_config.locale,
                 app_config_locale_policies=app_config.locale_policies,
+                app_config_arrays=app_config.arrays,
+                app_config_identifiers=app_config.identifiers,
             )
         )
 
@@ -563,6 +567,8 @@ def _diff_json_artifact(
     app_config_union: str,
     app_config_p_none: float | None,
     app_config_now: datetime.datetime | None,
+    app_config_arrays: ArrayConfig,
+    app_config_identifiers: IdentifierConfig,
     options: JsonDiffOptions,
 ) -> DiffReport:
     if not model_classes:
@@ -591,6 +597,8 @@ def _diff_json_artifact(
             enum_policy=app_config_enum,
             p_none=app_config_p_none,
             time_anchor=app_config_now,
+            array_config=app_config_arrays,
+            identifier_config=app_config_identifiers,
         )
 
         def sample_factory() -> BaseModel:
@@ -697,6 +705,8 @@ def _diff_fixtures_artifact(
     app_config_field_policies: tuple[FieldPolicy, ...],
     app_config_locale: str,
     app_config_locale_policies: tuple[FieldPolicy, ...],
+    app_config_arrays: ArrayConfig,
+    app_config_identifiers: IdentifierConfig,
 ) -> DiffReport:
     if options.out is None:
         raise DiscoveryError("Fixtures diff requires --fixtures-out.")
@@ -736,6 +746,8 @@ def _diff_fixtures_artifact(
             field_policies=app_config_field_policies,
             locale=app_config_locale,
             locale_policies=app_config_locale_policies,
+            arrays=app_config_arrays,
+            identifiers=app_config_identifiers,
         )
 
         context = EmitterContext(
@@ -910,6 +922,8 @@ def _build_instance_generator(
     enum_policy: str,
     p_none: float | None,
     time_anchor: datetime.datetime | None,
+    array_config: ArrayConfig,
+    identifier_config: IdentifierConfig,
 ) -> InstanceGenerator:
     normalized_seed: int | None = None
     if seed_value is not None:
@@ -924,6 +938,8 @@ def _build_instance_generator(
         default_p_none=p_none_value,
         optional_p_none=p_none_value,
         time_anchor=time_anchor,
+        arrays=array_config,
+        identifiers=identifier_config,
     )
     return InstanceGenerator(config=gen_config)
 

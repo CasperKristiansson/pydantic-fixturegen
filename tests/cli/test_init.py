@@ -8,7 +8,7 @@ from pydantic_fixturegen.cli import init as init_mod
 from pydantic_fixturegen.cli.init import app as init_app
 from typer.testing import CliRunner
 
-runner = CliRunner()
+runner = CliRunner(mix_stderr=False)
 
 
 def _read(path: Path) -> str:

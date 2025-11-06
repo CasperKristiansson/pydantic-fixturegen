@@ -11,6 +11,21 @@
 
 Run `pfg schema config --out schema/config.schema.json` to retrieve the authoritative JSON Schema for editor tooling and validation.
 
+## Dependency baselines
+
+The project is tested against the following minimum dependency versions:
+
+- `pydantic>=2.11.0`
+- `faker>=3.0.0`
+- `typer>=0.12.4`
+- `pluggy>=1.5.0`
+- `tomli>=2.0.1` (only for Python <3.11)
+
+Optional extras lift in their own requirements:
+
+- `[email]` installs `email-validator>=2.1.0`
+- `[payment]` installs `pydantic-extra-types>=2.10.6`
+
 ## Configuration sources
 
 - **CLI flags**: every `pfg` command accepts options that override lower layers; e.g., `--seed`, `--indent`, `--style`.
@@ -75,6 +90,33 @@ These values apply to both `pfg gen json` and JSONL emission. CLI flags `--inden
 
 Change these values to adjust generated module ergonomics. CLI flags `--style` and `--scope` override them.
 
+### Array settings
+
+| Key             | Type          | Default | Description                                                                 |
+| --------------- | ------------- | ------- | --------------------------------------------------------------------------- |
+| `max_ndim`      | `int`         | `2`     | Maximum number of dimensions for generated NumPy arrays.                    |
+| `max_side`      | `int`         | `4`     | Maximum size for any axis; strategies respect both `max_side` and `max_elements`. |
+| `max_elements`  | `int`         | `16`    | Hard cap on the total number of elements in generated arrays.              |
+| `dtypes`        | `list[str]`   | `["float64"]` | Allowed NumPy dtypes. Values must be accepted by `numpy.dtype`.         |
+
+Install the optional `pydantic-fixturegen[numpy]` extra to enable array providers. When arrays are disabled the configuration is ignored.
+
+### Identifier settings
+
+| Key                   | Type             | Default      | Description                                                                 |
+| --------------------- | ---------------- | ------------ | --------------------------------------------------------------------------- |
+| `secret_str_length`   | `int`            | `16`         | Default length for generated `SecretStr` values (clamped by field constraints). |
+| `secret_bytes_length` | `int`            | `16`         | Default length for generated `SecretBytes` values.                          |
+| `url_schemes`         | `list[str]`      | `["https"]` | Allowed URL schemes used by the identifier provider.                        |
+| `url_include_path`    | `bool`           | `true`       | Include a deterministic path segment when generating URLs.                  |
+| `uuid_version`        | `1 \| 4`         | `4`          | UUID version emitted by the `uuid` provider.                                |
+
+Identifier settings apply to `EmailStr`, `HttpUrl`/`AnyUrl`, secret strings/bytes, payment cards, and IP address fields. Values are chosen via the seeded RNG so fixtures remain reproducible across runs.
+
+> **Note:** Email validation relies on the optional `email` extra. Install it with `pip install "pydantic-fixturegen[email]"` when you need `EmailStr` support.
+
+> **Note:** Payment card fields use the optional `payment` extra backed by `pydantic-extra-types`. Install it with `pip install "pydantic-fixturegen[payment]"` to enable typed `PaymentCardNumber` support.
+
 ### Field policy schemas
 
 `field_policies` accepts nested options that map patterns to policy tweaks.
@@ -115,6 +157,11 @@ Add a `locales` mapping when you need region-specific Faker providers:
 | Fixture scope       | `PFG_EMITTERS__PYTEST__SCOPE`      | `export PFG_EMITTERS__PYTEST__SCOPE=session` |
 | Field policy update | `PFG_FIELD_POLICIES__*.User.nickname__P_NONE` | `export PFG_FIELD_POLICIES__*.User.nickname__P_NONE=0.2` |
 | Array max ndim      | `PFG_ARRAYS__MAX_NDIM`             | `export PFG_ARRAYS__MAX_NDIM=3`          |
+| Secret string length | `PFG_IDENTIFIERS__SECRET_STR_LENGTH` | `export PFG_IDENTIFIERS__SECRET_STR_LENGTH=24` |
+| Secret bytes length | `PFG_IDENTIFIERS__SECRET_BYTES_LENGTH` | `export PFG_IDENTIFIERS__SECRET_BYTES_LENGTH=32` |
+| URL schemes         | `PFG_IDENTIFIERS__URL_SCHEMES`     | `export PFG_IDENTIFIERS__URL_SCHEMES=https,ftp` |
+| URL include path    | `PFG_IDENTIFIERS__URL_INCLUDE_PATH` | `export PFG_IDENTIFIERS__URL_INCLUDE_PATH=false` |
+| UUID version        | `PFG_IDENTIFIERS__UUID_VERSION`    | `export PFG_IDENTIFIERS__UUID_VERSION=1` |
 
 Environment values treat `true/false/1/0` as booleans, respect floats for `p_none`, and parse nested segments via double underscores.
 

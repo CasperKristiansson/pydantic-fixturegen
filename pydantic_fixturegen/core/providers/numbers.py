@@ -13,7 +13,7 @@ INT_DEFAULT_MIN = -10
 INT_DEFAULT_MAX = 10
 FLOAT_DEFAULT_MIN = -10.0
 FLOAT_DEFAULT_MAX = 10.0
-DECIMAL_DEFAULT_PLACES = decimal.Decimal("0.01")
+DECIMAL_DEFAULT_PLACES = 2
 
 
 def generate_numeric(
@@ -104,30 +104,41 @@ def _generate_float(constraints: FieldConstraints, rng: random.Random) -> float:
 
 
 def _generate_decimal(constraints: FieldConstraints, rng: random.Random) -> decimal.Decimal:
+    decimal_places = constraints.decimal_places or DECIMAL_DEFAULT_PLACES
+    quantizer = decimal.Decimal(1).scaleb(-decimal_places)
+
     minimum = decimal.Decimal(FLOAT_DEFAULT_MIN)
     maximum = decimal.Decimal(FLOAT_DEFAULT_MAX)
 
     if constraints.ge is not None:
         minimum = decimal.Decimal(str(constraints.ge))
     if constraints.gt is not None:
-        minimum = decimal.Decimal(str(constraints.gt)) + decimal.Decimal("0.0001")
+        minimum = decimal.Decimal(str(constraints.gt)) + quantizer
     if constraints.le is not None:
         maximum = decimal.Decimal(str(constraints.le))
     if constraints.lt is not None:
-        maximum = decimal.Decimal(str(constraints.lt)) - decimal.Decimal("0.0001")
+        maximum = decimal.Decimal(str(constraints.lt)) - quantizer
 
     if minimum > maximum:
         minimum = maximum
 
-    raw = decimal.Decimal(str(rng.uniform(float(minimum), float(maximum))))
-    quantizer = _quantizer(constraints)
-    return raw.quantize(quantizer, rounding=decimal.ROUND_HALF_UP)
+    if constraints.max_digits is not None:
+        integer_digits = constraints.max_digits - decimal_places
+        if integer_digits < 1:
+            integer_digits = 1
+        limit = decimal.Decimal(10) ** integer_digits - quantizer
+        maximum = min(maximum, limit)
+        minimum = max(minimum, -limit)
 
+    lower_steps = int((minimum / quantizer).to_integral_value(rounding=decimal.ROUND_CEILING))
+    upper_steps = int((maximum / quantizer).to_integral_value(rounding=decimal.ROUND_FLOOR))
 
-def _quantizer(constraints: FieldConstraints) -> decimal.Decimal:
-    if constraints.decimal_places is not None:
-        return decimal.Decimal("1").scaleb(-constraints.decimal_places)
-    return DECIMAL_DEFAULT_PLACES
+    if lower_steps > upper_steps:
+        lower_steps = upper_steps
+
+    step = rng.randint(lower_steps, upper_steps)
+    value = quantizer * decimal.Decimal(step)
+    return value.quantize(quantizer, rounding=decimal.ROUND_HALF_UP)
 
 
 __all__ = ["generate_numeric", "register_numeric_providers"]

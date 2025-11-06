@@ -66,4 +66,16 @@ registry.register_plugin(plugin)
 - Validate new providers by running `pfg gen explain` to confirm they appear in the strategy tree.
 - Ship unit tests that cover provider edge cases; the project uses Faker extensively, so rely on cascaded seeds to stay deterministic.
 
+## Built-in identifier providers
+
+Typed identifier fields now have dedicated providers that keep seeded runs reproducible while generating realistic values:
+
+- `EmailStr`, `AnyUrl`/`HttpUrl`, `PaymentCardNumber`, and `uuid.UUID` map to the identifier provider family.
+- `SecretStr` and `SecretBytes` respect length constraints derived from the field summary and fall back to `identifiers.secret_str_length` / `identifiers.secret_bytes_length`.
+- IP address/network/interface types rely on deterministic RNG output so fixture diffs stay stable.
+
+Tweak behaviour through the `[tool.pydantic_fixturegen.identifiers]` section documented in [configuration](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md#identifier-settings). Strategies automatically pass the resolved config to providers, so CLI, API, and emitter workflows all honour the same settings.
+
+> **Extras**: `EmailStr` support requires the optional `email` extra, while `PaymentCardNumber` relies on the `payment` extra that pulls in `pydantic-extra-types`.
+
 Continue with [emitters](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/emitters.md) to control artifact output once providers deliver their data.

@@ -74,6 +74,15 @@ class ArrayConfig:
 
 
 @dataclass(frozen=True)
+class IdentifierConfig:
+    secret_str_length: int = 16
+    secret_bytes_length: int = 16
+    url_schemes: tuple[str, ...] = ("https",)
+    url_include_path: bool = True
+    uuid_version: int = 4
+
+
+@dataclass(frozen=True)
 class AppConfig:
     preset: str | None = None
     seed: int | str | None = None
@@ -88,6 +97,7 @@ class AppConfig:
     field_policies: tuple[FieldPolicy, ...] = ()
     locale_policies: tuple[FieldPolicy, ...] = ()
     arrays: ArrayConfig = field(default_factory=ArrayConfig)
+    identifiers: IdentifierConfig = field(default_factory=IdentifierConfig)
     emitters: EmittersConfig = field(default_factory=EmittersConfig)
     json: JsonConfig = field(default_factory=JsonConfig)
 
@@ -154,6 +164,13 @@ def _config_defaults_dict() -> dict[str, Any]:
             "max_side": DEFAULT_CONFIG.arrays.max_side,
             "max_elements": DEFAULT_CONFIG.arrays.max_elements,
             "dtypes": list(DEFAULT_CONFIG.arrays.dtypes),
+        },
+        "identifiers": {
+            "secret_str_length": DEFAULT_CONFIG.identifiers.secret_str_length,
+            "secret_bytes_length": DEFAULT_CONFIG.identifiers.secret_bytes_length,
+            "url_schemes": list(DEFAULT_CONFIG.identifiers.url_schemes),
+            "url_include_path": DEFAULT_CONFIG.identifiers.url_include_path,
+            "uuid_version": DEFAULT_CONFIG.identifiers.uuid_version,
         },
     }
 
@@ -290,6 +307,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
     field_policies_value = _normalize_field_policies(data.get("field_policies"))
     locale_policies_value = _normalize_locale_policies(data.get("locales"))
     arrays_value = _normalize_array_config(data.get("arrays"))
+    identifiers_value = _normalize_identifier_config(data.get("identifiers"))
     now_value = _coerce_datetime(data.get("now"), "now")
 
     seed_value: int | str | None
@@ -312,6 +330,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         field_policies=field_policies_value,
         locale_policies=locale_policies_value,
         arrays=arrays_value,
+        identifiers=identifiers_value,
         emitters=emitters_value,
         json=json_value,
     )
@@ -568,6 +587,68 @@ def _normalize_array_config(value: Any) -> ArrayConfig:
         max_side=max_side,
         max_elements=max_elements,
         dtypes=dtype_values,
+    )
+
+
+def _normalize_identifier_config(value: Any) -> IdentifierConfig:
+    config = IdentifierConfig()
+    if value is None:
+        return config
+    if not isinstance(value, Mapping):
+        raise ConfigError("identifiers configuration must be a mapping.")
+
+    secret_str_raw = value.get("secret_str_length", config.secret_str_length)
+    secret_bytes_raw = value.get("secret_bytes_length", config.secret_bytes_length)
+    url_schemes_raw = value.get("url_schemes", config.url_schemes)
+    url_include_path_raw = value.get("url_include_path", config.url_include_path)
+    uuid_version_raw = value.get("uuid_version", config.uuid_version)
+
+    try:
+        secret_str_length = int(secret_str_raw)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError("identifiers.secret_str_length must be an integer.") from exc
+    if secret_str_length <= 0:
+        raise ConfigError("identifiers.secret_str_length must be >= 1.")
+
+    try:
+        secret_bytes_length = int(secret_bytes_raw)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError("identifiers.secret_bytes_length must be an integer.") from exc
+    if secret_bytes_length <= 0:
+        raise ConfigError("identifiers.secret_bytes_length must be >= 1.")
+
+    if isinstance(url_schemes_raw, str):
+        schemes = tuple(s.strip() for s in url_schemes_raw.split(',') if s.strip())
+    elif isinstance(url_schemes_raw, Sequence):
+        scheme_buffer: list[str] = []
+        for item in url_schemes_raw:
+            if not isinstance(item, str) or not item.strip():
+                raise ConfigError("identifiers.url_schemes entries must be non-empty strings.")
+            scheme_buffer.append(item.strip())
+        schemes = tuple(scheme_buffer)
+    else:
+        raise ConfigError("identifiers.url_schemes must be a list or comma-separated string.")
+
+    if not schemes:
+        raise ConfigError("identifiers.url_schemes must contain at least one scheme string.")
+
+    if not isinstance(url_include_path_raw, bool):
+        raise ConfigError("identifiers.url_include_path must be a boolean.")
+    url_include_path = url_include_path_raw
+
+    try:
+        uuid_version = int(uuid_version_raw)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError("identifiers.uuid_version must be an integer.") from exc
+    if uuid_version not in {1, 4}:
+        raise ConfigError("identifiers.uuid_version must be 1 or 4.")
+
+    return IdentifierConfig(
+        secret_str_length=secret_str_length,
+        secret_bytes_length=secret_bytes_length,
+        url_schemes=schemes,
+        url_include_path=url_include_path,
+        uuid_version=uuid_version,
     )
 
 

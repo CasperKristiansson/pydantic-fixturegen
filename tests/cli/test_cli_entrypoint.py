@@ -6,7 +6,7 @@ import pytest
 from pydantic_fixturegen import cli as cli_pkg
 from typer.testing import CliRunner
 
-runner = CliRunner()
+runner = CliRunner(mix_stderr=False)
 
 
 def test_load_typer_invalid(monkeypatch: pytest.MonkeyPatch) -> None:

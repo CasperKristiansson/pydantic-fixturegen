@@ -7,7 +7,7 @@ import pytest
 from pydantic_fixturegen.cli import app as cli_app
 from typer.testing import CliRunner
 
-runner = CliRunner()
+runner = CliRunner(mix_stderr=False)
 
 
 def _write_model(tmp_path: Path) -> Path:

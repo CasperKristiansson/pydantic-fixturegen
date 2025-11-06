@@ -17,6 +17,14 @@ import pydantic
 from pydantic import BaseModel, SecretBytes, SecretStr
 from pydantic.fields import FieldInfo
 
+ImportedPaymentCardNumber: type[Any] | None
+try:  # pragma: no cover - optional dependency is bundled at runtime
+    from pydantic_extra_types.payment import PaymentCardNumber as ImportedPaymentCardNumber
+except ImportError:  # pragma: no cover - optional dependency missing during docs builds
+    ImportedPaymentCardNumber = None
+
+ExtraPaymentCardNumber = ImportedPaymentCardNumber
+
 try:  # Optional dependency
     import numpy as _np
 except ModuleNotFoundError:  # pragma: no cover - optional extra not installed
@@ -295,8 +303,7 @@ def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None
         ip_network_type = getattr(pydantic, "IPvAnyNetwork", None)
         if ip_network_type is not None and issubclass(annotation, ip_network_type):
             return "ip-network", None, None
-        payment_card_type = getattr(pydantic, "PaymentCardNumber", None)
-        if payment_card_type is not None and issubclass(annotation, payment_card_type):
+        if ExtraPaymentCardNumber is not None and issubclass(annotation, ExtraPaymentCardNumber):
             return "payment-card", None, None
         if issubclass(annotation, SecretStr):
             return "secret-str", None, None

@@ -16,7 +16,7 @@ from pydantic import BaseModel, ValidationError
 from pydantic.fields import FieldInfo
 
 from pydantic_fixturegen.core import schema as schema_module
-from pydantic_fixturegen.core.config import ArrayConfig, ConfigError
+from pydantic_fixturegen.core.config import ArrayConfig, ConfigError, IdentifierConfig
 from pydantic_fixturegen.core.constraint_report import ConstraintReporter
 from pydantic_fixturegen.core.field_policies import (
     FieldPolicy,
@@ -49,6 +49,7 @@ class GenerationConfig:
     locale: str = DEFAULT_LOCALE
     locale_policies: tuple[FieldPolicy, ...] = ()
     arrays: ArrayConfig = field(default_factory=ArrayConfig)
+    identifiers: IdentifierConfig = field(default_factory=IdentifierConfig)
 
 
 @dataclass(slots=True)
@@ -78,6 +79,7 @@ class InstanceGenerator:
         self.faker = self.seed_manager.faker
         self._faker_cache: dict[tuple[str, str], Faker] = {}
         self.array_config = self.config.arrays
+        self.identifier_config = self.config.identifiers
 
         load_entrypoint_plugins()
         self._plugin_manager = get_plugin_manager()
@@ -93,6 +95,7 @@ class InstanceGenerator:
             optional_p_none=self.config.optional_p_none,
             plugin_manager=self._plugin_manager,
             array_config=self.array_config,
+            identifier_config=self.identifier_config,
         )
         self._strategy_cache: dict[type[Any], dict[str, StrategyResult]] = {}
         self._constraint_reporter = ConstraintReporter()

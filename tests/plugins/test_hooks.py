@@ -11,7 +11,7 @@ from pydantic_fixturegen.plugins.hookspecs import EmitterContext, hookimpl
 from pydantic_fixturegen.plugins.loader import get_plugin_manager, register_plugin
 from typer.testing import CliRunner
 
-runner = CliRunner()
+runner = CliRunner(mix_stderr=False)
 
 
 class _StrategyPlugin:

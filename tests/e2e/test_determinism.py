@@ -27,7 +27,7 @@ def _write_module(tmp_path: Path, name: str = "models") -> Path:
 
 def test_cli_json_generation_is_deterministic(tmp_path: Path) -> None:
     module_path = _write_module(tmp_path)
-    runner = CliRunner()
+    runner = CliRunner(mix_stderr=False)
 
     out1 = tmp_path / "users.json"
     out2 = tmp_path / "users-second.json"
@@ -56,7 +56,7 @@ def test_cli_json_generation_is_deterministic(tmp_path: Path) -> None:
 
 def test_cli_schema_generation_is_deterministic(tmp_path: Path) -> None:
     module_path = _write_module(tmp_path)
-    runner = CliRunner()
+    runner = CliRunner(mix_stderr=False)
 
     out1 = tmp_path / "schema.json"
     out2 = tmp_path / "schema-second.json"
@@ -83,7 +83,7 @@ def test_cli_schema_generation_is_deterministic(tmp_path: Path) -> None:
 
 def test_cli_fixtures_generation_is_deterministic(tmp_path: Path) -> None:
     module_path = _write_module(tmp_path)
-    runner = CliRunner()
+    runner = CliRunner(mix_stderr=False)
 
     out1 = tmp_path / "fixtures.py"
     out2 = tmp_path / "fixtures-second.py"

@@ -19,7 +19,7 @@ from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
 from pydantic_fixturegen.core.strategies import Strategy, StrategyBuilder, UnionStrategy
 from typer.testing import CliRunner
 
-runner = CliRunner()
+runner = CliRunner(mix_stderr=False)
 
 
 @dataclasses.dataclass

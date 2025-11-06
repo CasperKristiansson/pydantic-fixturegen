@@ -15,7 +15,7 @@ from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingEr
 from pydantic_fixturegen.core.path_template import OutputTemplate
 from typer.testing import CliRunner
 
-runner = CliRunner()
+runner = CliRunner(mix_stderr=False)
 
 
 def _write_module(tmp_path: Path, name: str = "models") -> Path:

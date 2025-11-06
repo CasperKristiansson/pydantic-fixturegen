@@ -8,13 +8,14 @@ import re
 import shutil
 import subprocess
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from pprint import pformat
 from typing import Any, Literal, cast
 
 from pydantic import BaseModel
 
+from pydantic_fixturegen.core.config import ArrayConfig, IdentifierConfig
 from pydantic_fixturegen.core.constraint_report import ConstraintReporter
 from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
@@ -46,6 +47,8 @@ class PytestEmitConfig:
     time_anchor: datetime.datetime | None = None
     locale: str = DEFAULT_LOCALE
     locale_policies: tuple[FieldPolicy, ...] = ()
+    arrays: ArrayConfig = field(default_factory=ArrayConfig)
+    identifiers: IdentifierConfig = field(default_factory=IdentifierConfig)
 
 
 def emit_pytest_fixtures(
@@ -78,6 +81,8 @@ def emit_pytest_fixtures(
             field_policies=cfg.field_policies,
             locale=cfg.locale,
             locale_policies=cfg.locale_policies,
+            arrays=cfg.arrays,
+            identifiers=cfg.identifiers,
         )
         if cfg.optional_p_none is not None:
             generation_config.optional_p_none = cfg.optional_p_none

@@ -193,6 +193,44 @@ class ConfigSchemaModel(BaseModel):
             "Configuration for NumPy array generation: max_ndim, max_side, max_elements, dtypes."
         ),
     )
+    identifiers: IdentifierSettingsSchema = Field(
+        default_factory=lambda: IdentifierSettingsSchema(),
+        description=(
+            "Configuration for identifier providers (secret lengths, URL schemes, UUID version)."
+        ),
+    )
+
+
+class IdentifierSettingsSchema(BaseModel):
+    """Schema describing identifier provider settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    secret_str_length: int = Field(
+        default=DEFAULT_CONFIG.identifiers.secret_str_length,
+        ge=1,
+        description="Default length for generated SecretStr values.",
+    )
+    secret_bytes_length: int = Field(
+        default=DEFAULT_CONFIG.identifiers.secret_bytes_length,
+        ge=1,
+        description="Default length for generated SecretBytes values.",
+    )
+    url_schemes: list[str] = Field(
+        default_factory=lambda: list(DEFAULT_CONFIG.identifiers.url_schemes),
+        min_length=1,
+        description="Allowed URL schemes used when generating URLs.",
+    )
+    url_include_path: bool = Field(
+        default=DEFAULT_CONFIG.identifiers.url_include_path,
+        description="Include a path component when generating URLs.",
+    )
+    uuid_version: int = Field(
+        default=DEFAULT_CONFIG.identifiers.uuid_version,
+        description="UUID version to use (1 or 4).",
+        ge=1,
+        le=4,
+    )
 
 
 def build_config_schema() -> dict[str, Any]:
