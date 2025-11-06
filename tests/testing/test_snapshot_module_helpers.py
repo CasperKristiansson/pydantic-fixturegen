@@ -103,3 +103,68 @@ def test_snapshot_runner_raises_failure_message(monkeypatch: pytest.MonkeyPatch)
     message = str(exc_info.value)
     assert "json mismatch for snapshot.json" in message
     assert "Run again with update" in message
+
+
+def test_snapshot_runner_update_invokes_generators(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    runner = snapshot.SnapshotRunner()
+    target = tmp_path / "models.py"
+    target.write_text("placeholder", encoding="utf-8")
+
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    monkeypatch.setattr(
+        snapshot,
+        "generate_json",
+        lambda **kwargs: calls.append(("json", kwargs)),
+    )
+    monkeypatch.setattr(
+        snapshot,
+        "generate_fixtures",
+        lambda **kwargs: calls.append(("fixtures", kwargs)),
+    )
+    monkeypatch.setattr(
+        snapshot,
+        "generate_schema",
+        lambda **kwargs: calls.append(("schema", kwargs)),
+    )
+
+    json_cfg = snapshot.JsonSnapshotConfig(
+        out=tmp_path / "data.json",
+        count=2,
+        jsonl=True,
+        indent=0,
+        shard_size=1,
+    )
+    fixtures_cfg = snapshot.FixturesSnapshotConfig(
+        out=tmp_path / "tests/test_models.py",
+        style="factory",
+        scope="module",
+        cases=2,
+        return_type="dict",
+    )
+    schema_cfg = snapshot.SchemaSnapshotConfig(out=tmp_path / "schema.json", indent=4)
+
+    runner._update_artifacts(
+        target=target,
+        json=json_cfg,
+        fixtures=fixtures_cfg,
+        schema=schema_cfg,
+        include=[" models.User "],
+        exclude=[" tests.* "],
+        seed=42,
+        p_none=0.25,
+        now="2024-01-01T00:00:00Z",
+        preset="boundary",
+        freeze_seeds=True,
+        freeze_seeds_file=tmp_path / "freeze.json",
+    )
+
+    kinds = [kind for kind, _ in calls]
+    assert kinds == ["json", "fixtures", "schema"]
+    json_call = calls[0][1]
+    assert json_call["jsonl"] is True
+    assert tuple(value.strip() for value in json_call["include"]) == ("models.User",)
+    fixtures_call = calls[1][1]
+    assert fixtures_call["style"] == "factory"
+    schema_call = calls[2][1]
+    assert schema_call["indent"] == 4

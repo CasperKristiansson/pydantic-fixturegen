@@ -1,14 +1,42 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
+from datetime import datetime, timezone
 
 import pytest
+from pydantic import BaseModel
+
+from pydantic_fixturegen.core.config import AppConfig
+from pydantic_fixturegen.core.seed_freeze import FREEZE_FILE_BASENAME
 from pydantic_fixturegen.core.errors import DiscoveryError
 from pydantic_fixturegen.cli import app as cli_app
-from pydantic_fixturegen.cli.diff import DiffReport
+from pydantic_fixturegen.cli import diff as diff_mod
+from pydantic_fixturegen.cli.diff import (
+    DiffReport,
+    FixturesDiffOptions,
+    JsonDiffOptions,
+    SchemaDiffOptions,
+    _execute_diff,
+    _render_reports,
+    _resolve_method,
+)
 from tests._cli import create_cli_runner
 
 runner = create_cli_runner()
+
+
+class FakeLogger:
+    def __init__(self) -> None:
+        self.warn_calls: list[tuple[str, dict[str, object]]] = []
+        self.info_calls: list[tuple[str, dict[str, object]]] = []
+        self.config = SimpleNamespace(json=False)
+
+    def warn(self, message: str, **kwargs: object) -> None:
+        self.warn_calls.append((message, kwargs))
+
+    def info(self, message: str, **kwargs: object) -> None:
+        self.info_calls.append((message, kwargs))
 
 
 def _write_module(tmp_path: Path) -> Path:
@@ -256,6 +284,156 @@ def test_diff_json_errors_payload_on_changes(tmp_path: Path, monkeypatch: pytest
 
     assert result.exit_code == 50
     assert '"kind": "json"' in result.stdout
+
+
+def test_execute_diff_freeze_seed_handling(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+    freeze_file = tmp_path / FREEZE_FILE_BASENAME
+    freeze_file.write_text("{invalid", encoding="utf-8")
+
+    include_patterns = "models.Product"
+    logger = FakeLogger()
+    captured_warnings: list[str] = []
+    monkeypatch.setattr(diff_mod, "get_logger", lambda: logger)
+    monkeypatch.setattr(diff_mod, "clear_module_cache", lambda: None)
+    monkeypatch.setattr(diff_mod, "load_entrypoint_plugins", lambda: None)
+    monkeypatch.setattr(diff_mod.typer, "secho", lambda message, **kwargs: captured_warnings.append(str(message)))
+
+    app_config = AppConfig(
+        include=(include_patterns,),
+        exclude=(),
+        seed=123,
+        now=datetime(2024, 1, 1, tzinfo=timezone.utc),
+    )
+    monkeypatch.setattr(diff_mod, "load_config", lambda root, cli=None: app_config)
+
+    class DemoModel(BaseModel):
+        name: str
+
+    discovery_result = SimpleNamespace(
+        models=[SimpleNamespace(module="models", qualname="Product")],
+        warnings=[" stale freeze "],
+        errors=[],
+    )
+    monkeypatch.setattr(diff_mod, "discover_models", lambda *args, **kwargs: discovery_result)
+    monkeypatch.setattr(diff_mod, "load_model_class", lambda info: DemoModel)
+
+    diff_report = DiffReport(
+        kind="json",
+        target=tmp_path / "products.json",
+        checked_paths=[],
+        messages=[],
+        diff_outputs=[],
+        summary="JSON artifacts match",
+        constraint_report={"fields": 1},
+        time_anchor="2024-01-01T00:00:00+00:00",
+    )
+    monkeypatch.setattr(diff_mod, "_diff_json_artifact", lambda **kwargs: diff_report)
+    reports = _execute_diff(
+        target=str(module_path),
+        include=include_patterns,
+        exclude=None,
+        ast_mode=False,
+        hybrid_mode=False,
+        timeout=5.0,
+        memory_limit_mb=128,
+        seed_override=None,
+        p_none_override=None,
+        json_options=JsonDiffOptions(
+            out=tmp_path / "products.json",
+            count=1,
+            jsonl=False,
+            indent=None,
+            use_orjson=None,
+            shard_size=None,
+        ),
+        fixtures_options=FixturesDiffOptions(
+            out=None,
+            style=None,
+            scope=None,
+            cases=1,
+            return_type=None,
+        ),
+        schema_options=SchemaDiffOptions(out=None, indent=None),
+        freeze_seeds=True,
+        freeze_seeds_file=freeze_file,
+        preset="boundary",
+        now_override="2024-02-01T00:00:00Z",
+    )
+
+    assert reports and reports[0].summary == "JSON artifacts match"
+    assert any("seed_freeze_invalid" == call[1]["event"] for call in logger.warn_calls)
+    assert any("seed_freeze_missing" == call[1]["event"] for call in logger.warn_calls)
+    assert any("stale freeze" in warning for warning in captured_warnings)
+    assert logger.info_calls and logger.info_calls[0][1]["event"] == "temporal_anchor_set"
+
+
+def test_execute_diff_requires_artifact_option(tmp_path: Path) -> None:
+    module_path = _write_module(tmp_path)
+    with pytest.raises(DiscoveryError):
+        _execute_diff(
+            target=str(module_path),
+            include=None,
+            exclude=None,
+            ast_mode=False,
+            hybrid_mode=False,
+            timeout=1.0,
+            memory_limit_mb=128,
+            seed_override=None,
+            p_none_override=None,
+            json_options=JsonDiffOptions(out=None, count=1, jsonl=False, indent=None, use_orjson=None, shard_size=None),
+            fixtures_options=FixturesDiffOptions(out=None, style=None, scope=None, cases=1, return_type=None),
+            schema_options=SchemaDiffOptions(out=None, indent=None),
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+            now_override=None,
+        )
+
+
+def test_render_reports_variants(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: list[str] = []
+    monkeypatch.setattr(diff_mod.typer, "secho", lambda message="", **kwargs: captured.append(str(message)))
+    monkeypatch.setattr(diff_mod.typer, "echo", lambda message="": captured.append(str(message)))
+
+    logger = FakeLogger()
+    _render_reports([], show_diff=False, logger=logger, json_mode=False)
+    assert captured[-1] == "No artifacts were compared."
+
+    captured.clear()
+    unchanged = DiffReport(
+        kind="json",
+        target=Path("a.json"),
+        checked_paths=[],
+        messages=[],
+        diff_outputs=[],
+        summary="JSON artifacts match.",
+        constraint_report=None,
+        time_anchor=None,
+    )
+    with_diffs = DiffReport(
+        kind="fixtures",
+        target=Path("fixtures.py"),
+        checked_paths=[],
+        messages=["Missing fixture"],
+        diff_outputs=[("fixtures.py", "---diff---")],
+        summary=None,
+        constraint_report={"issues": []},
+        time_anchor="2024-01-01T00:00:00+00:00",
+    )
+    _render_reports([unchanged, with_diffs], show_diff=True, logger=logger, json_mode=False)
+    assert "All compared artifacts match." not in captured  # because a change existed
+    assert any("Missing fixture" in entry for entry in captured)
+    assert "---diff---" in captured
+    assert logger.warn_calls == []  # render doesn't use logger.warn
+
+
+def test_resolve_method_validation() -> None:
+    assert _resolve_method(False, False) == "import"
+    assert _resolve_method(True, False) == "ast"
+    assert _resolve_method(False, True) == "hybrid"
+    with pytest.raises(DiscoveryError):
+        _resolve_method(True, True)
 
 
 def test_diff_fixtures_matches(tmp_path: Path) -> None:

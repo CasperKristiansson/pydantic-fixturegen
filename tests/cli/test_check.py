@@ -151,6 +151,54 @@ def test_execute_check_skips_blank_warnings(
     assert "warning:" not in captured.err
 
 
+def test_execute_check_success_outputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+    info = IntrospectedModel(
+        module="pkg",
+        name="Item",
+        qualname="pkg.Item",
+        locator=str(module_path),
+        lineno=1,
+        discovery="import",
+        is_public=True,
+    )
+
+    monkeypatch.setattr(check_mod, "load_config", lambda **_: None)
+    monkeypatch.setattr(check_mod, "clear_module_cache", lambda: None)
+    monkeypatch.setattr(
+        check_mod,
+        "discover_models",
+        lambda *args, **kwargs: IntrospectionResult(models=[info], warnings=[], errors=[]),
+    )
+    monkeypatch.setattr(check_mod, "load_model_class", lambda _info: object)
+
+    secho_calls: list[str] = []
+    echo_calls: list[str] = []
+    monkeypatch.setattr(check_mod.typer, "secho", lambda message, **_: secho_calls.append(message))
+    monkeypatch.setattr(check_mod.typer, "echo", lambda message, **_: echo_calls.append(str(message)))
+
+    json_out = tmp_path / "outputs" / "result.json"
+    json_out.parent.mkdir()
+
+    check_mod._execute_check(
+        target=str(module_path),
+        include=None,
+        exclude=None,
+        ast_mode=False,
+        hybrid_mode=False,
+        timeout=1.0,
+        memory_limit_mb=64,
+        json_out=json_out,
+        fixtures_out=None,
+        schema_out=None,
+    )
+
+    assert "Configuration OK" in secho_calls
+    assert any("Discovered" in call for call in echo_calls)
+    assert "Emitter destinations verified." in echo_calls
+    assert echo_calls[-1] == "Check complete. No issues detected."
+
+
 def test_execute_check_raises_discovery_errors(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -315,3 +363,20 @@ def test_check_validates_output_paths(tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     assert "Emitter destinations verified." in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (True, True),
+        (False, False),
+        ("YES", True),
+        (" no ", False),
+        ("", False),
+        ("arbitrary", True),
+        (0, False),
+        (1, True),
+    ],
+)
+def test_as_bool(value: object, expected: bool) -> None:
+    assert check_mod._as_bool(value) is expected

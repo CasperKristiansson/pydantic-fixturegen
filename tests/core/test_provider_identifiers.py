@@ -111,3 +111,35 @@ def test_generate_identifier_payment_card_and_ip_types() -> None:
 def test_generate_identifier_unknown_type() -> None:
     with pytest.raises(ValueError):
         identifiers_mod.generate_identifier(_summary("custom"), random_generator=random.Random())
+
+
+def test_resolve_length_clamps_and_defaults() -> None:
+    summary = _summary("secret-str", min_length=10, max_length=4)
+    assert identifiers_mod._resolve_length(summary, default_length=8) == 4
+
+    summary2 = _summary("secret-str", min_length=None, max_length=7)
+    assert identifiers_mod._resolve_length(summary2, default_length=3) == 3
+
+
+def test_generate_email_handles_short_max() -> None:
+    summary = _summary("email", min_length=None, max_length=2)
+    assert identifiers_mod._generate_email(summary, random.Random(0)) == "a@"
+
+
+def test_generate_url_without_path_padding() -> None:
+    config = IdentifierConfig(url_schemes=("http",), url_include_path=False)
+    summary = _summary("url", min_length=25, max_length=30)
+    value = identifiers_mod._generate_url(summary, random.Random(0), config)
+    assert value.startswith("http://")
+    assert len(value) >= 25
+
+
+def test_generate_uuid_invalid_version() -> None:
+    with pytest.raises(ValueError):
+        identifiers_mod._generate_uuid(random.Random(0), 2)
+
+
+def test_choose_length_defaults_and_bounds() -> None:
+    rng = random.Random(0)
+    assert identifiers_mod._choose_length(rng, 5, 5) == 5
+    assert identifiers_mod._choose_length(rng, 2, None, default=6) == 6
