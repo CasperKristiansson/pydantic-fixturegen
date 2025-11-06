@@ -493,6 +493,68 @@ def test_deep_merge_merges_nested() -> None:
     assert target["d"] == 3
 
 
+def test_config_helper_defaults() -> None:
+    assert config_mod._coerce_str(None, "locale") == config_mod.DEFAULT_CONFIG.locale
+    assert config_mod._normalize_sequence(None) == ()
+    assert config_mod._coerce_datetime(None, "now") is None
+    assert config_mod._coerce_datetime(" none ", "now") is None
+    assert config_mod._normalize_overrides(None) == {}
+    assert config_mod._normalize_field_policies(None) == ()
+    assert config_mod._normalize_locale_policies(None) == ()
+    assert config_mod._normalize_emitters(None).pytest == config_mod.EmittersConfig().pytest
+    assert config_mod._normalize_json(None) == config_mod.JsonConfig()
+    assert config_mod._normalize_array_config(None) == config_mod.ArrayConfig()
+    assert config_mod._normalize_identifier_config(None) == config_mod.IdentifierConfig()
+    assert config_mod._normalize_path_config(None) == config_mod.PathConfig()
+    assert config_mod._coerce_bool(None, "json.orjson") == config_mod.DEFAULT_CONFIG.json.orjson
+    assert (
+        config_mod._coerce_optional_str(None, "emitters.pytest.style")
+        == config_mod.DEFAULT_CONFIG.emitters.pytest.style
+    )
+    assert config_mod._coerce_indent(None) == config_mod.JsonConfig().indent
+    assert config_mod._coerce_preset_value(" ") is None
+
+
+def test_config_helper_non_default_branches() -> None:
+    emitters = config_mod._normalize_emitters({"pytest": {"style": "factory", "scope": "module"}})
+    assert emitters.pytest.style == "factory"
+
+    array_cfg = config_mod._normalize_array_config(
+        {"max_ndim": "3", "max_side": "5", "max_elements": "10", "dtypes": "float32,int"}
+    )
+    assert array_cfg.max_ndim == 3 and array_cfg.dtypes == ("float32", "int")
+
+    identifier_cfg = config_mod._normalize_identifier_config(
+        {
+            "secret_str_length": "12",
+            "secret_bytes_length": "6",
+            "url_schemes": ["http", "https"],
+            "url_include_path": True,
+            "uuid_version": 4,
+        }
+    )
+    assert identifier_cfg.secret_bytes_length == 6
+
+    path_cfg = config_mod._normalize_path_config(
+        {"default_os": "mac", "models": {"app.*": "windows"}}
+    )
+    assert path_cfg.default_os == "mac" and path_cfg.model_targets == (("app.*", "windows"),)
+
+    assert config_mod._coerce_bool("TRUE", "json.orjson") is True
+    with pytest.raises(ConfigError):
+        config_mod._coerce_bool("maybe", "json.orjson")
+
+
+def test_merge_source_with_preset_variants() -> None:
+    data: dict[str, Any] = {"json": {"indent": 2}}
+    config_mod._merge_source_with_preset(data, {"preset": None})
+    assert data["preset"] is None
+
+    data2: dict[str, Any] = {}
+    config_mod._merge_source_with_preset(data2, {"preset": "boundary"})
+    assert data2["preset"] == "boundary"
+    assert "p_none" in data2  # preset settings merged
+
 def test_coerce_env_value_parses_types() -> None:
     assert config_mod._coerce_env_value(" true ") is True
     assert config_mod._coerce_env_value("off") is False

@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+from pydantic_fixturegen.core.errors import DiscoveryError
 from pydantic_fixturegen.cli import app as cli_app
+from pydantic_fixturegen.cli.diff import DiffReport
 from tests._cli import create_cli_runner
 
 runner = create_cli_runner()
@@ -196,6 +199,63 @@ def test_diff_schema_detects_drift(tmp_path: Path) -> None:
 
     assert diff_result.exit_code == 1
     assert "Schema artifact differs" in diff_result.stdout
+
+
+def test_diff_handles_internal_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+    json_out = tmp_path / "missing.json"
+
+    def raise_discovery(**_: object) -> list[DiffReport]:
+        raise DiscoveryError("broken")
+
+    monkeypatch.setattr("pydantic_fixturegen.cli.diff._execute_diff", raise_discovery)
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "diff",
+            "--json-out",
+            str(json_out),
+            "--json-errors",
+            str(module_path),
+        ],
+    )
+
+    assert result.exit_code == 10
+    assert "broken" in result.stdout
+
+
+def test_diff_json_errors_payload_on_changes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+    json_out = tmp_path / "existing.json"
+    json_out.write_text("[]", encoding="utf-8")
+
+    report = DiffReport(
+        kind="json",
+        target=json_out,
+        checked_paths=[json_out],
+        messages=["diff"],
+        diff_outputs=[(str(json_out), "---")],
+        summary=None,
+        constraint_report={"fields": 1},
+        time_anchor="2024-01-01T00:00:00+00:00",
+    )
+
+    monkeypatch.setattr("pydantic_fixturegen.cli.diff._execute_diff", lambda **_: [report])
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "diff",
+            "--json-errors",
+            "--json-out",
+            str(json_out),
+            str(module_path),
+        ],
+    )
+
+    assert result.exit_code == 50
+    assert '"kind": "json"' in result.stdout
 
 
 def test_diff_fixtures_matches(tmp_path: Path) -> None:
