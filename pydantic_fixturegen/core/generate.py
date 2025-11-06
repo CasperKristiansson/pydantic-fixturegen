@@ -147,7 +147,10 @@ class InstanceGenerator:
         except TypeError:
             return None
 
-        self._constraint_reporter.begin_model(model_type)
+        report_model: type[BaseModel] | None = None
+        if isinstance(model_type, type) and issubclass(model_type, BaseModel):
+            report_model = model_type
+            self._constraint_reporter.begin_model(report_model)
 
         values: dict[str, Any] = {}
         try:
@@ -158,6 +161,7 @@ class InstanceGenerator:
                     depth,
                     model_type,
                     field_name,
+                    report_model,
                 )
         finally:
             self._path_stack.pop()
@@ -169,21 +173,25 @@ class InstanceGenerator:
             ):
                 instance = model_type(**values)
         except ValidationError as exc:
-            self._constraint_reporter.finish_model(
-                model_type,
-                success=False,
-                errors=exc.errors(),
-            )
+            if report_model is not None:
+                self._constraint_reporter.finish_model(
+                    report_model,
+                    success=False,
+                    errors=exc.errors(),
+                )
             return None
         except Exception:
-            self._constraint_reporter.finish_model(model_type, success=False)
+            if report_model is not None:
+                self._constraint_reporter.finish_model(report_model, success=False)
             return None
 
         if instance is None:
-            self._constraint_reporter.finish_model(model_type, success=False)
+            if report_model is not None:
+                self._constraint_reporter.finish_model(report_model, success=False)
             return None
 
-        self._constraint_reporter.finish_model(model_type, success=True)
+        if report_model is not None:
+            self._constraint_reporter.finish_model(report_model, success=True)
         return instance
 
     def _evaluate_strategy(
@@ -192,10 +200,11 @@ class InstanceGenerator:
         depth: int,
         model_type: type[Any],
         field_name: str,
+        report_model: type[BaseModel] | None,
     ) -> Any:
         if isinstance(strategy, UnionStrategy):
-            return self._evaluate_union(strategy, depth, model_type, field_name)
-        return self._evaluate_single(strategy, depth, model_type, field_name)
+            return self._evaluate_union(strategy, depth, model_type, field_name, report_model)
+        return self._evaluate_single(strategy, depth, model_type, field_name, report_model)
 
     def _make_path_entry(self, model_type: type[Any], via_field: str | None) -> _PathEntry:
         module = getattr(model_type, "__module__", "<unknown>")
@@ -329,13 +338,14 @@ class InstanceGenerator:
         depth: int,
         model_type: type[Any],
         field_name: str,
+        report_model: type[BaseModel] | None,
     ) -> Any:
         choices = strategy.choices
         if not choices:
             return None
 
         selected = self.random.choice(choices) if strategy.policy == "random" else choices[0]
-        return self._evaluate_single(selected, depth, model_type, field_name)
+        return self._evaluate_single(selected, depth, model_type, field_name, report_model)
 
     def _evaluate_single(
         self,
@@ -343,9 +353,11 @@ class InstanceGenerator:
         depth: int,
         model_type: type[Any],
         field_name: str,
+        report_model: type[BaseModel] | None,
     ) -> Any:
         summary = strategy.summary
-        self._constraint_reporter.record_field_attempt(model_type, field_name, summary)
+        if report_model is not None:
+            self._constraint_reporter.record_field_attempt(report_model, field_name, summary)
 
         if self._should_return_none(strategy):
             value: Any = None

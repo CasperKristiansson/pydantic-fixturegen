@@ -245,7 +245,7 @@ class PathSettingsSchema(BaseModel):
     default_os: str = Field(
         default=DEFAULT_CONFIG.paths.default_os,
         description="Default OS target for generated filesystem paths.",
-        enum=["posix", "windows", "mac"],
+        json_schema_extra={"enum": ["posix", "windows", "mac"]},
     )
     models: dict[str, str] = Field(
         default_factory=lambda: {

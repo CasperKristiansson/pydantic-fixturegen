@@ -472,11 +472,11 @@ def _describe_callable(factory: Any) -> str:
 
 
 def _safe_json(value: Any) -> Any:
-    if isinstance(value, (str, int, float, bool)) or value is None:
+    if isinstance(value, str | int | float | bool) or value is None:
         return value
     if isinstance(value, enum.Enum):
         raw = value.value
-        if isinstance(raw, (str, int, float, bool)):
+        if isinstance(raw, str | int | float | bool):
             return raw
         return str(raw)
     if isinstance(value, decimal.Decimal):
@@ -486,7 +486,7 @@ def _safe_json(value: Any) -> Any:
             return str(value)
     if isinstance(value, Mapping):
         return {str(key): _safe_json(val) for key, val in value.items()}
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, list | tuple | set):
         return [_safe_json(item) for item in value]
     return str(value)
 

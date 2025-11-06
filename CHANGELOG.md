@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added cross-platform filesystem path providers for `pathlib.Path`, `pydantic.DirectoryPath`, and `pydantic.FilePath` fields, including a new `[paths]` configuration section for default OS targets and per-model overrides that flow through the CLI, Python API, and emitters.
 - Added configurable deterministic identifier providers for emails, URLs, UUIDs, secrets, and payment cards; provider behaviour is governed by new `[identifiers]` settings in project config.
 - Made email and payment identifier dependencies optional extras (`[email]`, `[payment]`), so base installations no longer require `email-validator` or `pydantic-extra-types`, and the docs now call out the opt-in requirements explicitly.
-- Established tested minimum dependency floors: `faker>=3.0.0`, `pydantic>=2.11.0`, `typer>=0.12.4`, `pluggy>=1.5.0`, `tomli>=2.0.1`; optional extras inherit the same policy (`email-validator>=2.1.0`, `pydantic-extra-types>=2.10.6`).
+- Established tested minimum dependency floors on Python 3.10 and 3.14: `faker>=3.0.0`, `pydantic>=2.12.4`, `typer>=0.12.4,<0.13`, `click>=8.1.7,<8.2`, `pluggy>=1.5.0`, and `tomli>=2.0.1` (for Python 3.10 only). Optional extras now document the verified baselines: `email-validator>=2.0.0`, `pydantic-extra-types>=2.6.0`, `rstr>=3.2.2`, `orjson>=3.11.1`, `hypothesis>=1.0.0`, `numpy>=2.3.2`, and `watchfiles>=0.20.0`.
 - Added `pfg plugin new` to scaffold pluggy provider projects with packaging metadata, tests, and CI workflow templates.
 - Added VS Code workspace tasks and JSON problem matcher to run `pfg` commands with inline diagnostics.
 - Added a pytest snapshot helper (`pfg_snapshot`) with update modes for JSON, fixture, and schema artifacts.

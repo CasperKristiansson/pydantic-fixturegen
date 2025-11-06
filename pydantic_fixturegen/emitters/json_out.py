@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import dataclasses
 import json
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from itertools import islice
 from pathlib import Path
 from types import ModuleType
@@ -362,8 +361,10 @@ def _ensure_suffix(path: Path, suffix: str) -> Path:
 
 
 def _normalise_record(record: Any) -> Any:
-    if dataclasses.is_dataclass(record) and not isinstance(record, type):
-        return dataclasses.asdict(record)
+    if bool(is_dataclass(record)):
+        if isinstance(record, type):
+            return record
+        return asdict(record)
     if isinstance(record, BaseModel):
         return record.model_dump()
     model_dump = getattr(record, "model_dump", None)

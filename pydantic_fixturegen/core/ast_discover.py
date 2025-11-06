@@ -120,7 +120,7 @@ def _extract_public_names(tree: ast.AST) -> set[str] | None:
                 if (
                     isinstance(target, ast.Name)
                     and target.id == "__all__"
-                    and isinstance(node.value, (ast.List, ast.Tuple))
+                    and isinstance(node.value, ast.List | ast.Tuple)
                 ):
                     names: set[str] = set()
                     for element in node.value.elts:

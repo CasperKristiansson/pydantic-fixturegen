@@ -6,8 +6,8 @@ import dataclasses as dataclasses_module
 import datetime
 import decimal
 import enum
-import types
 import pathlib
+import types
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass

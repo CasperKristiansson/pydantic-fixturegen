@@ -362,7 +362,7 @@ def test_diff_json_detects_directory_targets(
         app_config_arrays=DEFAULT_ARRAY_CONFIG,
         app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
         app_config_paths=DEFAULT_PATH_CONFIG,
-            options=_json_options(output_path),
+        options=_json_options(output_path),
     )
 
     assert "JSON artifact path is a directory" in report.messages[0]
@@ -403,7 +403,7 @@ def test_diff_json_ignores_extra_directories(
         app_config_arrays=DEFAULT_ARRAY_CONFIG,
         app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
         app_config_paths=DEFAULT_PATH_CONFIG,
-            options=_json_options(output_path),
+        options=_json_options(output_path),
     )
 
     assert report.messages == []

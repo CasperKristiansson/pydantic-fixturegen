@@ -11,7 +11,8 @@ from pydantic_fixturegen.core.config_schema import get_config_schema_json
 OUT_OPTION = typer.Option(None, "--out", "-o", help="File path to write the schema.")
 PRETTY_OPTION = typer.Option(
     True,
-    "--pretty/--compact",
+    "--pretty",
+    "--compact",
     help="Pretty-print output with indentation.",
 )
 

@@ -13,26 +13,49 @@ Run `pfg schema config --out schema/config.schema.json` to retrieve the authorit
 
 ## Dependency baselines
 
-The project is currently tested on Python 3.10 only. The following floors reflect that environment and are guarded with `python_version < "3.11"` markers in `pyproject.toml`:
+We validate the project against Python 3.10 and 3.14. Floors differ slightly between the two environments; the tables below show the lowest versions that keep the suite green with `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`.
+
+### Python 3.10
 
 | Package  | Minimum | Notes |
 | -------- | ------- | ----- |
-| `pydantic` | `2.11.0` | 2.10.x regenerates the bundled config schema. |
+| `pydantic` | `2.12.4` | Newer floor that still keeps the bundled config schema stable. |
 | `faker` | `3.0.0` | 2.x removed locale metadata relied upon in tests. |
-| `typer` | `0.12.4` | Earlier 0.12 releases cannot build CLI flag definitions. |
+| `typer` | `0.12.4` | Verified with Typer `<0.13`; newer majors emit flag deprecation warnings. |
+| `click` | `8.1.7` | 8.3+ breaks Typer `count=True` options. |
 | `pluggy` | `1.5.0` | Required by `pytest>=8`. |
-| `tomli` | `1.1.0` | Only used on Python <3.11; higher floors are acceptable. |
-
-Optional extras bring their own floors:
+| `tomli` | `2.0.1` | Only needed on Python <3.11. |
 
 | Extra | Package | Minimum | Notes |
 | ----- | ------- | ------- | ----- |
 | `[email]` | `email-validator` | `2.0.0` | Pydantic enforces the v2 API. |
-| `[payment]` | `pydantic-extra-types` | `2.8.2` | Earlier versions pin pydantic ≥2.12 and break array tests. |
-| `[regex]` | `rstr` | `2.2.4` | 2.2.3 returned `None` fixtures under seed tests. |
-| `[orjson]` | `orjson` | `3.6.8` | 3.5.x requires a nightly Rust toolchain. |
+| `[payment]` | `pydantic-extra-types` | `2.6.0` | First release verified across 3.10; works with `pydantic==2.12.4`. |
+| `[regex]` | `rstr` | `3.2.2` | Avoids Python 3.11+ `re.sre_parse` removals while staying compatible with 3.10. |
+| `[orjson]` | `orjson` | `3.11.1` | First release shipping Python 3.14 wheels; also backs down to 3.10. |
 | `[hypothesis]` | `hypothesis` | `1.0.0` | Higher versions are fine; the core suite passes down to 1.0. |
-| `[watch]` | `watchfiles` | `0.10.0` | Earlier wheels are unavailable for the current toolchain. |
+| `[watch]` | `watchfiles` | `0.20.0` | Older releases lack Python 3.14 wheels. |
+| `[numpy]` | `numpy` | `2.3.2` | First wheel build that supports Python 3.14. |
+
+### Python 3.14
+
+| Package  | Minimum | Notes |
+| -------- | ------- | ----- |
+| `pydantic` | `2.12.4` | Earliest release with pre-built `cp314` wheels. |
+| `faker` | `3.0.0` | Same floor as 3.10. |
+| `typer` | `0.12.4` | Works with Typer `<0.13` alongside Click 8.1.x for counter flags. |
+| `click` | `8.1.7` | 8.3+ raises errors for `count=True` options. |
+| `pluggy` | `1.5.0` | Matches the pytest requirement. |
+| `tomli` | _n/a_ | Not required on ≥3.11. |
+
+| Extra | Package | Minimum | Notes |
+| ----- | ------- | ------- | ----- |
+| `[email]` | `email-validator` | `2.0.0` | Same floor as 3.10. |
+| `[payment]` | `pydantic-extra-types` | `2.6.0` | Verified with `pydantic==2.12.4`. |
+| `[regex]` | `rstr` | `3.2.2` | Pure-Python distribution works unchanged on 3.14. |
+| `[orjson]` | `orjson` | `3.11.1` | First release with Python 3.14 wheels. |
+| `[hypothesis]` | `hypothesis` | `1.0.0` | Still valid on 3.14. |
+| `[watch]` | `watchfiles` | `0.20.0` | First release shipping Python 3.14-compatible wheels. |
+| `[numpy]` | `numpy` | `2.3.2` | Lowest pre-built wheel for Python 3.14 on macOS ARM64. |
 
 ## Configuration sources
 

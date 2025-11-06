@@ -4,17 +4,16 @@ import datetime
 import enum
 import ipaddress
 import uuid
-from pathlib import Path
 from contextlib import suppress
 from dataclasses import dataclass
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 from pydantic import (
     AnyUrl,
     BaseModel,
     ConfigDict,
-    DirectoryPath,
     EmailStr,
     Field,
     IPvAnyAddress,
@@ -140,7 +139,7 @@ def test_union_random_policy() -> None:
 
     user = generator.generate_one(User)
     assert isinstance(user, User)
-    assert isinstance(user.preference, (int, str))
+    assert isinstance(user.preference, int | str)
     assert isinstance(user.teammates, list)
     assert all(isinstance(member, Address) for member in user.teammates)
     assert isinstance(user.contacts, dict)
@@ -432,9 +431,9 @@ def test_identifier_generation_respects_configuration() -> None:
     assert result.uuid_value.version == 1
     assert len(result.secret_text.get_secret_value()) == 22
     assert len(result.secret_token.get_secret_value()) == 7
-    assert isinstance(result.ip_address, (ipaddress.IPv4Address, ipaddress.IPv6Address))
-    assert isinstance(result.ip_interface, (ipaddress.IPv4Interface, ipaddress.IPv6Interface))
-    assert isinstance(result.ip_network, (ipaddress.IPv4Network, ipaddress.IPv6Network))
+    assert isinstance(result.ip_address, ipaddress.IPv4Address | ipaddress.IPv6Address)
+    assert isinstance(result.ip_interface, ipaddress.IPv4Interface | ipaddress.IPv6Interface)
+    assert isinstance(result.ip_network, ipaddress.IPv4Network | ipaddress.IPv6Network)
     assert result.amount.as_tuple().exponent == -2
 
 

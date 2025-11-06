@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "pydantic-fixturegen"
 version = "1.1.0"
 description = "Deterministic fixture generator for Pydantic models."
-requires-python = ">=3.10,<3.11"
+requires-python = ">=3.10,<3.15"
 readme = "README.md"
 authors = [{ name = "Fixturegen Developers" }]
 license = { text = "MIT" }
@@ -14,71 +14,76 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "License :: OSI Approved :: MIT License",
   "Development Status :: 5 - Production/Stable",
 ]
 dependencies = [
   "faker>=3.0.0",
-  "pydantic>=2.11.0",
-  "tomli>=1.1.0; python_version < '3.11'",
-  "typer>=0.12.4",
+  "pydantic>=2.12.4",
+  "typer>=0.12.4,<0.13",
+  "click>=8.1.7,<8.2",
   "pluggy>=1.5.0",
+  "tomli>=2.0.1; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]
 regex = [
-  "rstr>=2.2.4; python_version < '3.11'",
+  "rstr>=3.2.2",
 ]
 email = [
-  "email-validator>=2.0.0; python_version < '3.11'",
+  "email-validator>=2.0.0",
 ]
 payment = [
-  "pydantic-extra-types>=2.8.2; python_version < '3.11'",
+  "pydantic-extra-types>=2.6.0",
 ]
 orjson = [
-  "orjson>=3.6.8; python_version < '3.11'",
+  "orjson>=3.11.1",
 ]
 hypothesis = [
-  "hypothesis>=1.0.0; python_version < '3.11'",
+  "hypothesis>=1.0.0",
 ]
 dev = [
-  "mypy>=1.11; python_version < '3.11'",
+  "mypy>=1.11",
 ]
 lint = [
-  "ruff>=0.6.5; python_version < '3.11'",
+  "ruff>=0.6.5",
 ]
 test = [
-  "pytest>=8.3; python_version < '3.11'",
-  "pytest-cov>=5.0; python_version < '3.11'",
+  "pytest>=8.3",
+  "pytest-cov>=5.0",
 ]
 numpy = [
-  "numpy>=2.3.4; python_version < '3.11'",
+  "numpy>=2.3.2",
 ]
 watch = [
-  "watchfiles>=0.10.0; python_version < '3.11'",
+  "watchfiles>=0.20.0",
 ]
 docs = []
 all = [
-  "email-validator>=2.0.0; python_version < '3.11'",
-  "pydantic-extra-types>=2.8.2; python_version < '3.11'",
-  "rstr>=2.2.4; python_version < '3.11'",
-  "orjson>=3.6.8; python_version < '3.11'",
-  "hypothesis>=1.0.0; python_version < '3.11'",
-  "numpy>=2.3.4; python_version < '3.11'",
-  "watchfiles>=0.10.0; python_version < '3.11'",
+  "email-validator>=2.0.0",
+  "pydantic-extra-types>=2.6.0",
+  "rstr>=3.2.2",
+  "orjson>=3.11.1",
+  "hypothesis>=1.0.0",
+  "numpy>=2.3.2",
+  "watchfiles>=0.20.0",
 ]
 all-dev = [
-  "mypy>=1.11; python_version < '3.11'",
-  "ruff>=0.6.5; python_version < '3.11'",
-  "pytest>=8.3; python_version < '3.11'",
-  "pytest-cov>=5.0; python_version < '3.11'",
-  "email-validator>=2.0.0; python_version < '3.11'",
-  "pydantic-extra-types>=2.8.2; python_version < '3.11'",
-  "rstr>=2.2.4; python_version < '3.11'",
-  "orjson>=3.6.8; python_version < '3.11'",
-  "hypothesis>=1.0.0; python_version < '3.11'",
-  "numpy>=2.3.4; python_version < '3.11'",
-  "watchfiles>=0.10.0; python_version < '3.11'",
+  "mypy>=1.11",
+  "ruff>=0.6.5",
+  "pytest>=8.3",
+  "pytest-cov>=5.0",
+  "email-validator>=2.0.0",
+  "pydantic-extra-types>=2.6.0",
+  "rstr>=3.2.2",
+  "orjson>=3.11.1",
+  "hypothesis>=1.0.0",
+  "numpy>=2.3.2",
+  "watchfiles>=0.20.0",
 ]
 
 [project.urls]
@@ -136,6 +141,14 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "orjson"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "faker"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "faker.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

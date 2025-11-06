@@ -339,7 +339,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
     now_value = _coerce_datetime(data.get("now"), "now")
 
     seed_value: int | str | None
-    if isinstance(seed, (int, str)) or seed is None:
+    if isinstance(seed, int | str) or seed is None:
         seed_value = seed
     else:
         raise ConfigError("seed must be an int, str, or null.")

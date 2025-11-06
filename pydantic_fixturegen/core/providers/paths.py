@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import random
 import string
+from collections.abc import Callable
 from pathlib import PurePath, PurePosixPath, PureWindowsPath
-from typing import Any, Callable
+from typing import Any
 
 from pydantic_fixturegen.core.config import PathConfig
 from pydantic_fixturegen.core.path_template import sanitize_path_segment

@@ -40,9 +40,19 @@ EXCLUDE_OPTION = typer.Option(
     help="Comma-separated glob pattern(s) of fully-qualified model names to exclude.",
 )
 
-AST_OPTION = typer.Option(False, "--ast", help="Use AST discovery only (no imports executed).")
+AST_OPTION = typer.Option(
+    False,
+    "--ast",
+    is_flag=True,
+    help="Use AST discovery only (no imports executed).",
+)
 
-HYBRID_OPTION = typer.Option(False, "--hybrid", help="Combine AST and safe import discovery.")
+HYBRID_OPTION = typer.Option(
+    False,
+    "--hybrid",
+    is_flag=True,
+    help="Combine AST and safe import discovery.",
+)
 
 TIMEOUT_OPTION = typer.Option(
     5.0,
@@ -80,6 +90,18 @@ SCHEMA_OUT_OPTION = typer.Option(
 app = typer.Typer(invoke_without_command=True, subcommand_metavar="")
 
 
+def _as_bool(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "off", ""}:
+            return False
+    return bool(value)
+
+
 def check(  # noqa: D401 - Typer callback
     ctx: typer.Context,
     path: str = PATH_ARGUMENT,
@@ -100,8 +122,8 @@ def check(  # noqa: D401 - Typer callback
             target=path,
             include=include,
             exclude=exclude,
-            ast_mode=ast_mode,
-            hybrid_mode=hybrid_mode,
+            ast_mode=_as_bool(ast_mode),
+            hybrid_mode=_as_bool(hybrid_mode),
             timeout=timeout,
             memory_limit_mb=memory_limit_mb,
             json_out=json_out,

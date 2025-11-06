@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import random
 from types import ModuleType
+from typing import Any
 
 try:  # Optional dependency for regex generation
     import rstr as _rstr
@@ -70,23 +71,25 @@ def _regex_string(summary: FieldSummary, *, faker: Faker) -> str:
 def _fallback_regex(pattern: str, faker: Faker) -> str:
     stripped = pattern.strip("^$")
     if not stripped:
-        return faker.pystr(min_chars=DEFAULT_MIN_CHARS, max_chars=DEFAULT_MAX_CHARS)
+        return _ensure_str(faker.pystr(min_chars=DEFAULT_MIN_CHARS, max_chars=DEFAULT_MAX_CHARS))
     # crude fallback: ensure prefix matches stripped text ignoring regex tokens
     prefix = "".join(ch for ch in stripped if ch.isalnum())
-    remainder = faker.pystr(min_chars=0, max_chars=max(DEFAULT_MIN_CHARS, len(prefix)))
+    remainder = _ensure_str(faker.pystr(min_chars=0, max_chars=max(DEFAULT_MIN_CHARS, len(prefix))))
     return prefix + remainder
 
 
 def _random_string(rng: random.Random, summary: FieldSummary, *, faker: Faker) -> str:
     min_chars, max_chars = _length_bounds(summary)
     # Faker's pystr respects min/max characters
-    return faker.pystr(min_chars=min_chars, max_chars=max_chars)
+    return _ensure_str(faker.pystr(min_chars=min_chars, max_chars=max_chars))
 
 
 def _apply_length(value: str, summary: FieldSummary, *, faker: Faker) -> str:
     min_chars, max_chars = _length_bounds(summary)
     if len(value) < min_chars:
-        padding = faker.pystr(min_chars=min_chars - len(value), max_chars=min_chars - len(value))
+        padding = _ensure_str(
+            faker.pystr(min_chars=min_chars - len(value), max_chars=min_chars - len(value))
+        )
         value = value + padding
     if len(value) > max_chars:
         value = value[:max_chars]
@@ -104,6 +107,12 @@ def _length_bounds(summary: FieldSummary) -> tuple[int, int]:
 def _determine_length(summary: FieldSummary) -> int:
     min_chars, max_chars = _length_bounds(summary)
     return max(min_chars, min(max_chars, DEFAULT_MAX_CHARS))
+
+
+def _ensure_str(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    raise TypeError("Faker returned a non-string value")
 
 
 __all__ = ["generate_string", "register_string_providers"]

@@ -249,7 +249,7 @@ def _extract_value(base: Any, path: tuple[Any, ...]) -> Any:
         if isinstance(current, dict):
             current = current.get(part) if part in current else current.get(str(part))
             continue
-        if isinstance(current, (list, tuple)) and isinstance(part, int):
+        if isinstance(current, list | tuple) and isinstance(part, int):
             if 0 <= part < len(current):
                 current = current[part]
             else:
