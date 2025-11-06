@@ -57,7 +57,8 @@ test = [
   "pytest-cov>=5.0",
 ]
 numpy = [
-  "numpy>=2.3.2",
+  "numpy>=2.2.6; python_version < '3.11'",
+  "numpy>=2.3.2; python_version >= '3.11'",
 ]
 watch = [
   "watchfiles>=0.20.0",
@@ -69,7 +70,8 @@ all = [
   "rstr>=3.2.2",
   "orjson>=3.11.1",
   "hypothesis>=1.0.0",
-  "numpy>=2.3.2",
+  "numpy>=2.2.6; python_version < '3.11'",
+  "numpy>=2.3.2; python_version >= '3.11'",
   "watchfiles>=0.20.0",
 ]
 all-dev = [
@@ -82,7 +84,8 @@ all-dev = [
   "rstr>=3.2.2",
   "orjson>=3.11.1",
   "hypothesis>=1.0.0",
-  "numpy>=2.3.2",
+  "numpy>=2.2.6; python_version < '3.11'",
+  "numpy>=2.3.2; python_version >= '3.11'",
   "watchfiles>=0.20.0",
 ]
 

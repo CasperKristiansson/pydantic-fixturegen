@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from pydantic_fixturegen.cli.plugin import app as plugin_app
@@ -12,10 +13,14 @@ def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
 def _normalize_cli(text: str) -> str:
     """Collapse whitespace and box characters emitted by Typer/Rich."""
 
-    return " ".join(text.replace("│", " ").split())
+    stripped = _ANSI_RE.sub("", text)
+    return " ".join(stripped.replace("│", " ").split())
 
 
 def test_plugin_scaffold_creates_expected_layout(tmp_path: Path) -> None:

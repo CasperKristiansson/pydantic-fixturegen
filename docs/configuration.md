@@ -34,7 +34,7 @@ We validate the project against Python 3.10 and 3.14. Floors differ slightly bet
 | `[orjson]` | `orjson` | `3.11.1` | First release shipping Python 3.14 wheels; also backs down to 3.10. |
 | `[hypothesis]` | `hypothesis` | `1.0.0` | Higher versions are fine; the core suite passes down to 1.0. |
 | `[watch]` | `watchfiles` | `0.20.0` | Older releases lack Python 3.14 wheels. |
-| `[numpy]` | `numpy` | `2.3.2` | First wheel build that supports Python 3.14. |
+| `[numpy]` | `numpy` | `2.2.6` | Highest release shipping wheels for Python 3.10. |
 
 ### Python 3.14
 
