@@ -42,6 +42,7 @@ def test_build_artifact_header_handles_missing_extras() -> None:
 
 def test_get_tool_version_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """Fallback string should be used when distribution metadata is missing."""
+
     def _raise_package_not_found(_: str) -> NoReturn:
         raise version_mod.metadata.PackageNotFoundError
 

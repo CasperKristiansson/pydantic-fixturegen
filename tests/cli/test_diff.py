@@ -1,15 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from datetime import datetime, timezone
 
 import pytest
 from pydantic import BaseModel
-
-from pydantic_fixturegen.core.config import AppConfig
-from pydantic_fixturegen.core.seed_freeze import FREEZE_FILE_BASENAME
-from pydantic_fixturegen.core.errors import DiscoveryError
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.cli import diff as diff_mod
 from pydantic_fixturegen.cli.diff import (
@@ -21,6 +17,9 @@ from pydantic_fixturegen.cli.diff import (
     _render_reports,
     _resolve_method,
 )
+from pydantic_fixturegen.core.config import AppConfig
+from pydantic_fixturegen.core.errors import DiscoveryError
+from pydantic_fixturegen.core.seed_freeze import FREEZE_FILE_BASENAME
 from tests._cli import create_cli_runner
 
 runner = create_cli_runner()
@@ -253,7 +252,10 @@ def test_diff_handles_internal_error(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert "broken" in result.stdout
 
 
-def test_diff_json_errors_payload_on_changes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_diff_json_errors_payload_on_changes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     module_path = _write_module(tmp_path)
     json_out = tmp_path / "existing.json"
     json_out.write_text("[]", encoding="utf-8")
@@ -297,7 +299,11 @@ def test_execute_diff_freeze_seed_handling(tmp_path: Path, monkeypatch: pytest.M
     monkeypatch.setattr(diff_mod, "get_logger", lambda: logger)
     monkeypatch.setattr(diff_mod, "clear_module_cache", lambda: None)
     monkeypatch.setattr(diff_mod, "load_entrypoint_plugins", lambda: None)
-    monkeypatch.setattr(diff_mod.typer, "secho", lambda message, **kwargs: captured_warnings.append(str(message)))
+    monkeypatch.setattr(
+        diff_mod.typer,
+        "secho",
+        lambda message, **kwargs: captured_warnings.append(str(message)),
+    )
 
     app_config = AppConfig(
         include=(include_patterns,),
@@ -362,8 +368,8 @@ def test_execute_diff_freeze_seed_handling(tmp_path: Path, monkeypatch: pytest.M
     )
 
     assert reports and reports[0].summary == "JSON artifacts match"
-    assert any("seed_freeze_invalid" == call[1]["event"] for call in logger.warn_calls)
-    assert any("seed_freeze_missing" == call[1]["event"] for call in logger.warn_calls)
+    assert any(call[1]["event"] == "seed_freeze_invalid" for call in logger.warn_calls)
+    assert any(call[1]["event"] == "seed_freeze_missing" for call in logger.warn_calls)
     assert any("stale freeze" in warning for warning in captured_warnings)
     assert logger.info_calls and logger.info_calls[0][1]["event"] == "temporal_anchor_set"
 
@@ -381,8 +387,21 @@ def test_execute_diff_requires_artifact_option(tmp_path: Path) -> None:
             memory_limit_mb=128,
             seed_override=None,
             p_none_override=None,
-            json_options=JsonDiffOptions(out=None, count=1, jsonl=False, indent=None, use_orjson=None, shard_size=None),
-            fixtures_options=FixturesDiffOptions(out=None, style=None, scope=None, cases=1, return_type=None),
+            json_options=JsonDiffOptions(
+                out=None,
+                count=1,
+                jsonl=False,
+                indent=None,
+                use_orjson=None,
+                shard_size=None,
+            ),
+            fixtures_options=FixturesDiffOptions(
+                out=None,
+                style=None,
+                scope=None,
+                cases=1,
+                return_type=None,
+            ),
             schema_options=SchemaDiffOptions(out=None, indent=None),
             freeze_seeds=False,
             freeze_seeds_file=None,
@@ -393,8 +412,16 @@ def test_execute_diff_requires_artifact_option(tmp_path: Path) -> None:
 
 def test_render_reports_variants(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: list[str] = []
-    monkeypatch.setattr(diff_mod.typer, "secho", lambda message="", **kwargs: captured.append(str(message)))
-    monkeypatch.setattr(diff_mod.typer, "echo", lambda message="": captured.append(str(message)))
+    monkeypatch.setattr(
+        diff_mod.typer,
+        "secho",
+        lambda message="", **kwargs: captured.append(str(message)),
+    )
+    monkeypatch.setattr(
+        diff_mod.typer,
+        "echo",
+        lambda message="": captured.append(str(message)),
+    )
 
     logger = FakeLogger()
     _render_reports([], show_diff=False, logger=logger, json_mode=False)

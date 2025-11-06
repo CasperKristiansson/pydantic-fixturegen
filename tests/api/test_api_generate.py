@@ -173,9 +173,7 @@ def test_generate_schema_template_error(tmp_path: Path) -> None:
         api_module.generate_schema(module_path, out=template)
 
 
-def test_generate_json_error_details(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_generate_json_error_details(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     module_path = _write_module(tmp_path)
     out_template = tmp_path / "out" / "{model}.json"
 
@@ -191,9 +189,7 @@ def test_generate_json_error_details(
     assert exc_info.value.details.get("base_output")
 
 
-def test_generate_fixtures_error_details(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_generate_fixtures_error_details(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "fixtures" / "{model}.py"
 
@@ -209,9 +205,7 @@ def test_generate_fixtures_error_details(
     assert exc_info.value.details.get("base_output")
 
 
-def test_generate_schema_error_details(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_generate_schema_error_details(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "schema.json"
 

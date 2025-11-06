@@ -412,8 +412,8 @@ def test_execute_schema_command_load_failure(
             output_template=OutputTemplate(str(tmp_path / "schema.json")),
             indent=None,
             include=None,
-        exclude=None,
-    )
+            exclude=None,
+        )
 
 
 def test_gen_schema_handles_relative_imports(tmp_path: Path) -> None:

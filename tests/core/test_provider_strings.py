@@ -58,6 +58,7 @@ def test_generate_string_pattern_uses_fallback(monkeypatch: pytest.MonkeyPatch) 
 
 def test_secret_bytes_length_derived_from_constraints(monkeypatch: pytest.MonkeyPatch) -> None:
     recorded: list[int] = []
+
     def fake_urandom(size: int) -> bytes:
         recorded.append(size)
         return b"x" * size

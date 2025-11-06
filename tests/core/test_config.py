@@ -555,6 +555,7 @@ def test_merge_source_with_preset_variants() -> None:
     assert data2["preset"] == "boundary"
     assert "p_none" in data2  # preset settings merged
 
+
 def test_coerce_env_value_parses_types() -> None:
     assert config_mod._coerce_env_value(" true ") is True
     assert config_mod._coerce_env_value("off") is False

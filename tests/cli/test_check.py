@@ -174,8 +174,16 @@ def test_execute_check_success_outputs(tmp_path: Path, monkeypatch: pytest.Monke
 
     secho_calls: list[str] = []
     echo_calls: list[str] = []
-    monkeypatch.setattr(check_mod.typer, "secho", lambda message, **_: secho_calls.append(message))
-    monkeypatch.setattr(check_mod.typer, "echo", lambda message, **_: echo_calls.append(str(message)))
+    monkeypatch.setattr(
+        check_mod.typer,
+        "secho",
+        lambda message, **_: secho_calls.append(message),
+    )
+    monkeypatch.setattr(
+        check_mod.typer,
+        "echo",
+        lambda message, **_: echo_calls.append(str(message)),
+    )
 
     json_out = tmp_path / "outputs" / "result.json"
     json_out.parent.mkdir()

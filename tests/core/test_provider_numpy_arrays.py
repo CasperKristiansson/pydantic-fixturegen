@@ -3,7 +3,6 @@ from __future__ import annotations
 import math
 
 import pytest
-
 from pydantic_fixturegen.core.config import ArrayConfig
 from pydantic_fixturegen.core.providers import numpy_arrays
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary

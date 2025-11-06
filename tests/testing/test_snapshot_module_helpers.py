@@ -105,7 +105,10 @@ def test_snapshot_runner_raises_failure_message(monkeypatch: pytest.MonkeyPatch)
     assert "Run again with update" in message
 
 
-def test_snapshot_runner_update_invokes_generators(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_snapshot_runner_update_invokes_generators(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     runner = snapshot.SnapshotRunner()
     target = tmp_path / "models.py"
     target.write_text("placeholder", encoding="utf-8")

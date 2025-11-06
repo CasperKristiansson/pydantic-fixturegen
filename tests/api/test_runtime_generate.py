@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from pydantic_fixturegen.api import _runtime as runtime_mod
 from pydantic_fixturegen.api.models import JsonGenerationResult
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError
@@ -35,7 +34,10 @@ def _write_module(tmp_path: Path, source: str) -> Path:
     return module
 
 
-def test_generate_json_artifacts_freeze_messages(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_generate_json_artifacts_freeze_messages(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     module_path = _write_module(
         tmp_path,
         """
@@ -178,7 +180,10 @@ class Second(BaseModel):
         )
 
 
-def test_generate_json_artifacts_attaches_error_details(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_generate_json_artifacts_attaches_error_details(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     module_path = _write_module(
         tmp_path,
         """

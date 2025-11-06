@@ -18,8 +18,7 @@ def test_generate_numeric_bool_respects_random_choice(monkeypatch: pytest.Monkey
     monkeypatch.setattr(rng, "choice", lambda options: sequence.pop(0))
 
     values = [
-        numbers_mod.generate_numeric(_summary("bool"), random_generator=rng)
-        for _ in range(3)
+        numbers_mod.generate_numeric(_summary("bool"), random_generator=rng) for _ in range(3)
     ]
 
     assert values == [True, False, True]

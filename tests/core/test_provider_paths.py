@@ -33,8 +33,7 @@ def test_generate_path_posix_file() -> None:
 
 
 def test_generate_path_windows_via_model_target() -> None:
-    class SampleModel:
-        ...
+    class SampleModel: ...
 
     rng = random.Random(4321)
     summary = _summary(fmt="directory")
