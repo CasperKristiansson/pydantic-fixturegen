@@ -3,13 +3,9 @@
 from __future__ import annotations
 
 import math
+import types
 from collections.abc import Sequence
-from typing import Any
-
-try:  # Optional dependency
-    import numpy as _np
-except ModuleNotFoundError:  # pragma: no cover - optional extra not installed
-    _np = None
+from typing import Any, cast
 
 from pydantic_fixturegen.core.config import ArrayConfig
 from pydantic_fixturegen.core.schema import FieldSummary
@@ -18,21 +14,28 @@ from .registry import ProviderRegistry
 
 __all__ = ["register_numpy_array_providers", "generate_numpy_array"]
 
+_np: types.ModuleType | None
+try:  # Optional dependency
+    import numpy as _np
+except ModuleNotFoundError:  # pragma: no cover - optional extra not installed
+    _np = None
 
-def _ensure_numpy_available() -> None:
+
+def _ensure_numpy_available() -> Any:
     if _np is None:
         raise RuntimeError(
             "NumPy is required for array generation. Install the optional dependency via "
             "`pip install pydantic-fixturegen[numpy]`."
         )
+    return cast(Any, _np)
 
 
 def _select_dtype(allowed: Sequence[str], *, preferred: str | None = None) -> Any:
-    _ensure_numpy_available()
+    np_module = _ensure_numpy_available()
     candidates = list(allowed) if allowed else ["float64"]
     dtype_candidate = preferred if preferred and preferred in candidates else candidates[0]
     try:
-        return _np.dtype(dtype_candidate)
+        return np_module.dtype(dtype_candidate)
     except TypeError as exc:  # pragma: no cover - defensive
         raise RuntimeError(f"Unsupported NumPy dtype: {dtype_candidate!r}") from exc
 
@@ -74,7 +77,7 @@ def generate_numpy_array(
 ) -> Any:
     """Generate a deterministic NumPy array honoring configured caps."""
 
-    _ensure_numpy_available()
+    np_module = _ensure_numpy_available()
     if numpy_rng is None:
         raise RuntimeError(
             "NumPy RNG unavailable. Ensure SeedManager.numpy_for is used when NumPy is installed."
@@ -91,13 +94,13 @@ def generate_numpy_array(
         max_elements=array_config.max_elements,
     )
 
-    if _np.issubdtype(dtype, _np.floating):
+    if np_module.issubdtype(dtype, np_module.floating):
         data = numpy_rng.random(shape, dtype=dtype)
-    elif _np.issubdtype(dtype, _np.integer):
+    elif np_module.issubdtype(dtype, np_module.integer):
         upper = max(2, math.isqrt(array_config.max_elements) * 10)
         data = numpy_rng.integers(low=0, high=upper, size=shape, dtype=dtype)
-    elif _np.issubdtype(dtype, _np.bool_):
-        data = numpy_rng.integers(low=0, high=2, size=shape, dtype=_np.int8).astype(dtype)
+    elif np_module.issubdtype(dtype, np_module.bool_):
+        data = numpy_rng.integers(low=0, high=2, size=shape, dtype=np_module.int8).astype(dtype)
     else:
         data = numpy_rng.random(shape).astype(dtype)
 

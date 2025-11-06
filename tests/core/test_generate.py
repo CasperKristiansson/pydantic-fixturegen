@@ -12,6 +12,7 @@ import pytest
 from pydantic import (
     AnyUrl,
     BaseModel,
+    ConfigDict,
     EmailStr,
     Field,
     IPvAnyAddress,
@@ -38,6 +39,7 @@ with suppress(ImportError):  # optional dependency for PaymentCardNumber type
     from pydantic_extra_types.payment import PaymentCardNumber as _PaymentCardNumber
 
 PAYMENT_CARD_AVAILABLE = _PaymentCardNumber is not None
+
 
 class Color(enum.Enum):
     RED = "red"
@@ -331,9 +333,11 @@ def test_numpy_array_generation() -> None:
 
     class ArrayModel(BaseModel):
         values: np.ndarray
+        model_config = ConfigDict(arbitrary_types_allowed=True)
 
     class TypedModel(BaseModel):
         values: NDArray[np.int32]
+        model_config = ConfigDict(arbitrary_types_allowed=True)
 
     array_config = ArrayConfig(
         max_ndim=2,

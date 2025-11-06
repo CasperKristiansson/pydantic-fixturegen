@@ -22,11 +22,7 @@ def _model_source(extra_field: str = "") -> str:
     body = "    id: int\n    name: str\n"
     if extra_field:
         body += f"    {extra_field}\n"
-    return (
-        "from pydantic import BaseModel\n\n\n"
-        "class User(BaseModel):\n"
-        f"{body}"
-    )
+    return f"from pydantic import BaseModel\n\n\nclass User(BaseModel):\n{body}"
 
 
 def _read_json(path: Path) -> list[dict[str, object]]:

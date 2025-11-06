@@ -25,6 +25,7 @@ except ImportError:  # pragma: no cover - optional dependency missing during doc
 
 ExtraPaymentCardNumber = ImportedPaymentCardNumber
 
+_np: types.ModuleType | None
 try:  # Optional dependency
     import numpy as _np
 except ModuleNotFoundError:  # pragma: no cover - optional extra not installed
@@ -277,7 +278,17 @@ def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None
         ndarray_type = getattr(_np, "ndarray", None)
         if ndarray_type is not None:
             if origin is ndarray_type:
-                dtype_name = _resolve_numpy_dtype_name(args[0]) if args else None
+                dtype_name = None
+                if args:
+                    for candidate in args:
+                        if (
+                            isinstance(candidate, types.GenericAlias)
+                            and getattr(candidate, "__origin__", None) is tuple
+                        ):
+                            continue
+                        dtype_name = _resolve_numpy_dtype_name(candidate)
+                        if dtype_name is not None:
+                            break
                 return "numpy-array", dtype_name, None
             if isinstance(annotation, type) and issubclass(annotation, ndarray_type):
                 return "numpy-array", None, None
@@ -343,6 +354,11 @@ def _unwrap_annotation(annotation: Any) -> Any:
 
 def _resolve_numpy_dtype_name(arg: Any) -> str | None:
     if _np is None:
+        return None
+    if isinstance(arg, types.GenericAlias):
+        alias_args = getattr(arg, "__args__", ())
+        if alias_args:
+            return _resolve_numpy_dtype_name(alias_args[0])
         return None
     try:
         dtype_obj = _np.dtype(arg)

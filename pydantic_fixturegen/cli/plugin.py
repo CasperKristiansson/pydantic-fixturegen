@@ -222,10 +222,11 @@ def _build_context(
 
 def _pyproject_content(ctx: PluginContext) -> str:
     deps_line = f'  "pydantic-fixturegen>={ctx.tool_version}",'
-    packages = f'src/{ctx.package_path}'
+    packages = f"src/{ctx.package_path}"
     include = f'"src/{ctx.package_path}"'
-    return textwrap.dedent(
-        f"""
+    return (
+        textwrap.dedent(
+            f"""
         [build-system]
         requires = ["hatchling>=1.24"]
         build-backend = "hatchling.build"
@@ -259,13 +260,16 @@ def _pyproject_content(ctx: PluginContext) -> str:
           "README.md",
         ]
         """
-    ).strip() + "\n"
+        ).strip()
+        + "\n"
+    )
 
 
 def _readme_content(ctx: PluginContext) -> str:
     provider_path = f"src/{ctx.package_path}/providers.py"
-    return textwrap.dedent(
-        f"""
+    return (
+        textwrap.dedent(
+            f"""
         # {ctx.display_name} plugin
 
         This project packages custom providers for [pydantic-fixturegen](https://github.com/CasperKristiansson/pydantic-fixturegen).
@@ -285,12 +289,15 @@ def _readme_content(ctx: PluginContext) -> str:
         Update `pyproject.toml` with project URLs and upload the distribution to a
         private index or PyPI.
         """
-    ).strip() + "\n"
+        ).strip()
+        + "\n"
+    )
 
 
 def _plugin_content(ctx: PluginContext) -> str:
-    return textwrap.dedent(
-        f"""
+    return (
+        textwrap.dedent(
+            f"""
         \"\"\"Pluggy entry point for {ctx.display_name}.\"\"\"
 
         from __future__ import annotations
@@ -313,13 +320,16 @@ def _plugin_content(ctx: PluginContext) -> str:
 
         __all__ = ["plugin", "{ctx.class_name}"]
         """
-    ).strip() + "\n"
+        ).strip()
+        + "\n"
+    )
 
 
 def _providers_content(ctx: PluginContext) -> str:
     entry_name = ctx.entrypoint.replace("-", "_").replace(".", "_")
-    return textwrap.dedent(
-        f"""
+    return (
+        textwrap.dedent(
+            f"""
         \"\"\"Sample providers bundled with {ctx.display_name}.\"\"\"
 
         from __future__ import annotations
@@ -347,25 +357,31 @@ def _providers_content(ctx: PluginContext) -> str:
                 metadata={{"description": "Example provider - replace with your own."}},
             )
         """
-    ).strip() + "\n"
+        ).strip()
+        + "\n"
+    )
 
 
 def _package_init_content(ctx: PluginContext) -> str:
-    return textwrap.dedent(
-        f"""
+    return (
+        textwrap.dedent(
+            f"""
         \"\"\"Public exports for {ctx.display_name}.\"\"\"
 
         from .plugin import plugin
 
         __all__ = ["plugin"]
         """
-    ).strip() + "\n"
+        ).strip()
+        + "\n"
+    )
 
 
 def _tests_content(ctx: PluginContext) -> str:
     dotted = ctx.package_dotted
-    return textwrap.dedent(
-        f"""
+    return (
+        textwrap.dedent(
+            f"""
         from __future__ import annotations
 
         from pydantic_fixturegen.core.providers.registry import ProviderRegistry
@@ -380,12 +396,15 @@ def _tests_content(ctx: PluginContext) -> str:
             provider = registry.get("string")
             assert provider is not None
         """
-    ).strip() + "\n"
+        ).strip()
+        + "\n"
+    )
 
 
 def _ci_workflow_content() -> str:
-    return textwrap.dedent(
-        """
+    return (
+        textwrap.dedent(
+            """
         name: CI
 
         on:
@@ -408,7 +427,9 @@ def _ci_workflow_content() -> str:
               - name: Run tests
                 run: pytest
         """
-    ).strip() + "\n"
+        ).strip()
+        + "\n"
+    )
 
 
 @app.command()

@@ -491,9 +491,7 @@ def _normalize_locale_policies(value: Any) -> tuple[FieldPolicy, ...]:
                 f"Locale mapping '{pattern}' references unsupported locale '{locale_value}'."
             ) from exc
 
-        policies.append(
-            FieldPolicy(pattern=pattern, options={"locale": locale_value}, index=index)
-        )
+        policies.append(FieldPolicy(pattern=pattern, options={"locale": locale_value}, index=index))
 
     return tuple(policies)
 
@@ -618,7 +616,7 @@ def _normalize_identifier_config(value: Any) -> IdentifierConfig:
         raise ConfigError("identifiers.secret_bytes_length must be >= 1.")
 
     if isinstance(url_schemes_raw, str):
-        schemes = tuple(s.strip() for s in url_schemes_raw.split(',') if s.strip())
+        schemes = tuple(s.strip() for s in url_schemes_raw.split(",") if s.strip())
     elif isinstance(url_schemes_raw, Sequence):
         scheme_buffer: list[str] = []
         for item in url_schemes_raw:
