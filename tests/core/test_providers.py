@@ -10,7 +10,7 @@ import pytest
 from faker import Faker
 from pydantic import BaseModel, SecretBytes, SecretStr
 from pydantic_fixturegen.core import schema as schema_module
-from pydantic_fixturegen.core.config import IdentifierConfig
+from pydantic_fixturegen.core.config import IdentifierConfig, PathConfig
 from pydantic_fixturegen.core.providers import (
     ProviderRef,
     ProviderRegistry,
@@ -20,6 +20,7 @@ from pydantic_fixturegen.core.providers import strings as strings_module
 from pydantic_fixturegen.core.providers.collections import register_collection_providers
 from pydantic_fixturegen.core.providers.identifiers import register_identifier_providers
 from pydantic_fixturegen.core.providers.numbers import register_numeric_providers
+from pydantic_fixturegen.core.providers.paths import register_path_providers
 from pydantic_fixturegen.core.providers.strings import register_string_providers
 from pydantic_fixturegen.core.providers.temporal import register_temporal_providers
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
@@ -302,6 +303,38 @@ def test_identifier_provider_requires_random_generator() -> None:
             summary=FieldSummary(type="email", constraints=FieldConstraints()),
             faker=Faker(seed=6),
         )
+
+
+def test_path_provider_generates_cross_platform_segments() -> None:
+    registry = ProviderRegistry()
+    register_path_providers(registry)
+
+    provider = registry.get("path")
+    assert provider is not None
+
+    summary = FieldSummary(type="path", constraints=FieldConstraints())
+
+    windows_value = provider.func(
+        summary=summary,
+        random_generator=random.Random(13),
+        path_config=PathConfig(default_os="windows"),
+    )
+    assert isinstance(windows_value, str)
+    assert ":" in windows_value and "\\" in windows_value
+
+    posix_value = provider.func(
+        summary=summary,
+        random_generator=random.Random(13),
+        path_config=PathConfig(default_os="posix"),
+    )
+    assert posix_value.startswith("/")
+
+    mac_value = provider.func(
+        summary=summary,
+        random_generator=random.Random(13),
+        path_config=PathConfig(default_os="mac"),
+    )
+    assert mac_value.startswith("/Users") or mac_value.startswith("/Applications")
 
 
 def test_numeric_provider_respects_bounds() -> None:

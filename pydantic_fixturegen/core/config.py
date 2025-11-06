@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import fnmatch
 import os
 from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -83,6 +84,27 @@ class IdentifierConfig:
 
 
 @dataclass(frozen=True)
+class PathConfig:
+    default_os: str = "posix"
+    model_targets: tuple[tuple[str, str], ...] = ()
+
+    def target_for(self, model: type[Any] | None) -> str:
+        """Return the target OS for the provided model."""
+
+        if model is None or not self.model_targets:
+            return self.default_os
+
+        module = getattr(model, "__module__", "")
+        qualname = getattr(model, "__qualname__", getattr(model, "__name__", ""))
+        full_name = f"{module}.{qualname}" if module else qualname
+
+        for pattern, target in self.model_targets:
+            if fnmatch.fnmatchcase(full_name, pattern):
+                return target
+        return self.default_os
+
+
+@dataclass(frozen=True)
 class AppConfig:
     preset: str | None = None
     seed: int | str | None = None
@@ -98,6 +120,7 @@ class AppConfig:
     locale_policies: tuple[FieldPolicy, ...] = ()
     arrays: ArrayConfig = field(default_factory=ArrayConfig)
     identifiers: IdentifierConfig = field(default_factory=IdentifierConfig)
+    paths: PathConfig = field(default_factory=PathConfig)
     emitters: EmittersConfig = field(default_factory=EmittersConfig)
     json: JsonConfig = field(default_factory=JsonConfig)
 
@@ -171,6 +194,10 @@ def _config_defaults_dict() -> dict[str, Any]:
             "url_schemes": list(DEFAULT_CONFIG.identifiers.url_schemes),
             "url_include_path": DEFAULT_CONFIG.identifiers.url_include_path,
             "uuid_version": DEFAULT_CONFIG.identifiers.uuid_version,
+        },
+        "paths": {
+            "default_os": DEFAULT_CONFIG.paths.default_os,
+            "models": {pattern: target for pattern, target in DEFAULT_CONFIG.paths.model_targets},
         },
     }
 
@@ -308,6 +335,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
     locale_policies_value = _normalize_locale_policies(data.get("locales"))
     arrays_value = _normalize_array_config(data.get("arrays"))
     identifiers_value = _normalize_identifier_config(data.get("identifiers"))
+    paths_value = _normalize_path_config(data.get("paths"))
     now_value = _coerce_datetime(data.get("now"), "now")
 
     seed_value: int | str | None
@@ -331,6 +359,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         locale_policies=locale_policies_value,
         arrays=arrays_value,
         identifiers=identifiers_value,
+        paths=paths_value,
         emitters=emitters_value,
         json=json_value,
     )
@@ -648,6 +677,46 @@ def _normalize_identifier_config(value: Any) -> IdentifierConfig:
         url_include_path=url_include_path,
         uuid_version=uuid_version,
     )
+
+
+def _normalize_path_config(value: Any) -> PathConfig:
+    config = PathConfig()
+    if value is None:
+        return config
+    if not isinstance(value, Mapping):
+        raise ConfigError("paths configuration must be a mapping.")
+
+    default_os_raw = value.get("default_os", config.default_os)
+    default_os = _coerce_path_target(default_os_raw, "paths.default_os")
+
+    models_raw = value.get("models", value.get("model_targets", ()))
+    model_targets: list[tuple[str, str]] = []
+    if models_raw:
+        if isinstance(models_raw, Mapping):
+            for pattern, target in models_raw.items():
+                if not isinstance(pattern, str) or not pattern.strip():
+                    raise ConfigError("paths.models keys must be non-empty strings.")
+                if not isinstance(target, str):
+                    raise ConfigError("paths.models values must be strings.")
+                normalized = _coerce_path_target(target, f"paths.models['{pattern}']")
+                model_targets.append((pattern.strip(), normalized))
+        else:
+            raise ConfigError("paths.models must be a mapping of pattern to target OS.")
+
+    return PathConfig(default_os=default_os, model_targets=tuple(model_targets))
+
+
+def _coerce_path_target(value: Any, field_name: str) -> str:
+    if not isinstance(value, str):
+        raise ConfigError(f"{field_name} must be a string.")
+    normalized = value.strip().lower()
+    if normalized in {"posix", "linux", "unix"}:
+        return "posix"
+    if normalized in {"windows", "win", "win32"}:
+        return "windows"
+    if normalized in {"mac", "macos", "darwin"}:
+        return "mac"
+    raise ConfigError(f"{field_name} must be one of 'posix', 'windows', or 'mac'.")
 
 
 def _coerce_indent(value: Any) -> int:

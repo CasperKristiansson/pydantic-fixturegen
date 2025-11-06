@@ -9,9 +9,9 @@ from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerato
 from pydantic_fixturegen.core.strategies import Strategy
 from pydantic_fixturegen.plugins.hookspecs import EmitterContext, hookimpl
 from pydantic_fixturegen.plugins.loader import get_plugin_manager, register_plugin
-from typer.testing import CliRunner
+from tests._cli import create_cli_runner
 
-runner = CliRunner(mix_stderr=False)
+runner = create_cli_runner()
 
 
 class _StrategyPlugin:

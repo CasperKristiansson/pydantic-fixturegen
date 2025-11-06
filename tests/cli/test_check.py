@@ -7,9 +7,10 @@ from pydantic import BaseModel
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.cli import check as check_mod
 from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult
-from typer.testing import CliRunner
+from tests._cli import create_cli_runner
 
-runner = CliRunner(mix_stderr=False)
+
+runner = create_cli_runner()
 
 
 def _write_module(tmp_path: Path) -> Path:

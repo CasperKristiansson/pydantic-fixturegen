@@ -11,9 +11,9 @@ from pydantic_fixturegen.core.introspect import IntrospectedModel, Introspection
 from pydantic_fixturegen.core.providers import create_default_registry
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
 from pydantic_fixturegen.core.strategies import Strategy, StrategyBuilder, UnionStrategy
-from typer.testing import CliRunner
+from tests._cli import create_cli_runner
 
-runner = CliRunner(mix_stderr=False)
+runner = create_cli_runner()
 
 
 def _make_builder() -> StrategyBuilder:

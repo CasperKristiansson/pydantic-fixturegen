@@ -15,7 +15,7 @@ from typing import Any, Literal, cast
 
 from pydantic import BaseModel
 
-from pydantic_fixturegen.core.config import ArrayConfig, IdentifierConfig
+from pydantic_fixturegen.core.config import ArrayConfig, IdentifierConfig, PathConfig
 from pydantic_fixturegen.core.constraint_report import ConstraintReporter
 from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
@@ -49,6 +49,7 @@ class PytestEmitConfig:
     locale_policies: tuple[FieldPolicy, ...] = ()
     arrays: ArrayConfig = field(default_factory=ArrayConfig)
     identifiers: IdentifierConfig = field(default_factory=IdentifierConfig)
+    paths: PathConfig = field(default_factory=PathConfig)
 
 
 def emit_pytest_fixtures(
@@ -83,6 +84,7 @@ def emit_pytest_fixtures(
             locale_policies=cfg.locale_policies,
             arrays=cfg.arrays,
             identifiers=cfg.identifiers,
+            paths=cfg.paths,
         )
         if cfg.optional_p_none is not None:
             generation_config.optional_p_none = cfg.optional_p_none

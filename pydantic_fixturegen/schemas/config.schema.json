@@ -173,6 +173,33 @@
       "title": "JsonSchema",
       "type": "object"
     },
+    "PathSettingsSchema": {
+      "additionalProperties": false,
+      "description": "Schema describing filesystem path provider settings.",
+      "properties": {
+        "default_os": {
+          "default": "posix",
+          "description": "Default OS target for generated filesystem paths.",
+          "enum": [
+            "posix",
+            "windows",
+            "mac"
+          ],
+          "title": "Default Os",
+          "type": "string"
+        },
+        "models": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Mapping of glob patterns to OS targets overriding the default (values: 'posix', 'windows', 'mac').",
+          "title": "Models",
+          "type": "object"
+        }
+      },
+      "title": "PathSettingsSchema",
+      "type": "object"
+    },
     "PytestEmitterSchema": {
       "additionalProperties": false,
       "description": "Schema for pytest emitter settings.",
@@ -296,6 +323,10 @@
       "default": null,
       "description": "Probability of sampling `None` for optional fields when unspecified.",
       "title": "P None"
+    },
+    "paths": {
+      "$ref": "#/$defs/PathSettingsSchema",
+      "description": "Configuration for filesystem path providers."
     },
     "preset": {
       "anyOf": [

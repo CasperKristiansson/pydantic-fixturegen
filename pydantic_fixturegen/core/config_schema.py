@@ -199,6 +199,10 @@ class ConfigSchemaModel(BaseModel):
             "Configuration for identifier providers (secret lengths, URL schemes, UUID version)."
         ),
     )
+    paths: PathSettingsSchema = Field(
+        default_factory=lambda: PathSettingsSchema(),
+        description="Configuration for filesystem path providers.",
+    )
 
 
 class IdentifierSettingsSchema(BaseModel):
@@ -230,6 +234,27 @@ class IdentifierSettingsSchema(BaseModel):
         description="UUID version to use (1 or 4).",
         ge=1,
         le=4,
+    )
+
+
+class PathSettingsSchema(BaseModel):
+    """Schema describing filesystem path provider settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    default_os: str = Field(
+        default=DEFAULT_CONFIG.paths.default_os,
+        description="Default OS target for generated filesystem paths.",
+        enum=["posix", "windows", "mac"],
+    )
+    models: dict[str, str] = Field(
+        default_factory=lambda: {
+            pattern: target for pattern, target in DEFAULT_CONFIG.paths.model_targets
+        },
+        description=(
+            "Mapping of glob patterns to OS targets overriding the default (values: 'posix',"
+            " 'windows', 'mac')."
+        ),
     )
 
 

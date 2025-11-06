@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 
 from pydantic_fixturegen.cli import app as cli_app
-from typer.testing import CliRunner
+from tests._cli import create_cli_runner
 
-runner = CliRunner(mix_stderr=False)
+runner = create_cli_runner()
 
 
 def _write_single_model(path: Path, field: str = "value: int") -> None:

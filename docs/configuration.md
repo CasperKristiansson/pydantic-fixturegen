@@ -79,6 +79,7 @@ scope = "module"
 | `locales`      | `dict[str, str]`             | `{}`    | Pattern-based Faker locale overrides for models or fields.                  |
 | `emitters`     | object                       | see below | Configure emitters such as pytest fixtures.                              |
 | `json`         | object                       | see below | Configure JSON emitters (shared by JSON/JSONL).                           |
+| `paths`        | object                       | see below | Configure filesystem path providers (OS-specific generation). |
 
 ### JSON settings
 
@@ -125,6 +126,25 @@ Identifier settings apply to `EmailStr`, `HttpUrl`/`AnyUrl`, secret strings/byte
 
 > **Note:** Payment card fields use the optional `payment` extra backed by `pydantic-extra-types`. Install it with `pip install "pydantic-fixturegen[payment]"` to enable typed `PaymentCardNumber` support.
 
+### Path settings
+
+| Key          | Type                   | Default    | Description |
+| ------------ | ---------------------- | ---------- | ----------- |
+| `default_os` | `"posix" \| "windows" \| "mac"` | `"posix"` | Baseline OS flavour applied to generated filesystem paths. |
+| `models`     | `dict[str, "posix" \| "windows" \| "mac"]` | `{}` | Override the target OS for matching model names (glob patterns). |
+
+Path settings cover `pathlib.Path`, `pydantic.DirectoryPath`, and `pydantic.FilePath` fields so fixtures can mimic Windows drive letters, macOS bundles, or POSIX roots regardless of the host platform.
+
+Example TOML:
+
+```toml
+[tool.pydantic_fixturegen.paths]
+default_os = "windows"
+models = {"app.models.Reporting.*" = "mac", "legacy.schemas.*" = "posix"}
+```
+
+The same structure works via YAML or environment variables (`PFG_PATHS__MODELS__legacy.schemas.*=posix`), letting you target specific models without changing the global default.
+
 ### Field policy schemas
 
 `field_policies` accepts nested options that map patterns to policy tweaks.
@@ -170,6 +190,8 @@ Add a `locales` mapping when you need region-specific Faker providers:
 | URL schemes         | `PFG_IDENTIFIERS__URL_SCHEMES`     | `export PFG_IDENTIFIERS__URL_SCHEMES=https,ftp` |
 | URL include path    | `PFG_IDENTIFIERS__URL_INCLUDE_PATH` | `export PFG_IDENTIFIERS__URL_INCLUDE_PATH=false` |
 | UUID version        | `PFG_IDENTIFIERS__UUID_VERSION`    | `export PFG_IDENTIFIERS__UUID_VERSION=1` |
+| Path target        | `PFG_PATHS__DEFAULT_OS`             | `export PFG_PATHS__DEFAULT_OS=windows`           |
+| Model path target  | `PFG_PATHS__MODELS__app.models.User` | `export PFG_PATHS__MODELS__app.models.User=mac` |
 
 Environment values treat `true/false/1/0` as booleans, respect floats for `p_none`, and parse nested segments via double underscores.
 

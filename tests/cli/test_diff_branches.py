@@ -8,13 +8,14 @@ import pydantic_fixturegen.cli as cli_package
 import pydantic_fixturegen.cli.diff as diff_module
 import pytest
 from pydantic import BaseModel
-from pydantic_fixturegen.core.config import ArrayConfig, IdentifierConfig
-from typer.testing import CliRunner
+from pydantic_fixturegen.core.config import ArrayConfig, IdentifierConfig, PathConfig
+from tests._cli import create_cli_runner
 
-runner = CliRunner(mix_stderr=False)
+runner = create_cli_runner()
 
 DEFAULT_ARRAY_CONFIG = ArrayConfig()
 DEFAULT_IDENTIFIER_CONFIG = IdentifierConfig()
+DEFAULT_PATH_CONFIG = PathConfig()
 
 
 def _write_simple_module(path: Path) -> None:
@@ -245,6 +246,7 @@ def test_diff_json_requires_models() -> None:
             app_config_now=None,
             app_config_arrays=DEFAULT_ARRAY_CONFIG,
             app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
+            app_config_paths=DEFAULT_PATH_CONFIG,
             options=_json_options(Path("unused.json")),
         )
 
@@ -262,6 +264,7 @@ def test_diff_json_rejects_multiple_models(tmp_path: Path) -> None:
             app_config_now=None,
             app_config_arrays=DEFAULT_ARRAY_CONFIG,
             app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
+            app_config_paths=DEFAULT_PATH_CONFIG,
             options=_json_options(tmp_path / "artifact.json"),
         )
 
@@ -290,6 +293,7 @@ def test_diff_json_requires_output(tmp_path: Path) -> None:
             app_config_now=None,
             app_config_arrays=DEFAULT_ARRAY_CONFIG,
             app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
+            app_config_paths=DEFAULT_PATH_CONFIG,
             options=options,
         )
 
@@ -321,6 +325,7 @@ def test_diff_json_handles_mapping_failure(tmp_path: Path, monkeypatch: pytest.M
             app_config_now=None,
             app_config_arrays=DEFAULT_ARRAY_CONFIG,
             app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
+            app_config_paths=DEFAULT_PATH_CONFIG,
             options=_json_options(output_path),
         )
 
@@ -356,7 +361,8 @@ def test_diff_json_detects_directory_targets(
         app_config_now=None,
         app_config_arrays=DEFAULT_ARRAY_CONFIG,
         app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
-        options=_json_options(output_path),
+        app_config_paths=DEFAULT_PATH_CONFIG,
+            options=_json_options(output_path),
     )
 
     assert "JSON artifact path is a directory" in report.messages[0]
@@ -396,7 +402,8 @@ def test_diff_json_ignores_extra_directories(
         app_config_now=None,
         app_config_arrays=DEFAULT_ARRAY_CONFIG,
         app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
-        options=_json_options(output_path),
+        app_config_paths=DEFAULT_PATH_CONFIG,
+            options=_json_options(output_path),
     )
 
     assert report.messages == []
@@ -419,6 +426,7 @@ def test_diff_fixtures_require_output() -> None:
             app_config_locale_policies=(),
             app_config_arrays=DEFAULT_ARRAY_CONFIG,
             app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
+            app_config_paths=DEFAULT_PATH_CONFIG,
         )
 
 
@@ -450,6 +458,7 @@ def test_diff_fixtures_emit_artifact_success(
         app_config_locale_policies=(),
         app_config_arrays=DEFAULT_ARRAY_CONFIG,
         app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
+        app_config_paths=DEFAULT_PATH_CONFIG,
     )
 
     assert report.summary == "Fixtures artifact matches."
@@ -477,6 +486,7 @@ def test_diff_fixtures_emit_artifact_without_file(
             app_config_locale_policies=(),
             app_config_arrays=DEFAULT_ARRAY_CONFIG,
             app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
+            app_config_paths=DEFAULT_PATH_CONFIG,
         )
 
 
@@ -498,6 +508,7 @@ def test_diff_fixtures_detect_directory_target(tmp_path: Path) -> None:
         app_config_locale_policies=(),
         app_config_arrays=DEFAULT_ARRAY_CONFIG,
         app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
+        app_config_paths=DEFAULT_PATH_CONFIG,
     )
 
     assert "Fixtures path is a directory" in report.messages[0]

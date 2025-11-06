@@ -5,9 +5,9 @@ import textwrap
 from pathlib import Path
 
 from pydantic_fixturegen.cli.list import app as list_app
-from typer.testing import CliRunner
+from tests._cli import create_cli_runner
 
-runner = CliRunner(mix_stderr=False)
+runner = create_cli_runner()
 
 
 def _write_source(tmp_path: Path, name: str, content: str) -> Path:

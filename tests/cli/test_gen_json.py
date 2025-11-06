@@ -13,9 +13,9 @@ from pydantic_fixturegen.cli.gen import json as json_mod
 from pydantic_fixturegen.core.config import ConfigError
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError
 from pydantic_fixturegen.core.path_template import OutputTemplate
-from typer.testing import CliRunner
+from tests._cli import create_cli_runner
 
-runner = CliRunner(mix_stderr=False)
+runner = create_cli_runner()
 
 
 def _write_module(tmp_path: Path, name: str = "models") -> Path:

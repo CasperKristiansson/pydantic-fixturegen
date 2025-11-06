@@ -16,6 +16,7 @@ __all__ = [
     "OutputTemplate",
     "OutputTemplateContext",
     "OutputTemplateError",
+    "sanitize_path_segment",
 ]
 
 
@@ -94,6 +95,12 @@ class _TemplateCaseIndex(int):
 def _sanitize_segment(value: str) -> str:
     sanitized = _SANITIZE_PATTERN.sub("_", value.strip())
     return sanitized.strip("._-")
+
+
+def sanitize_path_segment(value: str) -> str:
+    """Public helper that mirrors the sanitisation used by output templates."""
+
+    return _sanitize_segment(value)
 
 
 def _collect_fields(template: str) -> set[str]:

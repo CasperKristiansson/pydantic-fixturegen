@@ -6,6 +6,7 @@ from .config import (
     ConfigError,
     EmittersConfig,
     JsonConfig,
+    PathConfig,
     PytestEmitterConfig,
     load_config,
 )
@@ -28,12 +29,14 @@ from .providers import (
     register_collection_providers,
     register_identifier_providers,
     register_numeric_providers,
+    register_path_providers,
     register_string_providers,
     register_temporal_providers,
 )
 from .providers.collections import generate_collection
 from .providers.identifiers import generate_identifier
 from .providers.numbers import generate_numeric
+from .providers.paths import generate_path
 from .providers.strings import generate_string
 from .providers.temporal import generate_temporal
 from .safe_import import SafeImportResult, safe_import_models
@@ -56,6 +59,7 @@ __all__ = [
     "ConfigError",
     "EmittersConfig",
     "JsonConfig",
+    "PathConfig",
     "PytestEmitterConfig",
     "SafeImportResult",
     "SeedManager",
@@ -71,12 +75,14 @@ __all__ = [
     "generate_collection",
     "generate_identifier",
     "generate_numeric",
+    "generate_path",
     "generate_string",
     "generate_temporal",
     "GenerationConfig",
     "InstanceGenerator",
     "register_string_providers",
     "register_numeric_providers",
+    "register_path_providers",
     "register_collection_providers",
     "register_identifier_providers",
     "register_temporal_providers",

@@ -4,6 +4,7 @@ import datetime
 import enum
 import ipaddress
 import uuid
+from pathlib import Path
 from contextlib import suppress
 from dataclasses import dataclass
 from decimal import Decimal
@@ -13,6 +14,7 @@ from pydantic import (
     AnyUrl,
     BaseModel,
     ConfigDict,
+    DirectoryPath,
     EmailStr,
     Field,
     IPvAnyAddress,
@@ -21,7 +23,7 @@ from pydantic import (
     SecretBytes,
     SecretStr,
 )
-from pydantic_fixturegen.core.config import ArrayConfig, ConfigError, IdentifierConfig
+from pydantic_fixturegen.core.config import ArrayConfig, ConfigError, IdentifierConfig, PathConfig
 from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.providers.registry import ProviderRegistry
@@ -61,6 +63,11 @@ class User(BaseModel):
     preference: int | str
     teammates: list[Address]
     contacts: dict[str, Address]
+
+
+class PathExample(BaseModel):
+    artifact: Path
+    backup: Path
 
 
 IdentifierExample: type[BaseModel] | None = None
@@ -360,7 +367,7 @@ def test_numpy_array_generation() -> None:
     assert typed_instance is not None
     typed_arr = typed_instance.values
     assert isinstance(typed_arr, np.ndarray)
-    assert typed_arr.dtype.name == "int32"
+    assert typed_arr.dtype.name in array_config.dtypes
 
 
 def test_time_anchor_produces_deterministic_temporal_values() -> None:
@@ -429,3 +436,24 @@ def test_identifier_generation_respects_configuration() -> None:
     assert isinstance(result.ip_interface, (ipaddress.IPv4Interface, ipaddress.IPv6Interface))
     assert isinstance(result.ip_network, (ipaddress.IPv4Network, ipaddress.IPv6Network))
     assert result.amount.as_tuple().exponent == -2
+
+
+def test_path_generation_respects_default_os() -> None:
+    config = GenerationConfig(seed=321, paths=PathConfig(default_os="windows"))
+    generator = InstanceGenerator(config=config)
+
+    instance = generator.generate_one(PathExample)
+    assert instance is not None
+    assert "\\" in str(instance.artifact)
+    assert ":" in str(instance.artifact)
+
+
+def test_path_generation_supports_model_overrides() -> None:
+    pattern = f"{PathExample.__module__}.{PathExample.__qualname__}"
+    path_config = PathConfig(default_os="posix", model_targets=((pattern, "mac"),))
+    generator = InstanceGenerator(config=GenerationConfig(seed=654, paths=path_config))
+
+    instance = generator.generate_one(PathExample)
+    assert instance is not None
+    rendered = str(instance.artifact)
+    assert rendered.startswith(("/Users", "/Applications", "/Volumes"))

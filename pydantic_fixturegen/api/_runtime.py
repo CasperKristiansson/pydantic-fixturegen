@@ -131,6 +131,7 @@ def _build_instance_generator(
         locale_policies=app_config.locale_policies,
         arrays=app_config.arrays,
         identifiers=app_config.identifiers,
+        paths=app_config.paths,
     )
     return InstanceGenerator(config=gen_config)
 
@@ -496,6 +497,7 @@ def generate_fixtures_artifacts(
         locale_policies=app_config.locale_policies,
         arrays=app_config.arrays,
         identifiers=app_config.identifiers,
+        paths=app_config.paths,
     )
 
     timestamp = _dt.datetime.now(_dt.timezone.utc)

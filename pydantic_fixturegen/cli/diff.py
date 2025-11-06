@@ -13,7 +13,7 @@ from typing import Any, cast
 import typer
 from pydantic import BaseModel
 
-from pydantic_fixturegen.core.config import ArrayConfig, IdentifierConfig, load_config
+from pydantic_fixturegen.core.config import ArrayConfig, IdentifierConfig, PathConfig, load_config
 from pydantic_fixturegen.core.errors import (
     DiffError,
     DiscoveryError,
@@ -512,6 +512,7 @@ def _execute_diff(
                 app_config_now=app_config.now,
                 app_config_arrays=app_config.arrays,
                 app_config_identifiers=app_config.identifiers,
+                app_config_paths=app_config.paths,
                 options=json_options,
             )
         )
@@ -532,6 +533,7 @@ def _execute_diff(
                 app_config_locale_policies=app_config.locale_policies,
                 app_config_arrays=app_config.arrays,
                 app_config_identifiers=app_config.identifiers,
+                app_config_paths=app_config.paths,
             )
         )
 
@@ -569,6 +571,7 @@ def _diff_json_artifact(
     app_config_now: datetime.datetime | None,
     app_config_arrays: ArrayConfig,
     app_config_identifiers: IdentifierConfig,
+    app_config_paths: PathConfig,
     options: JsonDiffOptions,
 ) -> DiffReport:
     if not model_classes:
@@ -599,6 +602,7 @@ def _diff_json_artifact(
             time_anchor=app_config_now,
             array_config=app_config_arrays,
             identifier_config=app_config_identifiers,
+            path_config=app_config_paths,
         )
 
         def sample_factory() -> BaseModel:
@@ -707,6 +711,7 @@ def _diff_fixtures_artifact(
     app_config_locale_policies: tuple[FieldPolicy, ...],
     app_config_arrays: ArrayConfig,
     app_config_identifiers: IdentifierConfig,
+    app_config_paths: PathConfig,
 ) -> DiffReport:
     if options.out is None:
         raise DiscoveryError("Fixtures diff requires --fixtures-out.")
@@ -748,6 +753,7 @@ def _diff_fixtures_artifact(
             locale_policies=app_config_locale_policies,
             arrays=app_config_arrays,
             identifiers=app_config_identifiers,
+            paths=app_config_paths,
         )
 
         context = EmitterContext(
@@ -924,6 +930,7 @@ def _build_instance_generator(
     time_anchor: datetime.datetime | None,
     array_config: ArrayConfig,
     identifier_config: IdentifierConfig,
+    path_config: PathConfig,
 ) -> InstanceGenerator:
     normalized_seed: int | None = None
     if seed_value is not None:
@@ -940,6 +947,7 @@ def _build_instance_generator(
         time_anchor=time_anchor,
         arrays=array_config,
         identifiers=identifier_config,
+        paths=path_config,
     )
     return InstanceGenerator(config=gen_config)
 

@@ -11,6 +11,7 @@ from pydantic_fixturegen.core.config import (
     AppConfig,
     ConfigError,
     JsonConfig,
+    PathConfig,
     PytestEmitterConfig,
     load_config,
 )
@@ -30,6 +31,7 @@ def test_default_configuration(tmp_path: Path) -> None:
     assert config.field_policies == ()
     assert config.locale_policies == ()
     assert config.now is None
+    assert config.paths == PathConfig()
 
 
 def test_load_from_pyproject(tmp_path: Path) -> None:
@@ -55,6 +57,10 @@ def test_load_from_pyproject(tmp_path: Path) -> None:
 
         [tool.pydantic_fixturegen.overrides."app.models.User".email]
         provider = "email"
+
+        [tool.pydantic_fixturegen.paths]
+        default_os = "windows"
+        models = {"app.models.*" = "mac"}
         """,
         encoding="utf-8",
     )
@@ -75,6 +81,8 @@ def test_load_from_pyproject(tmp_path: Path) -> None:
     assert config.overrides["app.models.User"]["email"]["provider"] == "email"
     assert config.field_policies == ()
     assert config.locale_policies == ()
+    assert config.paths.default_os == "windows"
+    assert config.paths.model_targets == (("app.models.*", "mac"),)
 
 
 @pytest.mark.skipif(not HAS_YAML, reason="PyYAML not installed")
@@ -163,6 +171,16 @@ def test_invalid_union_policy_raises(tmp_path: Path) -> None:
 def test_invalid_p_none_raises(tmp_path: Path) -> None:
     with pytest.raises(ConfigError):
         load_config(root=tmp_path, cli={"p_none": 2})
+
+
+def test_invalid_path_target_raises(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"paths": {"default_os": "solaris"}})
+
+
+def test_invalid_path_models_mapping(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"paths": {"models": {"app.*": 123}}})
 
 
 def test_yaml_requires_dependency(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

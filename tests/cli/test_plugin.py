@@ -3,13 +3,19 @@ from __future__ import annotations
 from pathlib import Path
 
 from pydantic_fixturegen.cli.plugin import app as plugin_app
-from typer.testing import CliRunner
+from tests._cli import create_cli_runner
 
-runner = CliRunner(mix_stderr=False)
+runner = create_cli_runner()
 
 
 def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def _normalize_cli(text: str) -> str:
+    """Collapse whitespace and box characters emitted by Typer/Rich."""
+
+    return " ".join(text.replace("│", " ").split())
 
 
 def test_plugin_scaffold_creates_expected_layout(tmp_path: Path) -> None:
@@ -79,4 +85,4 @@ def test_existing_directory_without_force_errors(tmp_path: Path) -> None:
     result = runner.invoke(plugin_app, ["--directory", str(target), "demo"])
 
     assert result.exit_code != 0
-    assert "--force to overwrite" in result.stderr
+    assert "--force to overwrite" in _normalize_cli(result.stderr)

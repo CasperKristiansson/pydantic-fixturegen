@@ -6,9 +6,9 @@ import pytest
 import typer
 from pydantic_fixturegen.cli import init as init_mod
 from pydantic_fixturegen.cli.init import app as init_app
-from typer.testing import CliRunner
+from tests._cli import create_cli_runner
 
-runner = CliRunner(mix_stderr=False)
+runner = create_cli_runner()
 
 
 def _read(path: Path) -> str:

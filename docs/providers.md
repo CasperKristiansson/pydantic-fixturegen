@@ -78,4 +78,11 @@ Tweak behaviour through the `[tool.pydantic_fixturegen.identifiers]` section doc
 
 > **Extras**: `EmailStr` support requires the optional `email` extra, while `PaymentCardNumber` relies on the `payment` extra that pulls in `pydantic-extra-types`.
 
+## Built-in path providers
+
+- `pathlib.Path`, `pydantic.DirectoryPath`, and `pydantic.FilePath` fields now receive seeded paths that mimic Windows, macOS, or generic POSIX conventions.
+- Paths are sanitised with the same helpers used for templated outputs, so generated segments stay within `[A-Za-z0-9._-]` even when lengths are constrained.
+- Configure targets through `[tool.pydantic_fixturegen.paths]` or the `PFG_PATHS__*` environment overrides documented in [configuration](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md#path-settings). Per-model glob patterns let you point specific models at different OS flavours without impacting the rest of the run.
+- Providers accept explicit Faker/random generators from strategies, so `pfg diff`, emitters, and the Python API all honour the same deterministic paths.
+
 Continue with [emitters](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/emitters.md) to control artifact output once providers deliver their data.

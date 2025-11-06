@@ -7,6 +7,7 @@ import datetime
 import decimal
 import enum
 import types
+import pathlib
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -316,6 +317,9 @@ def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None
             return "ip-network", None, None
         if ExtraPaymentCardNumber is not None and issubclass(annotation, ExtraPaymentCardNumber):
             return "payment-card", None, None
+        path_match = _match_path_annotation(annotation)
+        if path_match is not None:
+            return path_match
         if issubclass(annotation, SecretStr):
             return "secret-str", None, None
         if issubclass(annotation, SecretBytes):
@@ -350,6 +354,24 @@ def _unwrap_annotation(annotation: Any) -> Any:
     if origin is Annotated:
         return _unwrap_annotation(get_args(annotation)[0])
     return annotation
+
+
+def _match_path_annotation(annotation: type[Any]) -> tuple[str, str | None, Any | None] | None:
+    directory_path_type = getattr(pydantic, "DirectoryPath", None)
+    file_path_type = getattr(pydantic, "FilePath", None)
+    for path_type, path_kind in ((file_path_type, "file"), (directory_path_type, "directory")):
+        if path_type is None:
+            continue
+        path_cls = _unwrap_annotation(path_type)
+        if isinstance(path_cls, type) and issubclass(annotation, path_cls):
+            return "path", path_kind, None
+
+    for attr in ("PurePath", "Path"):
+        pathlib_type = getattr(pathlib, attr, None)
+        if pathlib_type is not None and issubclass(annotation, pathlib_type):
+            return "path", None, None
+
+    return None
 
 
 def _resolve_numpy_dtype_name(arg: Any) -> str | None:

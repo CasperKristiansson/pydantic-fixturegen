@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 
 from pydantic_fixturegen.cli import app as cli_app
-from typer.testing import CliRunner
+from tests._cli import create_cli_runner
 
-runner = CliRunner(mix_stderr=False)
+runner = create_cli_runner()
 
 
 def test_list_invalid_path_json_error(tmp_path: Path) -> None:
