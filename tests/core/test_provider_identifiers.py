@@ -116,7 +116,7 @@ def test_generate_identifier_masks_email_when_requested() -> None:
         random_generator=rng,
         identifier_config=config,
     )
-    assert email.endswith("@example.invalid")
+    assert email.endswith("@example.com")
     assert email.startswith("user-")
 
 

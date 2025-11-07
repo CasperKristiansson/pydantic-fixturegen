@@ -204,7 +204,7 @@ Add a `locales` mapping when you need region-specific Faker providers:
 
 Profiles bundle deterministic overrides focused on sensitive identifiers. Set `profile = "pii-safe"` under `[tool.pydantic_fixturegen]`, export `PFG_PROFILE`, or pass `--profile` to any generation/diff command.
 
-- `pii-safe` — masks identifier providers (example.invalid emails/URLs, reserved IPs, test card numbers) and increases `p_none` for optional fields named `*.email`, `*.phone*`, `*.ssn`, `*.tax_id`, etc. Ideal when you need builds that are obviously synthetic.
+- `pii-safe` — masks identifier providers (example.com emails, example.invalid URLs, reserved IPs, test card numbers) and increases `p_none` for optional fields named `*.email`, `*.phone*`, `*.ssn`, `*.tax_id`, etc. Ideal when you need builds that are obviously synthetic.
 - `realistic` — disables masking, restores URL path emission, and dials probabilities toward filled-in contact fields for staging datasets.
 
 Profiles are applied before the rest of your configuration just like presets, so you can layer additional overrides on top.

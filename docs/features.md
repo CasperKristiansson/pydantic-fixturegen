@@ -38,7 +38,7 @@
 ## Privacy profiles
 
 - Built-in `pii-safe` and `realistic` bundles exposed via `--profile` or `[tool.pydantic_fixturegen].profile`.
-- `pii-safe` masks identifiers with `example.invalid` domains, reserved IP ranges, and deterministic test card numbers while nudging optional PII fields toward `None`.
+- `pii-safe` masks identifiers with `example.com` emails, `example.invalid` URLs, reserved IP ranges, and deterministic test card numbers while nudging optional PII fields toward `None`.
 - `realistic` restores richer Faker/identifier output and keeps optional contact fields populated for staging data.
 - Profiles compose with presets and explicit overrides, so you can layer additional field policies or configuration on top.
 

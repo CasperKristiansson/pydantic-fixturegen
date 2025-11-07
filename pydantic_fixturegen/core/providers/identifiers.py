@@ -24,7 +24,7 @@ _CARD_PREFIXES = (
     ("37", 15),
     ("6011", 16),
 )
-_MASK_EMAIL_DOMAIN = "example.invalid"
+_MASK_EMAIL_DOMAIN = "example.com"
 _MASK_URL_HOST = "example.invalid"
 _MASK_PAYMENT_CARD = "4000000000000002"
 _MASK_SECRET_VALUE = "REDACTED"
