@@ -15,6 +15,7 @@
 - Deterministic seeds cascade across Python `random`, Faker, and optional NumPy.
 - NumPy array provider with configurable dtype/shape caps (enable the `numpy` extra).
 - Numeric distribution controls (uniform, normal, spike) for ints/floats/decimals via the `[numbers]` configuration block or `PFG_NUMBERS__*` env vars.
+- Relation-aware generation: declarative `relations` config / `--link` CLI flags reuse pools of generated models so foreign keys and shared references stay in sync, and JSON bundles can include related models via `--with-related`.
 - Optional validator retries (`respect_validators` / `validator_max_retries`) that keep re-generation deterministic while surfacing structured diagnostics when model validators never converge.
 - Field policies for enums, unions, and optional probabilities (`p_none`).
 - Configuration precedence: CLI → environment (`PFG_*`) → pyproject/YAML → defaults.

@@ -31,6 +31,7 @@ __all__ = [
     "render_cli_error",
     "split_patterns",
     "emit_constraint_summary",
+    "parse_relation_links",
 ]
 
 
@@ -60,6 +61,29 @@ def split_patterns(raw: str | None) -> list[str]:
     if not raw:
         return []
     return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+def parse_relation_links(values: Sequence[str] | None) -> dict[str, str]:
+    mapping: dict[str, str] = {}
+    if not values:
+        return mapping
+    for raw_value in values:
+        if not raw_value:
+            continue
+        for entry in split_patterns(raw_value):
+            if "=" not in entry:
+                raise typer.BadParameter(
+                    "Relation links must be formatted as 'source_model.field=target_model.field'."
+                )
+            source, target = entry.split("=", 1)
+            source_key = source.strip()
+            target_key = target.strip()
+            if not source_key or not target_key:
+                raise typer.BadParameter(
+                    "Relation links must include both source and target fields."
+                )
+            mapping[source_key] = target_key
+    return mapping
 
 
 def _package_hierarchy(module_path: Path) -> list[Path]:

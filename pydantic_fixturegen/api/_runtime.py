@@ -106,10 +106,23 @@ def _collect_warnings(messages: Iterable[str]) -> tuple[str, ...]:
     return tuple(message.strip() for message in messages if message.strip())
 
 
+def _build_relation_model_map(
+    model_classes: Sequence[type[BaseModel]],
+) -> dict[str, type[BaseModel]]:
+    mapping: dict[str, type[BaseModel]] = {}
+    for cls in model_classes:
+        full = InstanceGenerator._describe_model(cls)
+        mapping[full] = cls
+        mapping.setdefault(cls.__qualname__, cls)
+        mapping.setdefault(cls.__name__, cls)
+    return mapping
+
+
 def _build_instance_generator(
     app_config: AppConfig,
     *,
     seed_override: int | None = None,
+    relation_models: Mapping[str, type[BaseModel]] | None = None,
 ) -> InstanceGenerator:
     if seed_override is not None:
         seed_value: int | None = seed_override
@@ -135,6 +148,8 @@ def _build_instance_generator(
         paths=app_config.paths,
         respect_validators=app_config.respect_validators,
         validator_max_retries=app_config.validator_max_retries,
+        relations=app_config.relations,
+        relation_models=relation_models or {},
     )
     return InstanceGenerator(config=gen_config)
 
@@ -158,6 +173,8 @@ def generate_json_artifacts(
     profile: str | None = None,
     respect_validators: bool | None = None,
     validator_max_retries: int | None = None,
+    relations: Mapping[str, str] | None = None,
+    with_related: Sequence[str] | None = None,
     logger: Logger | None = None,
 ) -> JsonGenerationResult:
     logger = logger or get_logger()
@@ -211,6 +228,8 @@ def generate_json_artifacts(
         cli_overrides["include"] = list(clear_include)
     if clear_exclude:
         cli_overrides["exclude"] = list(clear_exclude)
+    if relations:
+        cli_overrides["relations"] = dict(relations)
 
     app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
     config_snapshot = _snapshot_config(app_config)
@@ -229,19 +248,47 @@ def generate_json_artifacts(
     if not discovery.models:
         raise DiscoveryError("No models discovered.")
 
-    if len(discovery.models) > 1:
-        names = ", ".join(model.qualname for model in discovery.models)
+    related_infos: list[cli_common.IntrospectedModel] = []
+    related_set: set[str] = set()
+    if with_related:
+        for identifier in with_related:
+            match = next(
+                (
+                    model
+                    for model in discovery.models
+                    if model.qualname == identifier or model.name == identifier
+                ),
+                None,
+            )
+            if match is None:
+                raise DiscoveryError(f"Related model '{identifier}' not found.")
+            if match.qualname in related_set:
+                continue
+            related_infos.append(match)
+            related_set.add(match.qualname)
+
+    remaining_models = [model for model in discovery.models if model.qualname not in related_set]
+
+    if not remaining_models:
+        raise DiscoveryError("No primary model discovered.")
+    if len(remaining_models) > 1:
+        names = ", ".join(model.qualname for model in remaining_models)
         raise DiscoveryError(
             f"Multiple models discovered ({names}). Use include/exclude to narrow selection.",
             details={"models": names},
         )
 
-    target_model = discovery.models[0]
+    target_model = remaining_models[0]
 
     try:
-        model_cls = cli_common.load_model_class(target_model)
+        model_class_lookup = {
+            model.qualname: cli_common.load_model_class(model) for model in discovery.models
+        }
     except RuntimeError as exc:  # pragma: no cover - defensive
         raise DiscoveryError(str(exc)) from exc
+
+    model_cls = model_class_lookup[target_model.qualname]
+    related_model_classes = [model_class_lookup[info.qualname] for info in related_infos]
 
     model_id = model_identifier(model_cls)
     model_digest = compute_model_digest(model_cls)
@@ -264,9 +311,27 @@ def generate_json_artifacts(
     else:
         selected_seed = None
 
-    generator = _build_instance_generator(app_config, seed_override=selected_seed)
+    relation_model_map = _build_relation_model_map(list(model_class_lookup.values()))
 
-    def sample_factory() -> BaseModel:
+    generator = _build_instance_generator(
+        app_config,
+        seed_override=selected_seed,
+        relation_models=relation_model_map,
+    )
+
+    related_class_tuple = tuple(related_model_classes)
+
+    def sample_factory() -> BaseModel | dict[str, Any]:
+        related_instances: list[tuple[type[BaseModel], BaseModel]] = []
+        for related_cls in related_class_tuple:
+            related_instance = generator.generate_one(related_cls)
+            if related_instance is None:
+                raise MappingError(
+                    f"Failed to generate instance for {related_cls.__qualname__}.",
+                    details={"model": related_cls.__qualname__},
+                )
+            related_instances.append((related_cls, related_instance))
+
         instance = generator.generate_one(model_cls)
         if instance is None:
             details: dict[str, Any] = {"model": target_model.qualname}
@@ -280,6 +345,11 @@ def generate_json_artifacts(
                 f"Failed to generate instance for {target_model.qualname}.",
                 details=details,
             )
+        if related_instances:
+            bundle: dict[str, Any] = {model_cls.__name__: instance.model_dump()}
+            for related_cls, related_instance in related_instances:
+                bundle[related_cls.__name__] = related_instance.model_dump()
+            return bundle
         return instance
 
     indent_value = indent if indent is not None else app_config.json.indent
@@ -390,6 +460,8 @@ def generate_fixtures_artifacts(
     profile: str | None = None,
     respect_validators: bool | None = None,
     validator_max_retries: int | None = None,
+    relations: Mapping[str, str] | None = None,
+    with_related: Sequence[str] | None = None,
     logger: Logger | None = None,
 ) -> FixturesGenerationResult:
     logger = logger or get_logger()
@@ -445,6 +517,8 @@ def generate_fixtures_artifacts(
         cli_overrides["include"] = list(clear_include)
     if clear_exclude:
         cli_overrides["exclude"] = list(clear_exclude)
+    if relations:
+        cli_overrides["relations"] = dict(relations)
 
     app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
     config_snapshot = _snapshot_config(app_config)
@@ -462,6 +536,13 @@ def generate_fixtures_artifacts(
 
     if not discovery.models:
         raise DiscoveryError("No models discovered.")
+
+    available_names = {model.qualname for model in discovery.models}
+    available_names.update(model.name for model in discovery.models)
+    if with_related:
+        for identifier in with_related:
+            if identifier not in available_names:
+                raise DiscoveryError(f"Related model '{identifier}' not found.")
 
     try:
         model_classes = [cli_common.load_model_class(model) for model in discovery.models]
@@ -511,6 +592,8 @@ def generate_fixtures_artifacts(
 
     header_seed = seed_value if freeze_manager is None else None
 
+    relation_model_map = _build_relation_model_map(model_classes)
+
     pytest_config = PytestEmitConfig(
         scope=scope_value,
         style=style_literal,
@@ -529,6 +612,8 @@ def generate_fixtures_artifacts(
         numbers=app_config.numbers,
         respect_validators=app_config.respect_validators,
         validator_max_retries=app_config.validator_max_retries,
+        relations=app_config.relations,
+        relation_models=relation_model_map,
     )
 
     timestamp = _dt.datetime.now(_dt.timezone.utc)

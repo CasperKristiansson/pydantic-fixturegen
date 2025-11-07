@@ -24,7 +24,13 @@ from pydantic import (
     SecretStr,
     model_validator,
 )
-from pydantic_fixturegen.core.config import ArrayConfig, ConfigError, IdentifierConfig, PathConfig
+from pydantic_fixturegen.core.config import (
+    ArrayConfig,
+    ConfigError,
+    IdentifierConfig,
+    PathConfig,
+    RelationLinkConfig,
+)
 from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.providers.registry import ProviderRegistry
@@ -531,6 +537,61 @@ def test_validator_failure_details_capture_attempts() -> None:
     assert failure["attempt"] == 2
     assert failure["max_attempts"] == 2
     assert "values" in failure and "value" in failure["values"]
+
+
+class LinkUser(BaseModel):
+    id: int
+    name: str
+
+
+class LinkOrder(BaseModel):
+    order_id: int
+    user_id: int | None = None
+
+
+def _relation_lookup(*models: type[BaseModel]) -> dict[str, type[BaseModel]]:
+    mapping: dict[str, type[BaseModel]] = {}
+    for model in models:
+        full = f"{model.__module__}.{model.__qualname__}"
+        mapping[full] = model
+        mapping[model.__qualname__] = model
+        mapping[model.__name__] = model
+    return mapping
+
+
+def test_relation_links_populate_foreign_keys() -> None:
+    relation = RelationLinkConfig(
+        source=f"{LinkOrder.__module__}.{LinkOrder.__qualname__}.user_id",
+        target=f"{LinkUser.__module__}.{LinkUser.__qualname__}.id",
+    )
+    config = GenerationConfig(
+        seed=42,
+        relations=(relation,),
+        relation_models=_relation_lookup(LinkUser, LinkOrder),
+    )
+    generator = InstanceGenerator(config=config)
+
+    order = generator.generate_one(LinkOrder)
+    assert order is not None
+    assert order.user_id is not None
+
+    second = generator.generate_one(LinkOrder)
+    assert second is not None
+    assert second.user_id == order.user_id
+
+
+def test_relation_links_support_simple_names() -> None:
+    relation = RelationLinkConfig(source="LinkOrder.user_id", target="LinkUser.id")
+    config = GenerationConfig(
+        seed=7,
+        relations=(relation,),
+        relation_models=_relation_lookup(LinkUser, LinkOrder),
+    )
+    generator = InstanceGenerator(config=config)
+
+    order = generator.generate_one(LinkOrder)
+    assert order is not None
+    assert isinstance(order.user_id, int)
 
 
 def test_path_generation_respects_default_os() -> None:

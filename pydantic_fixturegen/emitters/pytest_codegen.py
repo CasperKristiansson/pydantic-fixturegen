@@ -20,6 +20,7 @@ from pydantic_fixturegen.core.config import (
     IdentifierConfig,
     NumberDistributionConfig,
     PathConfig,
+    RelationLinkConfig,
 )
 from pydantic_fixturegen.core.constraint_report import ConstraintReporter
 from pydantic_fixturegen.core.errors import EmitError
@@ -59,6 +60,8 @@ class PytestEmitConfig:
     numbers: NumberDistributionConfig = field(default_factory=NumberDistributionConfig)
     respect_validators: bool = False
     validator_max_retries: int = 2
+    relations: tuple[RelationLinkConfig, ...] = ()
+    relation_models: Mapping[str, type[Any]] = field(default_factory=dict)
 
 
 def emit_pytest_fixtures(
@@ -97,6 +100,8 @@ def emit_pytest_fixtures(
             paths=cfg.paths,
             respect_validators=cfg.respect_validators,
             validator_max_retries=cfg.validator_max_retries,
+            relations=cfg.relations,
+            relation_models=cfg.relation_models,
         )
         if cfg.optional_p_none is not None:
             generation_config.optional_p_none = cfg.optional_p_none

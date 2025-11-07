@@ -253,6 +253,13 @@ def test_diff_json_requires_models() -> None:
             app_config_arrays=DEFAULT_ARRAY_CONFIG,
             app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
             app_config_paths=DEFAULT_PATH_CONFIG,
+            app_config_numbers=DEFAULT_NUMBER_CONFIG,
+            app_config_relations=(),
+            app_config_field_policies=(),
+            app_config_locale="en_US",
+            app_config_locale_policies=(),
+            app_config_respect_validators=False,
+            app_config_validator_max_retries=2,
             options=_json_options(Path("unused.json")),
         )
 
@@ -271,6 +278,13 @@ def test_diff_json_rejects_multiple_models(tmp_path: Path) -> None:
             app_config_arrays=DEFAULT_ARRAY_CONFIG,
             app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
             app_config_paths=DEFAULT_PATH_CONFIG,
+            app_config_numbers=DEFAULT_NUMBER_CONFIG,
+            app_config_relations=(),
+            app_config_field_policies=(),
+            app_config_locale="en_US",
+            app_config_locale_policies=(),
+            app_config_respect_validators=False,
+            app_config_validator_max_retries=2,
             options=_json_options(tmp_path / "artifact.json"),
         )
 
@@ -300,6 +314,13 @@ def test_diff_json_requires_output(tmp_path: Path) -> None:
             app_config_arrays=DEFAULT_ARRAY_CONFIG,
             app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
             app_config_paths=DEFAULT_PATH_CONFIG,
+            app_config_numbers=DEFAULT_NUMBER_CONFIG,
+            app_config_relations=(),
+            app_config_field_policies=(),
+            app_config_locale="en_US",
+            app_config_locale_policies=(),
+            app_config_respect_validators=False,
+            app_config_validator_max_retries=2,
             options=options,
         )
 
@@ -332,6 +353,13 @@ def test_diff_json_handles_mapping_failure(tmp_path: Path, monkeypatch: pytest.M
             app_config_arrays=DEFAULT_ARRAY_CONFIG,
             app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
             app_config_paths=DEFAULT_PATH_CONFIG,
+            app_config_numbers=DEFAULT_NUMBER_CONFIG,
+            app_config_relations=(),
+            app_config_field_policies=(),
+            app_config_locale="en_US",
+            app_config_locale_policies=(),
+            app_config_respect_validators=False,
+            app_config_validator_max_retries=2,
             options=_json_options(output_path),
         )
 
@@ -368,6 +396,13 @@ def test_diff_json_detects_directory_targets(
         app_config_arrays=DEFAULT_ARRAY_CONFIG,
         app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
         app_config_paths=DEFAULT_PATH_CONFIG,
+        app_config_numbers=DEFAULT_NUMBER_CONFIG,
+        app_config_relations=(),
+        app_config_field_policies=(),
+        app_config_locale="en_US",
+        app_config_locale_policies=(),
+        app_config_respect_validators=False,
+        app_config_validator_max_retries=2,
         options=_json_options(output_path),
     )
 
@@ -409,6 +444,13 @@ def test_diff_json_ignores_extra_directories(
         app_config_arrays=DEFAULT_ARRAY_CONFIG,
         app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
         app_config_paths=DEFAULT_PATH_CONFIG,
+        app_config_numbers=DEFAULT_NUMBER_CONFIG,
+        app_config_relations=(),
+        app_config_field_policies=(),
+        app_config_locale="en_US",
+        app_config_locale_policies=(),
+        app_config_respect_validators=False,
+        app_config_validator_max_retries=2,
         options=_json_options(output_path),
     )
 
@@ -434,6 +476,9 @@ def test_diff_fixtures_require_output() -> None:
             app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
             app_config_paths=DEFAULT_PATH_CONFIG,
             app_config_numbers=DEFAULT_NUMBER_CONFIG,
+            app_config_relations=(),
+            app_config_respect_validators=False,
+            app_config_validator_max_retries=2,
         )
 
 
@@ -467,6 +512,9 @@ def test_diff_fixtures_emit_artifact_success(
         app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
         app_config_paths=DEFAULT_PATH_CONFIG,
         app_config_numbers=DEFAULT_NUMBER_CONFIG,
+        app_config_relations=(),
+        app_config_respect_validators=False,
+        app_config_validator_max_retries=2,
     )
 
     assert report.summary == "Fixtures artifact matches."
@@ -496,6 +544,9 @@ def test_diff_fixtures_emit_artifact_without_file(
             app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
             app_config_paths=DEFAULT_PATH_CONFIG,
             app_config_numbers=DEFAULT_NUMBER_CONFIG,
+            app_config_relations=(),
+            app_config_respect_validators=False,
+            app_config_validator_max_retries=2,
         )
 
 
@@ -519,6 +570,9 @@ def test_diff_fixtures_detect_directory_target(tmp_path: Path) -> None:
         app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
         app_config_paths=DEFAULT_PATH_CONFIG,
         app_config_numbers=DEFAULT_NUMBER_CONFIG,
+        app_config_relations=(),
+        app_config_respect_validators=False,
+        app_config_validator_max_retries=2,
     )
 
     assert "Fixtures path is a directory" in report.messages[0]

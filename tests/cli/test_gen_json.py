@@ -57,6 +57,27 @@ class User(BaseModel):
     return module_path
 
 
+def _write_linked_module(tmp_path: Path) -> Path:
+    module_path = tmp_path / "linked_models.py"
+    module_path.write_text(
+        """
+from pydantic import BaseModel
+
+
+class User(BaseModel):
+    id: int
+    name: str
+
+
+class Order(BaseModel):
+    order_id: int
+    user_id: int | None = None
+""",
+        encoding="utf-8",
+    )
+    return module_path
+
+
 def _write_relative_import_package(tmp_path: Path) -> Path:
     package_root = tmp_path / "lib" / "models"
     package_root.mkdir(parents=True)
@@ -739,6 +760,37 @@ def test_gen_json_load_model_failure(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
     assert result.exit_code == 10
     assert "boom" in result.stderr
+
+
+def test_gen_json_with_related_bundle(tmp_path: Path) -> None:
+    module_path = _write_linked_module(tmp_path)
+    output = tmp_path / "bundle.json"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(output),
+            "--include",
+            "linked_models.Order",
+            "--with-related",
+            "User",
+            "--link",
+            "linked_models.Order.user_id=linked_models.User.id",
+            "--n",
+            "1",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stderr
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert isinstance(payload, list) and payload
+    record = payload[0]
+    assert set(record.keys()) == {"Order", "User"}
+    assert record["Order"]["user_id"] == record["User"]["id"]
 
 
 def test_gen_json_handles_relative_imports(tmp_path: Path) -> None:

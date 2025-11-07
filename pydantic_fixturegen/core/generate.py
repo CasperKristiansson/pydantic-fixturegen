@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import enum
+import importlib
 import inspect
 import random
 from collections.abc import Iterable, Mapping, Sized
@@ -23,6 +24,7 @@ from pydantic_fixturegen.core.config import (
     IdentifierConfig,
     NumberDistributionConfig,
     PathConfig,
+    RelationLinkConfig,
 )
 from pydantic_fixturegen.core.constraint_report import ConstraintReporter
 from pydantic_fixturegen.core.field_policies import (
@@ -61,6 +63,8 @@ class GenerationConfig:
     paths: PathConfig = field(default_factory=PathConfig)
     respect_validators: bool = False
     validator_max_retries: int = 2
+    relations: tuple[RelationLinkConfig, ...] = ()
+    relation_models: Mapping[str, type[Any]] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -72,6 +76,147 @@ class _PathEntry:
     @property
     def full(self) -> str:
         return f"{self.module}.{self.qualname}"
+
+
+_RELATION_SKIP = object()
+
+
+@dataclass(slots=True)
+class _RelationBinding:
+    source_keys: tuple[str, ...]
+    target_model: str
+    target_simple: str
+    target_field: str
+
+
+def _simple_name(identifier: str) -> str:
+    parts = identifier.split(".")
+    return parts[-1] if parts else identifier
+
+
+def _split_endpoint(endpoint: str) -> tuple[str, str]:
+    text = endpoint.strip()
+    if not text or "." not in text:
+        raise ConfigError("relation endpoints must be formatted as 'Model.field'.")
+    model, field = text.rsplit(".", 1)
+    model = model.strip()
+    field = field.strip()
+    if not model or not field:
+        raise ConfigError("relation endpoints must include both model and field names.")
+    return model, field
+
+
+class RelationManager:
+    def __init__(
+        self,
+        links: tuple[RelationLinkConfig, ...],
+        model_lookup: Mapping[str, type[Any]] | None,
+    ) -> None:
+        self._bindings: dict[str, _RelationBinding] = {}
+        self._model_lookup: dict[str, type[Any]] = {}
+        if model_lookup:
+            for key, model in model_lookup.items():
+                self._model_lookup[key] = model
+        self._buckets: dict[str, list[Any]] = {}
+
+        for link in links:
+            binding = self._build_binding(link)
+            for key in binding.source_keys:
+                if key in self._bindings:
+                    continue
+                self._bindings[key] = binding
+
+    def _build_binding(self, link: RelationLinkConfig) -> _RelationBinding:
+        source_model, source_field = _split_endpoint(link.source)
+        target_model, target_field = _split_endpoint(link.target)
+        simple_source = _simple_name(source_model)
+        simple_target = _simple_name(target_model)
+        source_keys = {f"{source_model}.{source_field}"}
+        source_keys.add(f"{simple_source}.{source_field}")
+        return _RelationBinding(
+            source_keys=tuple(source_keys),
+            target_model=target_model,
+            target_simple=simple_target,
+            target_field=target_field,
+        )
+
+    def register_instance(self, model_type: type[Any], instance: Any) -> None:
+        key_full = InstanceGenerator._describe_model(model_type)
+        key_simple = _simple_name(key_full)
+        bucket = self._buckets.get(key_full)
+        if bucket is None:
+            bucket = []
+            self._buckets[key_full] = bucket
+        self._buckets[key_simple] = bucket
+        bucket.append(instance)
+
+    def resolve_value(
+        self,
+        *,
+        model_keys: Iterable[str],
+        field_name: str,
+        generator: InstanceGenerator,
+        depth: int,
+    ) -> Any:
+        candidates: list[str] = []
+        for key in model_keys:
+            if not key:
+                continue
+            candidates.append(f"{key}.{field_name}")
+
+        for candidate in candidates:
+            binding = self._bindings.get(candidate)
+            if binding is None:
+                continue
+            value = self._resolve_binding(binding, generator, depth)
+            if value is not _RELATION_SKIP:
+                return value
+        return _RELATION_SKIP
+
+    def _resolve_binding(
+        self,
+        binding: _RelationBinding,
+        generator: InstanceGenerator,
+        depth: int,
+    ) -> Any:
+        bucket = self._buckets.get(binding.target_model) or self._buckets.get(
+            binding.target_simple
+        )
+        if not bucket:
+            target_cls = self._model_lookup.get(binding.target_model) or self._model_lookup.get(
+                binding.target_simple
+            )
+            if target_cls is None:
+                target_cls = self._import_model(binding.target_model)
+            if target_cls is None:
+                target_cls = self._import_model(binding.target_simple)
+            if target_cls is None:
+                return _RELATION_SKIP
+            instance = generator._build_model_instance(target_cls, depth=depth + 1)
+            if instance is None:
+                return None
+            self.register_instance(target_cls, instance)
+            bucket = self._buckets.get(binding.target_model)
+        if not bucket:
+            return None
+        target_instance = bucket[-1]
+        return getattr(target_instance, binding.target_field, None)
+
+    def _import_model(self, dotted: str) -> type[Any] | None:
+        if "." not in dotted:
+            return None
+        module_name, attr_name = dotted.rsplit(".", 1)
+        try:
+            module = importlib.import_module(module_name)
+        except Exception:  # pragma: no cover - defensive import failure
+            return None
+        candidate = getattr(module, attr_name, None)
+        if not isinstance(candidate, type):
+            return None
+        self._model_lookup[dotted] = candidate
+        simple = _simple_name(dotted)
+        self._model_lookup.setdefault(simple, candidate)
+        return candidate
 
 
 class InstanceGenerator:
@@ -100,6 +245,11 @@ class InstanceGenerator:
         self._pending_validator_failure: dict[str, Any] | None = None
         self._retry_stream_state: tuple[random.Random, Faker] | None = None  # type: ignore[name-defined]
         self._retry_seed_token: tuple[Any, ...] | None = None
+        self._relation_manager = (
+            RelationManager(self.config.relations, self.config.relation_models)
+            if self.config.relations
+            else None
+        )
 
         load_entrypoint_plugins()
         self._plugin_manager = get_plugin_manager()
@@ -293,6 +443,10 @@ class InstanceGenerator:
 
         if report_model is not None:
             self._constraint_reporter.finish_model(report_model, success=True)
+        if instance is not None and self._relation_manager is not None and isinstance(
+            model_type, type
+        ):
+            self._relation_manager.register_instance(model_type, instance)
         return instance
 
     def _evaluate_strategy(
@@ -479,8 +633,21 @@ class InstanceGenerator:
         if report_model is not None:
             self._constraint_reporter.record_field_attempt(report_model, field_name, summary)
 
-        if self._should_return_none(strategy):
-            value: Any = None
+        relation_value: Any = _RELATION_SKIP
+        if self._relation_manager is not None:
+            full_path, aliases = self._current_field_paths(field_name)
+            keys = (full_path, *aliases)
+            relation_value = self._relation_manager.resolve_value(
+                model_keys=keys,
+                field_name=field_name,
+                generator=self,
+                depth=depth,
+            )
+
+        if relation_value is not _RELATION_SKIP:
+            value = relation_value
+        elif self._should_return_none(strategy):
+            value = None
         else:
             enum_values = strategy.enum_values or summary.enum_values
             if enum_values:

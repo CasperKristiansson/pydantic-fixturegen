@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added numeric distribution controls (`[numbers]` config) enabling uniform, normal, or bounded spike sampling for ints/floats/decimals.
 - Added deterministic NumPy array providers with configurable shape/dtype caps (requires the `numpy` extra).
 - Added validator-aware retries controlled by `respect_validators`/`validator_max_retries`, exposing matching CLI flags on `gen json`, `gen fixtures`, and `diff` plus structured `validator_failure` diagnostics when retries exhaust.
+- Added relation-aware generation via `[relations]` config and new `--link` / `--with-related` CLI flags so JSON bundles and pytest fixtures can keep foreign keys aligned across models while emitting related records together; diff now understands the relation overrides too.
 
 ## [1.1.0] - 2025-11-04
 

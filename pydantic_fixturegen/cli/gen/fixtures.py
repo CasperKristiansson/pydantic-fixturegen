@@ -15,6 +15,7 @@ from pydantic_fixturegen.core.path_template import OutputTemplate
 
 from ...logging import Logger, get_logger
 from ..watch import gather_default_watch_paths, run_with_watch
+from . import _common as cli_common
 from ._common import JSON_ERRORS_OPTION, NOW_OPTION, emit_constraint_summary, render_cli_error
 
 STYLE_CHOICES = {"functions", "factory", "class"}
@@ -140,6 +141,21 @@ VALIDATOR_MAX_RETRIES_OPTION = typer.Option(
     help="Maximum additional validator retries when --respect-validators is enabled.",
 )
 
+LINK_OPTION = typer.Option(
+    None,
+    "--link",
+    help="Declare relation link as source.field=target.field (repeatable).",
+)
+
+WITH_RELATED_OPTION = typer.Option(
+    None,
+    "--with-related",
+    help=(
+        "Comma-separated list (repeatable) of additional models to include alongside the base"
+        " selection."
+    ),
+)
+
 
 def register(app: typer.Typer) -> None:
     @app.command("fixtures")
@@ -164,6 +180,8 @@ def register(app: typer.Typer) -> None:
         profile: str | None = PROFILE_OPTION,
         respect_validators: bool | None = RESPECT_VALIDATORS_OPTION,
         validator_max_retries: int | None = VALIDATOR_MAX_RETRIES_OPTION,
+        links: list[str] | None = LINK_OPTION,
+        with_related: list[str] | None = WITH_RELATED_OPTION,
     ) -> None:
         logger = get_logger()
 
@@ -200,6 +218,8 @@ def register(app: typer.Typer) -> None:
                     profile=profile,
                     respect_validators=respect_validators,
                     validator_max_retries=validator_max_retries,
+                    links=links,
+                    with_related=with_related,
                 )
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors, exit_app=exit_app)
@@ -256,6 +276,8 @@ def _execute_fixtures_command(
     profile: str | None = None,
     respect_validators: bool | None = None,
     validator_max_retries: int | None = None,
+    links: list[str] | None = None,
+    with_related: list[str] | None = None,
 ) -> None:
     logger = get_logger()
 
@@ -263,8 +285,25 @@ def _execute_fixtures_command(
     scope_value = _coerce_scope(scope)
     return_type_value = _coerce_return_type(return_type)
 
-    include_patterns = [include] if include else None
-    exclude_patterns = [exclude] if exclude else None
+    include_patterns = cli_common.split_patterns(include)
+    exclude_patterns = cli_common.split_patterns(exclude)
+    related_identifiers: list[str] = []
+    related_include_patterns: list[str] = []
+    if with_related:
+        for entry in with_related:
+            for token in cli_common.split_patterns(entry):
+                related_identifiers.append(token)
+                if any(marker in token for marker in ("*", "?", ".")):
+                    related_include_patterns.append(token)
+                else:
+                    related_include_patterns.append(f"*.{token}")
+
+    discovery_includes = list(include_patterns)
+    if related_include_patterns:
+        discovery_includes.extend(related_include_patterns)
+
+    include_values = discovery_includes or None
+    exclude_values = exclude_patterns or None
 
     try:
         result = generate_fixtures_artifacts(
@@ -277,14 +316,16 @@ def _execute_fixtures_command(
             seed=seed,
             now=now,
             p_none=p_none,
-            include=include_patterns,
-            exclude=exclude_patterns,
+            include=include_values,
+            exclude=exclude_values,
             freeze_seeds=freeze_seeds,
             freeze_seeds_file=freeze_seeds_file,
             preset=preset,
             profile=profile,
             respect_validators=respect_validators,
             validator_max_retries=validator_max_retries,
+            relations=cli_common.parse_relation_links(links),
+            with_related=related_identifiers or None,
             logger=logger,
         )
     except PFGError as exc:

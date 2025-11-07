@@ -115,6 +115,12 @@ class PathConfig:
 
 
 @dataclass(frozen=True)
+class RelationLinkConfig:
+    source: str
+    target: str
+
+
+@dataclass(frozen=True)
 class AppConfig:
     preset: str | None = None
     profile: str | None = None
@@ -132,12 +138,12 @@ class AppConfig:
     arrays: ArrayConfig = field(default_factory=ArrayConfig)
     identifiers: IdentifierConfig = field(default_factory=IdentifierConfig)
     numbers: NumberDistributionConfig = field(default_factory=NumberDistributionConfig)
-    numbers: NumberDistributionConfig = field(default_factory=NumberDistributionConfig)
     paths: PathConfig = field(default_factory=PathConfig)
     emitters: EmittersConfig = field(default_factory=EmittersConfig)
     json: JsonConfig = field(default_factory=JsonConfig)
     respect_validators: bool = False
     validator_max_retries: int = 2
+    relations: tuple[RelationLinkConfig, ...] = ()
 
 
 DEFAULT_CONFIG = AppConfig()
@@ -224,6 +230,7 @@ def _config_defaults_dict() -> dict[str, Any]:
         },
         "respect_validators": DEFAULT_CONFIG.respect_validators,
         "validator_max_retries": DEFAULT_CONFIG.validator_max_retries,
+        "relations": {},
     }
 
 
@@ -363,6 +370,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
     identifiers_value = _normalize_identifier_config(data.get("identifiers"))
     numbers_value = _normalize_number_config(data.get("numbers"))
     paths_value = _normalize_path_config(data.get("paths"))
+    relations_value = _normalize_relations(data.get("relations"))
     now_value = _coerce_datetime(data.get("now"), "now")
 
     seed_value: int | str | None
@@ -404,6 +412,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         json=json_value,
         respect_validators=respect_validators_value,
         validator_max_retries=validator_max_retries_value,
+        relations=relations_value,
     )
 
     return config
@@ -830,6 +839,33 @@ def _normalize_path_config(value: Any) -> PathConfig:
             raise ConfigError("paths.models must be a mapping of pattern to target OS.")
 
     return PathConfig(default_os=default_os, model_targets=tuple(model_targets))
+
+
+def _normalize_relations(value: Any) -> tuple[RelationLinkConfig, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, Mapping):
+        links: list[RelationLinkConfig] = []
+        for source, target in value.items():
+            if not isinstance(source, str) or not isinstance(target, str):
+                raise ConfigError(
+                    "relations must map 'Model.field' strings to 'Model.field' targets."
+                )
+            links.append(RelationLinkConfig(source=source.strip(), target=target.strip()))
+        return tuple(links)
+    if isinstance(value, Sequence):
+        string_links: list[RelationLinkConfig] = []
+        for entry in value:
+            if not isinstance(entry, str):
+                raise ConfigError("relations entries must be strings formatted as 'source=target'.")
+            if "=" not in entry:
+                raise ConfigError("relations entries must include '=' between source and target.")
+            source_text, target_text = entry.split("=", 1)
+            string_links.append(
+                RelationLinkConfig(source=source_text.strip(), target=target_text.strip())
+            )
+        return tuple(string_links)
+    raise ConfigError("relations must be provided as a mapping or list of strings.")
 
 
 def _coerce_path_target(value: Any, field_name: str) -> str:

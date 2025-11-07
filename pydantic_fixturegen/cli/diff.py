@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime
 import difflib
 import tempfile
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -18,6 +18,7 @@ from pydantic_fixturegen.core.config import (
     IdentifierConfig,
     NumberDistributionConfig,
     PathConfig,
+    RelationLinkConfig,
     load_config,
 )
 from pydantic_fixturegen.core.errors import (
@@ -56,6 +57,7 @@ from .gen._common import (
     discover_models,
     emit_constraint_summary,
     load_model_class,
+    parse_relation_links,
     render_cli_error,
     split_patterns,
 )
@@ -245,6 +247,12 @@ SHOW_DIFF_OPTION = typer.Option(
     help="Show unified diffs when differences are detected.",
 )
 
+LINK_OPTION = typer.Option(
+    None,
+    "--link",
+    help="Declare relation link as source.field=target.field to mirror generation runs.",
+)
+
 
 app = typer.Typer(invoke_without_command=True, subcommand_metavar="")
 
@@ -298,6 +306,7 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
     freeze_seeds_file: Path | None = FREEZE_FILE_OPTION,
     respect_validators: bool | None = RESPECT_VALIDATORS_OPTION,
     validator_max_retries: int | None = VALIDATOR_MAX_RETRIES_OPTION,
+    links: list[str] | None = LINK_OPTION,
 ) -> None:
     _ = ctx
     logger = get_logger()
@@ -338,6 +347,7 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
             now_override=now,
             respect_validators=respect_validators,
             validator_max_retries=validator_max_retries,
+            links=links,
         )
     except PFGError as exc:
         render_cli_error(exc, json_errors=json_errors)
@@ -421,6 +431,7 @@ def _execute_diff(
     now_override: str | None,
     respect_validators: bool | None = None,
     validator_max_retries: int | None = None,
+    links: list[str] | None = None,
 ) -> list[DiffReport]:
     if not any((json_options.out, fixtures_options.out, schema_options.out)):
         raise DiscoveryError("Provide at least one artifact path to diff.")
@@ -459,6 +470,9 @@ def _execute_diff(
         config_cli_overrides["respect_validators"] = respect_validators
     if validator_max_retries is not None:
         config_cli_overrides["validator_max_retries"] = validator_max_retries
+    relation_overrides = parse_relation_links(links)
+    if relation_overrides:
+        config_cli_overrides["relations"] = relation_overrides
 
     app_config = load_config(
         root=Path.cwd(), cli=config_cli_overrides if config_cli_overrides else None
@@ -554,6 +568,7 @@ def _execute_diff(
                 app_config_identifiers=app_config.identifiers,
                 app_config_paths=app_config.paths,
                 app_config_numbers=app_config.numbers,
+                app_config_relations=app_config.relations,
                 app_config_field_policies=app_config.field_policies,
                 app_config_locale=app_config.locale,
                 app_config_locale_policies=app_config.locale_policies,
@@ -581,6 +596,7 @@ def _execute_diff(
                 app_config_identifiers=app_config.identifiers,
                 app_config_paths=app_config.paths,
                 app_config_numbers=app_config.numbers,
+                app_config_relations=app_config.relations,
                 app_config_respect_validators=app_config.respect_validators,
                 app_config_validator_max_retries=app_config.validator_max_retries,
             )
@@ -622,6 +638,7 @@ def _diff_json_artifact(
     app_config_identifiers: IdentifierConfig,
     app_config_paths: PathConfig,
     app_config_numbers: NumberDistributionConfig,
+    app_config_relations: tuple[RelationLinkConfig, ...],
     app_config_field_policies: tuple[FieldPolicy, ...],
     app_config_locale: str,
     app_config_locale_policies: tuple[FieldPolicy, ...],
@@ -649,6 +666,8 @@ def _diff_json_artifact(
         temp_base = Path(tmp_dir) / "json" / output_path.name
         temp_base.parent.mkdir(parents=True, exist_ok=True)
 
+        relation_lookup = _build_relation_lookup(model_classes)
+
         generator = _build_instance_generator(
             seed_value=seed_value,
             union_policy=app_config_union,
@@ -664,6 +683,8 @@ def _diff_json_artifact(
             locale_policies=app_config_locale_policies,
             respect_validators=app_config_respect_validators,
             validator_max_retries=app_config_validator_max_retries,
+            relations=app_config_relations,
+            relation_models=relation_lookup,
         )
 
         def sample_factory() -> BaseModel:
@@ -781,6 +802,7 @@ def _diff_fixtures_artifact(
     app_config_identifiers: IdentifierConfig,
     app_config_paths: PathConfig,
     app_config_numbers: NumberDistributionConfig,
+    app_config_relations: tuple[RelationLinkConfig, ...],
     app_config_respect_validators: bool,
     app_config_validator_max_retries: int,
 ) -> DiffReport:
@@ -810,6 +832,8 @@ def _diff_fixtures_artifact(
 
         header_seed = seed_normalized if per_model_seeds is None else None
 
+        relation_lookup = _build_relation_lookup(model_classes)
+
         pytest_config = PytestEmitConfig(
             scope=scope_final,
             style=style_final,
@@ -826,6 +850,8 @@ def _diff_fixtures_artifact(
             identifiers=app_config_identifiers,
             paths=app_config_paths,
             numbers=app_config_numbers,
+            relations=app_config_relations,
+            relation_models=relation_lookup,
             respect_validators=app_config_respect_validators,
             validator_max_retries=app_config_validator_max_retries,
         )
@@ -997,6 +1023,16 @@ def _diff_schema_artifact(
     )
 
 
+def _build_relation_lookup(model_classes: Sequence[type[BaseModel]]) -> dict[str, type[BaseModel]]:
+    lookup: dict[str, type[BaseModel]] = {}
+    for cls in model_classes:
+        full = InstanceGenerator._describe_model(cls)
+        lookup[full] = cls
+        lookup.setdefault(cls.__qualname__, cls)
+        lookup.setdefault(cls.__name__, cls)
+    return lookup
+
+
 def _build_instance_generator(
     *,
     seed_value: int | str | None,
@@ -1013,6 +1049,8 @@ def _build_instance_generator(
     locale_policies: tuple[FieldPolicy, ...],
     respect_validators: bool,
     validator_max_retries: int,
+    relations: tuple[RelationLinkConfig, ...],
+    relation_models: Mapping[str, type[Any]],
 ) -> InstanceGenerator:
     normalized_seed: int | None = None
     if seed_value is not None:
@@ -1036,6 +1074,8 @@ def _build_instance_generator(
         locale_policies=locale_policies,
         respect_validators=respect_validators,
         validator_max_retries=validator_max_retries,
+        relations=relations,
+        relation_models=relation_models,
     )
     return InstanceGenerator(config=gen_config)
 

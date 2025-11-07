@@ -155,6 +155,15 @@ def test_env_overrides_validator_settings(tmp_path: Path) -> None:
     assert config.validator_max_retries == 3
 
 
+def test_cli_relations_override(tmp_path: Path) -> None:
+    cli_relations = {"models.Order.user_id": "models.User.id"}
+    config = load_config(root=tmp_path, cli={"relations": cli_relations})
+
+    assert config.relations == (
+        config_mod.RelationLinkConfig(source="models.Order.user_id", target="models.User.id"),
+    )
+
+
 def test_cli_overrides_env(tmp_path: Path) -> None:
     env = {"PFG_LOCALE": "de_DE", "PFG_JSON__INDENT": "0"}
     cli = {"locale": "it_IT", "json": {"indent": 8}}
