@@ -134,9 +134,7 @@ def test_diff_json_errors_payload(tmp_path: Path) -> None:
     assert "Missing JSON artifact" in result.stdout
 
 
-def test_diff_cli_forwards_validator_flags(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_diff_cli_forwards_validator_flags(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     module_path = _write_module(tmp_path)
     json_out = tmp_path / "artifacts" / "products.json"
     json_out.parent.mkdir(parents=True, exist_ok=True)

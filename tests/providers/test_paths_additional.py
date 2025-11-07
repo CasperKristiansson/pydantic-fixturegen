@@ -8,7 +8,12 @@ from pydantic_fixturegen.core.providers import paths
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
 
 
-def _summary(format: str | None = None, *, min_length: int | None = None, max_length: int | None = None) -> FieldSummary:
+def _summary(
+    format: str | None = None,
+    *,
+    min_length: int | None = None,
+    max_length: int | None = None,
+) -> FieldSummary:
     constraints = FieldConstraints(min_length=min_length, max_length=max_length)
     return FieldSummary(type="path", constraints=constraints, format=format)
 

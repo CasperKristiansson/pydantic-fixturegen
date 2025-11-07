@@ -781,9 +781,7 @@ def _normalize_number_config(value: Any) -> NumberDistributionConfig:
         raise ConfigError("numbers.distribution must be a string.")
     distribution = distribution_raw.strip().lower()
     if distribution not in {"uniform", "normal", "spike"}:
-        raise ConfigError(
-            "numbers.distribution must be one of 'uniform', 'normal', or 'spike'."
-        )
+        raise ConfigError("numbers.distribution must be one of 'uniform', 'normal', or 'spike'.")
 
     try:
         stddev_value = float(stddev_raw)

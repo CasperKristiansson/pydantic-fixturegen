@@ -26,6 +26,10 @@ DEFAULT_PYTEST_SCOPE = cast(
 )
 DEFAULT_UNION_POLICY = cast(UnionPolicyLiteral, DEFAULT_CONFIG.union_policy)
 DEFAULT_ENUM_POLICY = cast(EnumPolicyLiteral, DEFAULT_CONFIG.enum_policy)
+DEFAULT_NUMBER_DISTRIBUTION = cast(
+    Literal["uniform", "normal", "spike"],
+    DEFAULT_CONFIG.numbers.distribution,
+)
 
 
 class PytestEmitterSchema(BaseModel):
@@ -255,7 +259,7 @@ class NumbersSettingsSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     distribution: Literal["uniform", "normal", "spike"] = Field(
-        default=DEFAULT_CONFIG.numbers.distribution,
+        default=DEFAULT_NUMBER_DISTRIBUTION,
         description="Distribution applied to ints/floats/decimals.",
     )
     normal_stddev_fraction: float = Field(

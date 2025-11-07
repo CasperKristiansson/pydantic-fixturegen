@@ -37,6 +37,25 @@ def _write_module(tmp_path: Path, source: str) -> Path:
     return module
 
 
+def _write_linked_module(tmp_path: Path) -> Path:
+    return _write_module(
+        tmp_path,
+        """
+from pydantic import BaseModel
+
+
+class User(BaseModel):
+    id: int
+    name: str
+
+
+class Order(BaseModel):
+    order_id: int
+    user_id: int | None = None
+""",
+    )
+
+
 def test_generate_json_artifacts_freeze_messages(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -73,8 +92,8 @@ class Product(BaseModel):
         output_template=OutputTemplate(str(tmp_path / "products.json")),
         count=1,
         jsonl=False,
-        indent=None,
-        use_orjson=None,
+        indent=0,
+        use_orjson=False,
         shard_size=None,
         include=None,
         exclude=None,
@@ -268,6 +287,85 @@ class Broken(BaseModel):
     assert "validator_failure" in details
     assert details["validator_failure"]["message"].startswith("1 validation error for Broken")
     assert "constraint_summary" in details
+
+
+def test_generate_json_artifacts_with_related_bundle(tmp_path: Path) -> None:
+    module_path = _write_linked_module(tmp_path)
+    output_template = OutputTemplate(str(tmp_path / "bundle.json"))
+
+    result = runtime_mod.generate_json_artifacts(
+        target=module_path,
+        output_template=output_template,
+        count=1,
+        jsonl=False,
+        indent=None,
+        use_orjson=None,
+        shard_size=None,
+        include=["models.Order"],
+        exclude=None,
+        seed=None,
+        now=None,
+        freeze_seeds=False,
+        freeze_seeds_file=None,
+        preset=None,
+        relations={"models.Order.user_id": "models.User.id"},
+        with_related=["models.User"],
+        respect_validators=True,
+        validator_max_retries=1,
+    )
+
+    assert result.paths
+    payload = json.loads(result.paths[0].read_text(encoding="utf-8"))
+    assert payload and "Order" in payload[0] and "User" in payload[0]
+    assert payload[0]["Order"]["user_id"] == payload[0]["User"]["id"]
+
+
+def test_generate_json_artifacts_related_model_missing(tmp_path: Path) -> None:
+    module_path = _write_linked_module(tmp_path)
+    output_template = OutputTemplate(str(tmp_path / "missing.json"))
+
+    with pytest.raises(DiscoveryError, match="Related model 'models.Missing' not found."):
+        runtime_mod.generate_json_artifacts(
+            target=module_path,
+            output_template=output_template,
+            count=1,
+            jsonl=False,
+            indent=None,
+            use_orjson=None,
+            shard_size=None,
+            include=["models.Order"],
+            exclude=None,
+            seed=None,
+            now=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+            relations={"models.Order.user_id": "models.User.id"},
+            with_related=["models.Missing"],
+        )
+
+
+def test_generate_json_artifacts_multiple_models_without_include(tmp_path: Path) -> None:
+    module_path = _write_linked_module(tmp_path)
+    output_template = OutputTemplate(str(tmp_path / "multi.json"))
+
+    with pytest.raises(DiscoveryError, match="Multiple models discovered"):
+        runtime_mod.generate_json_artifacts(
+            target=module_path,
+            output_template=output_template,
+            count=1,
+            jsonl=False,
+            indent=None,
+            use_orjson=None,
+            shard_size=None,
+            include=None,
+            exclude=None,
+            seed=None,
+            now=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+        )
 
 
 def test_generate_fixtures_artifacts_delegates_to_plugin(

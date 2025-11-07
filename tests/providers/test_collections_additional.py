@@ -72,7 +72,11 @@ def test_generate_collection_model_items() -> None:
         constraints=FieldConstraints(min_length=1, max_length=1),
         item_type="model",
     )
-    result = collections.generate_collection(summary, faker=StubFaker(), random_generator=random.Random(0))
+    result = collections.generate_collection(
+        summary,
+        faker=StubFaker(),
+        random_generator=random.Random(0),
+    )
     assert result == [{}]
 
 
@@ -83,5 +87,9 @@ def test_generate_collection_unknown_item_type_falls_back() -> None:
         item_type="custom",
     )
     faker = StubFaker()
-    result = collections.generate_collection(summary, faker=faker, random_generator=random.Random(0))
+    result = collections.generate_collection(
+        summary,
+        faker=faker,
+        random_generator=random.Random(0),
+    )
     assert result == ["stub-1"]

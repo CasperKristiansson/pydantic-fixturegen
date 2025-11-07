@@ -143,8 +143,7 @@ WITH_RELATED_OPTION = typer.Option(
     None,
     "--with-related",
     help=(
-        "Comma-separated list (repeatable) of additional models to generate alongside the"
-        " primary."
+        "Comma-separated list (repeatable) of additional models to generate alongside the primary."
     ),
 )
 

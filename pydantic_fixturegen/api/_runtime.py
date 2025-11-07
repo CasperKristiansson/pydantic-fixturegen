@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from pydantic_fixturegen.core.config import AppConfig, load_config
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError, PFGError
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
+from pydantic_fixturegen.core.introspect import IntrospectedModel
 from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
 from pydantic_fixturegen.core.seed import SeedManager
 from pydantic_fixturegen.core.seed_freeze import (
@@ -177,6 +178,8 @@ def generate_json_artifacts(
     with_related: Sequence[str] | None = None,
     logger: Logger | None = None,
 ) -> JsonGenerationResult:
+    from ..cli.gen import _common as cli_common
+
     logger = logger or get_logger()
     path = Path(target)
     if not path.exists():
@@ -186,8 +189,15 @@ def generate_json_artifacts(
 
     clear_include = _resolve_patterns(include)
     clear_exclude = _resolve_patterns(exclude)
-
-    from ..cli.gen import _common as cli_common
+    related_identifiers: list[str] = []
+    related_include_patterns: list[str] = []
+    if with_related:
+        for identifier in with_related:
+            related_identifiers.append(identifier)
+            if any(marker in identifier for marker in ("*", "?", ".")):
+                related_include_patterns.append(identifier)
+            else:
+                related_include_patterns.append(f"*.{identifier}")
 
     cli_common.clear_module_cache()
     load_entrypoint_plugins()
@@ -224,8 +234,11 @@ def generate_json_artifacts(
         json_overrides["orjson"] = use_orjson
     if json_overrides:
         cli_overrides["json"] = json_overrides
-    if clear_include:
-        cli_overrides["include"] = list(clear_include)
+    include_values = list(clear_include) if clear_include else []
+    if related_include_patterns:
+        include_values.extend(related_include_patterns)
+    if include_values:
+        cli_overrides["include"] = include_values
     if clear_exclude:
         cli_overrides["exclude"] = list(clear_exclude)
     if relations:
@@ -248,10 +261,10 @@ def generate_json_artifacts(
     if not discovery.models:
         raise DiscoveryError("No models discovered.")
 
-    related_infos: list[cli_common.IntrospectedModel] = []
+    related_infos: list[IntrospectedModel] = []
     related_set: set[str] = set()
-    if with_related:
-        for identifier in with_related:
+    if related_identifiers:
+        for identifier in related_identifiers:
             match = next(
                 (
                     model
@@ -464,8 +477,9 @@ def generate_fixtures_artifacts(
     with_related: Sequence[str] | None = None,
     logger: Logger | None = None,
 ) -> FixturesGenerationResult:
-    logger = logger or get_logger()
     from ..cli.gen import _common as cli_common
+
+    logger = logger or get_logger()
 
     path = Path(target)
     if not path.exists():
@@ -475,6 +489,13 @@ def generate_fixtures_artifacts(
 
     clear_include = _resolve_patterns(include)
     clear_exclude = _resolve_patterns(exclude)
+    related_include_patterns: list[str] = []
+    if with_related:
+        for identifier in with_related:
+            if any(marker in identifier for marker in ("*", "?", ".")):
+                related_include_patterns.append(identifier)
+            else:
+                related_include_patterns.append(f"*.{identifier}")
 
     cli_common.clear_module_cache()
     load_entrypoint_plugins()
@@ -513,8 +534,11 @@ def generate_fixtures_artifacts(
         emitter_overrides["scope"] = scope
     if emitter_overrides:
         cli_overrides["emitters"] = {"pytest": emitter_overrides}
-    if clear_include:
-        cli_overrides["include"] = list(clear_include)
+    include_values = list(clear_include) if clear_include else []
+    if related_include_patterns:
+        include_values.extend(related_include_patterns)
+    if include_values:
+        cli_overrides["include"] = include_values
     if clear_exclude:
         cli_overrides["exclude"] = list(clear_exclude)
     if relations:

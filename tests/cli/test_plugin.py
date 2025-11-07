@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 import typer
-
 from pydantic_fixturegen.cli import plugin as plugin_mod
 from tests._cli import create_cli_runner
 

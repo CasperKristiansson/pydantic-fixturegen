@@ -825,7 +825,9 @@ def test_field_to_tree_nested_and_truncated() -> None:
 
 
 def test_strategy_to_tree_node_union_truncated() -> None:
-    node = explain_mod._strategy_to_tree_node({"kind": "union", "policy": "random", "truncated": True})
+    node = explain_mod._strategy_to_tree_node(
+        {"kind": "union", "policy": "random", "truncated": True}
+    )
     assert node.children and node.children[0].label == "... (max depth reached)"
 
 

@@ -154,6 +154,8 @@ def test_generate_identifier_masks_secret_and_ip() -> None:
         identifier_config=config,
     )
     assert ip_value.startswith("192.0.2.")
+
+
 def test_generate_identifier_unknown_type() -> None:
     with pytest.raises(ValueError):
         identifiers_mod.generate_identifier(_summary("custom"), random_generator=random.Random())
@@ -169,9 +171,7 @@ def test_resolve_length_clamps_and_defaults() -> None:
 
 def test_generate_email_handles_short_max() -> None:
     summary = _summary("email", min_length=None, max_length=2)
-    assert (
-        identifiers_mod._generate_email(summary, random.Random(0), IdentifierConfig()) == "a@"
-    )
+    assert identifiers_mod._generate_email(summary, random.Random(0), IdentifierConfig()) == "a@"
 
 
 def test_generate_url_without_path_padding() -> None:

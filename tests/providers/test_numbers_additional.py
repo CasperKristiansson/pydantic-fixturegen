@@ -101,27 +101,51 @@ def test_generate_numeric_decimal_gt_lt_constraints() -> None:
 
 def test_generate_numeric_int_spike_distribution() -> None:
     summary = _summary("int", ge=0, le=100)
-    config = NumberDistributionConfig(distribution="spike", spike_ratio=1.0, spike_width_fraction=0.05)
-    value = numbers.generate_numeric(summary, random_generator=random.Random(0), number_config=config)
+    config = NumberDistributionConfig(
+        distribution="spike",
+        spike_ratio=1.0,
+        spike_width_fraction=0.05,
+    )
+    value = numbers.generate_numeric(
+        summary,
+        random_generator=random.Random(0),
+        number_config=config,
+    )
     assert 45 <= value <= 55
 
 
 def test_generate_numeric_float_spike_distribution() -> None:
     summary = _summary("float", ge=0.0, le=10.0)
-    config = NumberDistributionConfig(distribution="spike", spike_ratio=1.0, spike_width_fraction=0.05)
-    value = numbers.generate_numeric(summary, random_generator=random.Random(0), number_config=config)
+    config = NumberDistributionConfig(
+        distribution="spike",
+        spike_ratio=1.0,
+        spike_width_fraction=0.05,
+    )
+    value = numbers.generate_numeric(
+        summary,
+        random_generator=random.Random(0),
+        number_config=config,
+    )
     assert 4.5 <= value <= 5.5
 
 
 def test_generate_numeric_float_normal_clamps_upper_bound() -> None:
     summary = _summary("float", ge=0.0, le=1.0)
     config = NumberDistributionConfig(distribution="normal", normal_stddev_fraction=0.2)
-    value = numbers.generate_numeric(summary, random_generator=_OffsetNormal(10.0), number_config=config)
+    value = numbers.generate_numeric(
+        summary,
+        random_generator=_OffsetNormal(10.0),
+        number_config=config,
+    )
     assert value == pytest.approx(1.0)
 
 
 def test_generate_numeric_float_normal_clamps_lower_bound() -> None:
     summary = _summary("float", ge=0.0, le=1.0)
     config = NumberDistributionConfig(distribution="normal", normal_stddev_fraction=0.2)
-    value = numbers.generate_numeric(summary, random_generator=_OffsetNormal(-10.0), number_config=config)
+    value = numbers.generate_numeric(
+        summary,
+        random_generator=_OffsetNormal(-10.0),
+        number_config=config,
+    )
     assert value == pytest.approx(0.0)

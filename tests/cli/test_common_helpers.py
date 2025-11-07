@@ -123,3 +123,19 @@ def test_import_module_by_path_spec_failure(
     monkeypatch.setattr(common.importlib.util, "spec_from_file_location", fake_spec)
     with pytest.raises(RuntimeError, match="Failed to load module"):
         common._import_module_by_path("broken_mod", module_path)
+
+
+def test_parse_relation_links_handles_multiple_sources() -> None:
+    values = common.parse_relation_links(
+        ["Order.user_id=User.id,Order.item_id=Item.id", "Invoice.customer_id=Customer.id"]
+    )
+    assert values == {
+        "Order.user_id": "User.id",
+        "Order.item_id": "Item.id",
+        "Invoice.customer_id": "Customer.id",
+    }
+
+
+def test_parse_relation_links_requires_equals() -> None:
+    with pytest.raises(typer.BadParameter):
+        common.parse_relation_links(["missing-delimiter"])

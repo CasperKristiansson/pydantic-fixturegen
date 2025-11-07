@@ -79,6 +79,7 @@ class _PathEntry:
 
 
 _RELATION_SKIP = object()
+_PENDING_FAILURE_NONE = object()
 
 
 @dataclass(slots=True)
@@ -179,9 +180,7 @@ class RelationManager:
         generator: InstanceGenerator,
         depth: int,
     ) -> Any:
-        bucket = self._buckets.get(binding.target_model) or self._buckets.get(
-            binding.target_simple
-        )
+        bucket = self._buckets.get(binding.target_model) or self._buckets.get(binding.target_simple)
         if not bucket:
             target_cls = self._model_lookup.get(binding.target_model) or self._model_lookup.get(
                 binding.target_simple
@@ -233,7 +232,7 @@ class InstanceGenerator:
         self.seed_manager = SeedManager(seed=self.config.seed, locale=self.config.locale)
         self.random = self.seed_manager.base_random
         self.faker = self.seed_manager.faker
-        self._faker_cache: dict[tuple[str, str], Faker] = {}
+        self._faker_cache: dict[tuple[str, str, tuple[Any, ...] | None], Faker] = {}
         self.array_config = self.config.arrays
         self.identifier_config = self.config.identifiers
         self.number_config = self.config.numbers
@@ -242,8 +241,8 @@ class InstanceGenerator:
             raise ValueError("validator_max_retries must be >= 0.")
         self._validator_retry_enabled = bool(self.config.respect_validators)
         self._last_validator_failure: dict[str, Any] | None = None
-        self._pending_validator_failure: dict[str, Any] | None = None
-        self._retry_stream_state: tuple[random.Random, Faker] | None = None  # type: ignore[name-defined]
+        self._pending_validator_failure: dict[str, Any] | object = _PENDING_FAILURE_NONE
+        self._retry_stream_state: tuple[random.Random, Faker] | None = None
         self._retry_seed_token: tuple[Any, ...] | None = None
         self._relation_manager = (
             RelationManager(self.config.relations, self.config.relation_models)
@@ -330,7 +329,7 @@ class InstanceGenerator:
             if self._validator_retry_enabled:
                 self._activate_validator_retry(model, attempt_index)
             objects_snapshot = self._objects_remaining
-            self._pending_validator_failure = None
+            self._pending_validator_failure = _PENDING_FAILURE_NONE
             result = self._build_model_instance(
                 model,
                 depth=depth,
@@ -341,8 +340,9 @@ class InstanceGenerator:
                 self._last_validator_failure = None
                 return result
 
-            failure = self._pending_validator_failure
-            self._pending_validator_failure = None
+            pending_failure = self._pending_validator_failure
+            self._pending_validator_failure = _PENDING_FAILURE_NONE
+            failure = pending_failure if isinstance(pending_failure, dict) else None
             if failure is not None:
                 failure["attempt"] = attempt_index + 1
                 failure["max_attempts"] = max_attempts
@@ -443,8 +443,10 @@ class InstanceGenerator:
 
         if report_model is not None:
             self._constraint_reporter.finish_model(report_model, success=True)
-        if instance is not None and self._relation_manager is not None and isinstance(
-            model_type, type
+        if (
+            instance is not None
+            and self._relation_manager is not None
+            and isinstance(model_type, type)
         ):
             self._relation_manager.register_instance(model_type, instance)
         return instance
@@ -799,10 +801,7 @@ class InstanceGenerator:
         message: str,
         errors: Iterable[Mapping[str, Any]],
     ) -> None:
-        snapshot = {
-            name: self._serialize_value(value)
-            for name, value in values.items()
-        }
+        snapshot = {name: self._serialize_value(value) for name, value in values.items()}
         self._pending_validator_failure = {
             "model": self._describe_model(model_type),
             "message": message,
@@ -820,16 +819,13 @@ class InstanceGenerator:
                 return value.model_dump()
             except Exception:  # pragma: no cover - defensive
                 return repr(value)
-        if dataclasses.is_dataclass(value):
+        if dataclasses.is_dataclass(value) and not isinstance(value, type):
             try:
                 return dataclasses.asdict(value)
             except Exception:  # pragma: no cover - defensive
                 return repr(value)
         if isinstance(value, dict):
-            return {
-                str(key): self._serialize_value(val, depth + 1)
-                for key, val in value.items()
-            }
+            return {str(key): self._serialize_value(val, depth + 1) for key, val in value.items()}
         if isinstance(value, list):
             return [self._serialize_value(item, depth + 1) for item in value]
         if isinstance(value, tuple):

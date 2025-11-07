@@ -594,6 +594,19 @@ def test_relation_links_support_simple_names() -> None:
     assert isinstance(order.user_id, int)
 
 
+def test_relation_links_import_target_module() -> None:
+    relation = RelationLinkConfig(
+        source=f"{LinkOrder.__module__}.{LinkOrder.__qualname__}.user_id",
+        target=f"{LinkUser.__module__}.{LinkUser.__qualname__}.id",
+    )
+    config = GenerationConfig(seed=9, relations=(relation,), relation_models={})
+    generator = InstanceGenerator(config=config)
+
+    order = generator.generate_one(LinkOrder)
+    assert order is not None
+    assert isinstance(order.user_id, int)
+
+
 def test_path_generation_respects_default_os() -> None:
     config = GenerationConfig(seed=321, paths=PathConfig(default_os="windows"))
     generator = InstanceGenerator(config=config)
