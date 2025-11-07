@@ -3,8 +3,13 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from pydantic_fixturegen.cli.plugin import app as plugin_app
+import pytest
+import typer
+
+from pydantic_fixturegen.cli import plugin as plugin_mod
 from tests._cli import create_cli_runner
+
+plugin_app = plugin_mod.app
 
 runner = create_cli_runner()
 
@@ -91,3 +96,73 @@ def test_existing_directory_without_force_errors(tmp_path: Path) -> None:
 
     assert result.exit_code != 0
     assert "--force to overwrite" in _normalize_cli(result.stderr)
+
+
+def test_plugin_force_run_reports_ensured(tmp_path: Path) -> None:
+    target = tmp_path / "demo"
+    result = runner.invoke(plugin_app, ["--directory", str(target), "demo"])
+    assert result.exit_code == 0
+
+    second = runner.invoke(plugin_app, ["--directory", str(target), "--force", "demo"])
+    assert second.exit_code == 0
+    assert "Ensured pyproject.toml" in second.stdout
+
+
+def test_normalize_slug_requires_alphanumeric() -> None:
+    with pytest.raises(typer.BadParameter):
+        plugin_mod._normalize_slug("!!!")
+
+
+def test_normalize_identifier_rules() -> None:
+    assert plugin_mod._normalize_identifier("1value", field="test") == "_1value"
+    with pytest.raises(typer.BadParameter):
+        plugin_mod._normalize_identifier("***", field="test")
+
+
+def test_split_namespace_accepts_multiple_delimiters() -> None:
+    parts = plugin_mod._split_namespace("acme.plugins/util")
+    assert parts == ("acme", "plugins", "util")
+
+
+def test_infer_distribution_validates_override() -> None:
+    with pytest.raises(typer.BadParameter):
+        plugin_mod._infer_distribution("slug", (), "!!!")
+
+
+def test_infer_entrypoint_validates_override() -> None:
+    with pytest.raises(typer.BadParameter):
+        plugin_mod._infer_entrypoint("slug", "***")
+
+
+def test_ensure_directory_rejects_file(tmp_path: Path) -> None:
+    target = tmp_path / "demo"
+    target.write_text("blocked", encoding="utf-8")
+
+    with pytest.raises(typer.BadParameter):
+        plugin_mod._ensure_directory(target, force=False)
+
+
+def test_ensure_directory_allows_empty_directory(tmp_path: Path) -> None:
+    target = tmp_path / "demo"
+    target.mkdir()
+
+    plugin_mod._ensure_directory(target, force=False)
+    assert target.is_dir()
+
+
+def test_write_file_requires_force(tmp_path: Path) -> None:
+    target = tmp_path / "file.txt"
+    target.write_text("existing", encoding="utf-8")
+
+    with pytest.raises(typer.BadParameter):
+        plugin_mod._write_file(target, "existing", force=False)
+
+
+def test_format_relative_falls_back_to_absolute(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    other = tmp_path / "external" / "file.txt"
+    other.parent.mkdir(parents=True)
+    other.write_text("data", encoding="utf-8")
+
+    assert plugin_mod._format_relative(other, root) == str(other)

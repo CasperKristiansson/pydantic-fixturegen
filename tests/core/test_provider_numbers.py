@@ -64,6 +64,25 @@ def test_generate_numeric_raises_unknown_type() -> None:
         numbers_mod.generate_numeric(_summary("complex"))
 
 
+def test_generate_numeric_int_conflicting_bounds() -> None:
+    summary = _summary("int", ge=5, lt=5)
+    rng = random.Random(0)
+    value = numbers_mod.generate_numeric(summary, random_generator=rng)
+
+    assert value == 4
+
+
+def test_generate_numeric_decimal_respects_max_digits() -> None:
+    constraints = FieldConstraints(ge=-2.5, le=2.5, decimal_places=2, max_digits=3)
+    summary = FieldSummary(type="decimal", constraints=constraints)
+    rng = random.Random(7)
+
+    result = numbers_mod.generate_numeric(summary, random_generator=rng)
+
+    assert isinstance(result, decimal.Decimal)
+    assert len(result.as_tuple().digits) <= 3
+
+
 def test_generate_numeric_int_with_normal_distribution() -> None:
     summary = _summary("int", ge=0, le=10)
     rng = random.Random(0)

@@ -11,7 +11,7 @@ from pydantic_fixturegen.api.models import ConfigSnapshot, SchemaGenerationResul
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.cli.gen import schema as schema_mod
 from pydantic_fixturegen.core.config import ConfigError
-from pydantic_fixturegen.core.errors import DiscoveryError, EmitError
+from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, WatchError
 from pydantic_fixturegen.core.path_template import OutputTemplate
 from tests._cli import create_cli_runner
 
@@ -196,6 +196,25 @@ def test_gen_schema_out_template(tmp_path: Path) -> None:
     assert len(emitted) == 1
     payload = json.loads(emitted[0].read_text(encoding="utf-8"))
     assert payload["title"] == "User"
+
+
+def test_gen_schema_invalid_template_reports_error(tmp_path: Path) -> None:
+    module_path = _write_module(tmp_path)
+    template = tmp_path / "{unknown}" / "schema.json"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "schema",
+            str(module_path),
+            "--out",
+            str(template),
+        ],
+    )
+
+    assert result.exit_code == 30
+    assert "Unsupported template variable" in result.stderr
 
 
 def test_gen_schema_template_model_requires_single_selection(tmp_path: Path) -> None:
@@ -506,3 +525,49 @@ def test_handle_schema_error_logs_config() -> None:
     assert logger.debug_calls and logger.debug_calls[0][1]["event"] == "config_loaded"
     assert any(info[1].get("event") == "temporal_anchor_set" for info in logger.info_calls)
     assert [call[0] for call in logger.warn_calls] == ["warnA", "warnB"]
+
+
+def test_gen_schema_watch_mode_handles_errors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "schema.json"
+    logger = FakeLogger()
+    monkeypatch.setattr(schema_mod, "get_logger", lambda: logger)
+
+    invoked: dict[str, int] = {"count": 0}
+
+    def fake_execute(**_: object) -> None:  # noqa: ANN001
+        invoked["count"] += 1
+
+    monkeypatch.setattr(schema_mod, "_execute_schema_command", fake_execute)
+    monkeypatch.setattr(
+        schema_mod,
+        "gather_default_watch_paths",
+        lambda *args, **kwargs: [tmp_path],  # noqa: ARG005
+    )
+
+    def fake_run_with_watch(callback: object, watch_paths: list[Path], debounce: float) -> None:
+        assert watch_paths == [tmp_path]
+        assert debounce == 0.5
+        callback()
+        raise WatchError("watch failed")
+
+    monkeypatch.setattr(schema_mod, "run_with_watch", fake_run_with_watch)
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "schema",
+            str(module_path),
+            "--out",
+            str(output),
+            "--watch",
+        ],
+    )
+
+    assert result.exit_code == 60
+    assert invoked["count"] == 1
+    assert logger.debug_calls and logger.debug_calls[0][0] == "Entering watch loop"

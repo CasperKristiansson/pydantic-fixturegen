@@ -60,6 +60,11 @@ class SimpleModel(BaseModel):
     value: int
 
 
+@dataclasses.dataclass
+class ModelCarrier:
+    model: SimpleModel
+
+
 def _write_models(tmp_path: Path) -> Path:
     module = tmp_path / "models.py"
     module.write_text(
@@ -325,6 +330,21 @@ def test_collect_dataclass_report_marks_unsupported() -> None:
     assert report["unsupported"] is True
 
 
+def test_collect_dataclass_report_includes_nested_model() -> None:
+    builder = StrategyBuilder(create_default_registry(load_plugins=False))
+
+    report = explain_mod._collect_dataclass_report(
+        ModelCarrier,
+        builder=builder,
+        max_depth=None,
+        visited=set(),
+    )
+
+    field_entry = report["fields"][0]
+    nested = field_entry.get("nested")
+    assert nested and nested["kind"] == "model"
+
+
 def test_collect_model_report_detects_cycle() -> None:
     builder = StrategyBuilder(create_default_registry(load_plugins=False))
 
@@ -387,6 +407,33 @@ def test_strategy_to_payload_nested_dataclass() -> None:
     nested = payload.get("nested_model")
     assert nested and nested["kind"] == "dataclass"
     assert nested["qualname"].endswith("SampleInner")
+
+
+def test_strategy_to_payload_includes_provider_metadata() -> None:
+    summary = FieldSummary(type="enum", constraints=FieldConstraints(), enum_values=["x", "y"])
+    strategy = Strategy(
+        field_name="flag",
+        summary=summary,
+        annotation=str,
+        provider_ref=None,
+        provider_name="string.custom",
+        provider_kwargs={"min_length": 2},
+        p_none=0.1,
+        enum_values=["x", "y"],
+        enum_policy="random",
+    )
+    builder = StrategyBuilder(create_default_registry(load_plugins=False))
+
+    payload = explain_mod._strategy_to_payload(
+        strategy,
+        builder=builder,
+        remaining_depth=None,
+        visited=set(),
+    )
+
+    assert payload["enum_values"] == ["x", "y"]
+    assert payload["enum_policy"] == "random"
+    assert payload["provider_kwargs"] == {"min_length": 2}
 
 
 def test_render_field_text_handles_error_and_truncation(
@@ -467,6 +514,18 @@ def test_render_strategy_text_outputs(monkeypatch: pytest.MonkeyPatch) -> None:
     assert any("p_none: 0.5" in line for line in captured)
     assert any("Enum values: ['a', 'b']" in line for line in captured)
     assert any("Nested model: pkg.Model" in line for line in captured)
+
+
+def test_render_strategy_text_union_truncated(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: list[str] = []
+    monkeypatch.setattr(explain_mod.typer, "echo", lambda message: captured.append(message))
+
+    explain_mod._render_strategy_text(
+        {"kind": "union", "policy": "first", "truncated": True},
+        indent="",
+    )
+
+    assert any("... (max depth reached)" in line for line in captured)
 
 
 def test_constraints_to_dict_formats_all_fields() -> None:
@@ -765,6 +824,11 @@ def test_field_to_tree_nested_and_truncated() -> None:
     assert truncated_node.children and truncated_node.children[0].label.startswith("... (max")
 
 
+def test_strategy_to_tree_node_union_truncated() -> None:
+    node = explain_mod._strategy_to_tree_node({"kind": "union", "policy": "random", "truncated": True})
+    assert node.children and node.children[0].label == "... (max depth reached)"
+
+
 def test_render_field_text_truncated(capsys: pytest.CaptureFixture[str]) -> None:
     field = {
         "name": "trimmed",
@@ -792,3 +856,57 @@ def test_render_field_text_nested_dataclass(capsys: pytest.CaptureFixture[str]) 
     explain_mod._render_field_text(field, indent="")
     out = capsys.readouterr().out
     assert "Nested model" in out
+
+
+def test_render_field_text_rich_summary(capsys: pytest.CaptureFixture[str]) -> None:
+    field = {
+        "name": "rich",
+        "summary": {
+            "type": "string",
+            "format": "email",
+            "is_optional": True,
+            "constraints": {"min_length": 1},
+            "default": "user@example.com",
+            "default_factory": "factory()",
+        },
+    }
+    explain_mod._render_field_text(field, indent="")
+    out = capsys.readouterr().out
+    assert "Format: email" in out
+    assert "Optional: True" in out
+    assert "Constraints: {'min_length': 1}" in out
+    assert "Default: user@example.com" in out
+    assert "Default factory: factory()" in out
+
+
+def test_render_nested_model_text_special_cases(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: list[str] = []
+    monkeypatch.setattr(explain_mod.typer, "echo", lambda message: captured.append(message))
+
+    explain_mod._render_nested_model_text({"qualname": "pkg.Model", "cycle": True}, indent="")
+    explain_mod._render_nested_model_text({"qualname": "pkg.Other", "unsupported": True}, indent="")
+
+    assert "cycle detected" in captured[0]
+    assert "not expanded" in captured[1]
+
+
+def test_collect_dataclass_report_fields_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    builder = StrategyBuilder(create_default_registry(load_plugins=False))
+
+    original_fields = dataclasses.fields
+
+    def fake_fields(cls: type[Any]) -> tuple[Any, ...]:  # noqa: ANN401
+        if cls is SampleInner:
+            raise TypeError("broken")
+        return original_fields(cls)
+
+    monkeypatch.setattr(dataclasses, "fields", fake_fields)
+
+    report = explain_mod._collect_dataclass_report(
+        SampleInner,
+        builder=builder,
+        max_depth=None,
+        visited=set(),
+    )
+
+    assert report["unsupported"] is True
