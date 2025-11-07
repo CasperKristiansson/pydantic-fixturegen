@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pytest
 from pydantic_fixturegen.testing.pytest_plugin import (
+    SNAPSHOT_MARKER_NAME,
     UPDATE_OPTION_NAME,
     pfg_snapshot,
     pytest_addoption,
@@ -18,6 +19,24 @@ class _DummyConfig:
     def getoption(self, name: str, default=None):
         assert name == UPDATE_OPTION_NAME
         return self.option_value if self.option_value is not None else default
+
+
+@dataclass
+class _DummyMarker:
+    args: tuple[object, ...] = ()
+    kwargs: dict[str, object] = field(default_factory=dict)
+
+
+@dataclass
+class _DummyRequest:
+    marker: _DummyMarker | None = None
+
+    def __post_init__(self) -> None:
+        self.node = self
+
+    def get_closest_marker(self, name: str):
+        assert name == SNAPSHOT_MARKER_NAME
+        return self.marker
 
 
 def test_pytest_addoption_registers_update_flag() -> None:
@@ -44,7 +63,10 @@ def test_pytest_addoption_registers_update_flag() -> None:
 
 def test_pfg_snapshot_prefers_cli_option(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PFG_SNAPSHOT_UPDATE", raising=False)
-    runner = pfg_snapshot.__wrapped__(pytestconfig=_DummyConfig(option_value="update"))
+    runner = pfg_snapshot.__wrapped__(
+        pytestconfig=_DummyConfig(option_value="update"),
+        request=_DummyRequest(),
+    )
 
     assert isinstance(runner, SnapshotRunner)
     assert runner.update_mode is SnapshotUpdateMode.UPDATE
@@ -52,9 +74,38 @@ def test_pfg_snapshot_prefers_cli_option(monkeypatch: pytest.MonkeyPatch) -> Non
 
 def test_pfg_snapshot_falls_back_to_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PFG_SNAPSHOT_UPDATE", "update")
-    runner = pfg_snapshot.__wrapped__(pytestconfig=_DummyConfig(option_value=None))
+    runner = pfg_snapshot.__wrapped__(
+        pytestconfig=_DummyConfig(option_value=None),
+        request=_DummyRequest(),
+    )
 
     assert runner.update_mode is SnapshotUpdateMode.UPDATE
+
+
+def test_pfg_snapshot_marker_overrides_mode_and_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PFG_SNAPSHOT_UPDATE", raising=False)
+    marker = _DummyMarker(kwargs={"update": "update", "timeout": 9.5, "ast_mode": True})
+    runner = pfg_snapshot.__wrapped__(
+        pytestconfig=_DummyConfig(option_value="fail"),
+        request=_DummyRequest(marker=marker),
+    )
+
+    assert runner.update_mode is SnapshotUpdateMode.UPDATE
+    assert runner.timeout == 9.5
+    assert runner.ast_mode is True
+
+
+def test_pfg_snapshot_marker_unknown_option_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PFG_SNAPSHOT_UPDATE", raising=False)
+    marker = _DummyMarker(kwargs={"bogus": True})
+
+    with pytest.raises(pytest.UsageError):
+        pfg_snapshot.__wrapped__(
+            pytestconfig=_DummyConfig(option_value=None),
+            request=_DummyRequest(marker=marker),
+        )
 
 
 def test_snapshot_update_mode_coerce_handles_variants() -> None:

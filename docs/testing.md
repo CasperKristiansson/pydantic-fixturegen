@@ -38,6 +38,27 @@ By default, the helper fails when drift is detected and shows the unified diff g
 
 When update mode is active, the helper regenerates the requested artifacts using the deterministic CLI paths and re-diffs to confirm that changes were applied successfully.
 
+### Per-test overrides via marker
+
+Need to bump the timeout, force updates, or flip discovery modes for a single test? Annotate it with `@pytest.mark.pfg_snapshot_config(...)`:
+
+```python
+import pytest
+
+
+@pytest.mark.pfg_snapshot_config(update="update", timeout=10.0, ast_mode=True)
+def test_models(pfg_snapshot):
+    ...
+```
+
+Supported keyword arguments:
+
+- `update` — accepts the same values as the CLI flag (`fail`/`update`).
+- `timeout` / `memory_limit_mb` — feed directly into the safe-import sandbox used during diff discovery.
+- `ast_mode` / `hybrid_mode` — opt a single assertion into the matching discovery strategy without toggling the command line.
+
+Markers are enforced per-test, so suite-level defaults still come from the CLI option or `PFG_SNAPSHOT_UPDATE` unless the marker is present.
+
 ### Multiple artifact types
 
 Snapshot configs map directly to CLI emitters:
