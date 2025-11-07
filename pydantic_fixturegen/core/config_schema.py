@@ -131,6 +131,10 @@ class ConfigSchemaModel(BaseModel):
         default=DEFAULT_CONFIG.preset,
         description="Curated preset name applied before other configuration (e.g., 'boundary').",
     )
+    profile: str | None = Field(
+        default=DEFAULT_CONFIG.profile,
+        description="Privacy profile applied ahead of other configuration (e.g., 'pii-safe').",
+    )
     seed: int | str | None = Field(
         default=DEFAULT_CONFIG.seed,
         description="Global seed controlling deterministic generation. Accepts int or string.",
@@ -234,6 +238,10 @@ class IdentifierSettingsSchema(BaseModel):
         description="UUID version to use (1 or 4).",
         ge=1,
         le=4,
+    )
+    mask_sensitive: bool = Field(
+        default=DEFAULT_CONFIG.identifiers.mask_sensitive,
+        description="Mask email domains, URLs, cards, and IPs with reserved example data.",
     )
 
 

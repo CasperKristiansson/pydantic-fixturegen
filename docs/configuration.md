@@ -89,6 +89,7 @@ scope = "module"
 | Key            | Type                         | Default | Description                                                                 |
 | -------------- | ---------------------------- | ------- | --------------------------------------------------------------------------- |
 | `preset`       | `str \| null`                | `null`  | Named preset applied before other config. See [presets](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/presets.md).      |
+| `profile`      | `str \| null`                | `null`  | Privacy profile applied ahead of other settings (`pii-safe`, `realistic`). |
 | `seed`         | `int \| str \| null`         | `null`  | Global seed. Provide an explicit value for reproducible outputs.            |
 | `locale`       | `str`                        | `en_US` | Faker locale used when generating data.                                     |
 | `include`      | `list[str]`                  | `[]`    | Glob patterns of fully-qualified model names to include by default.         |
@@ -142,6 +143,7 @@ Install the optional `pydantic-fixturegen[numpy]` extra to enable array provider
 | `url_schemes`         | `list[str]`      | `["https"]` | Allowed URL schemes used by the identifier provider.                        |
 | `url_include_path`    | `bool`           | `true`       | Include a deterministic path segment when generating URLs.                  |
 | `uuid_version`        | `1 \| 4`         | `4`          | UUID version emitted by the `uuid` provider.                                |
+| `mask_sensitive`      | `bool`           | `false`      | Mask identifiers with reserved example domains, IPs, and card numbers.     |
 
 Identifier settings apply to `EmailStr`, `HttpUrl`/`AnyUrl`, secret strings/bytes, payment cards, and IP address fields. Values are chosen via the seeded RNG so fixtures remain reproducible across runs.
 
@@ -198,10 +200,20 @@ Add a `locales` mapping when you need region-specific Faker providers:
 - You can omit the trailing `.*` for model-wide overrides — `"app.models.User"` and `"app.models.User.*"` behave the same, as does using bare class names such as `"User"`.
 - Configuration loading validates locales by instantiating `Faker(locale)`, so typos raise descriptive errors.
 
+### Privacy profiles
+
+Profiles bundle deterministic overrides focused on sensitive identifiers. Set `profile = "pii-safe"` under `[tool.pydantic_fixturegen]`, export `PFG_PROFILE`, or pass `--profile` to any generation/diff command.
+
+- `pii-safe` — masks identifier providers (example.invalid emails/URLs, reserved IPs, test card numbers) and increases `p_none` for optional fields named `*.email`, `*.phone*`, `*.ssn`, `*.tax_id`, etc. Ideal when you need builds that are obviously synthetic.
+- `realistic` — disables masking, restores URL path emission, and dials probabilities toward filled-in contact fields for staging datasets.
+
+Profiles are applied before the rest of your configuration just like presets, so you can layer additional overrides on top.
+
 ## Environment variable cheatsheet
 
 | Purpose             | Variable                           | Example                                  |
 | ------------------- | ---------------------------------- | ---------------------------------------- |
+| Privacy profile     | `PFG_PROFILE`                      | `export PFG_PROFILE=pii-safe`            |
 | Seed override       | `PFG_SEED`                         | `export PFG_SEED=1234`                   |
 | JSON indent         | `PFG_JSON__INDENT`                 | `export PFG_JSON__INDENT=0`              |
 | Enable orjson       | `PFG_JSON__ORJSON`                 | `export PFG_JSON__ORJSON=true`           |

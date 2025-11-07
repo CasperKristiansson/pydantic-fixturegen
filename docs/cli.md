@@ -46,6 +46,7 @@ pfg gen json ./models.py \
 - Control volume with `--n` (records) and `--shard-size` (records per file).
 - Switch encoding with `--jsonl`, `--indent`, `--orjson/--no-orjson`.
 - Determinism helpers: `--seed`, `--freeze-seeds`, `--freeze-seeds-file`, `--preset`.
+- Privacy bundles: `--profile pii-safe` masks identifiers; `--profile realistic` restores richer distributions.
 - Observability: `--json-errors`, `--watch`, `--watch-debounce`, `--now`.
 
 ### `pfg gen fixtures`
@@ -65,7 +66,7 @@ pfg gen fixtures ./models.py \
 - `--style` controls structure (`functions`, `factory`, `class`).
 - `--scope` sets fixture scope; `--cases` parametrises templates.
 - `--return-type` chooses between returning the model or its dict representation.
-- Determinism flags mirror `gen json`.
+- Determinism flags mirror `gen json`, and `--profile` applies the same privacy bundles before fixture emission.
 
 ### `pfg gen schema`
 
@@ -74,7 +75,7 @@ pfg gen schema ./models.py --out ./schema --include pkg.User
 ```
 
 - Requires `--out` and writes JSON Schema files atomically.
-- Combine with `--include`/`--exclude`, `--json-errors`, `--watch`, and `--now`.
+- Combine with `--include`/`--exclude`, `--json-errors`, `--watch`, `--now`, and `--profile` when you want schema discovery to evaluate a specific privacy profile.
 
 ### `pfg gen explain`
 
@@ -100,7 +101,7 @@ pfg diff ./models.py \
 - Regenerates artifacts in-memory and compares them with existing files.
 - Writes JSON summaries when you pass output paths.
 - `--show-diff` streams unified diffs to stdout.
-- Determinism helpers: `--seed`, `--freeze-seeds`.
+- Determinism helpers: `--seed`, `--freeze-seeds`, plus `--profile` to mirror the privacy bundle used in generation.
 
 ## `pfg check`
 

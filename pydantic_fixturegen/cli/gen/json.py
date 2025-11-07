@@ -113,6 +113,12 @@ PRESET_OPTION = typer.Option(
     help="Apply a curated generation preset (e.g. 'boundary', 'boundary-max').",
 )
 
+PROFILE_OPTION = typer.Option(
+    None,
+    "--profile",
+    help="Apply a privacy profile (e.g. 'pii-safe', 'realistic').",
+)
+
 
 def register(app: typer.Typer) -> None:
     @app.command("json")
@@ -134,6 +140,7 @@ def register(app: typer.Typer) -> None:
         freeze_seeds: bool = FREEZE_SEEDS_OPTION,
         freeze_seeds_file: Path | None = FREEZE_FILE_OPTION,
         preset: str | None = PRESET_OPTION,
+        profile: str | None = PROFILE_OPTION,
     ) -> None:
         logger = get_logger()
 
@@ -166,6 +173,7 @@ def register(app: typer.Typer) -> None:
                     freeze_seeds=freeze_seeds,
                     freeze_seeds_file=freeze_seeds_file,
                     preset=preset,
+                    profile=profile,
                     now=now,
                 )
             except PFGError as exc:
@@ -220,6 +228,7 @@ def _execute_json_command(
     freeze_seeds: bool,
     freeze_seeds_file: Path | None,
     preset: str | None,
+    profile: str | None = None,
 ) -> None:
     logger = get_logger()
 
@@ -242,6 +251,7 @@ def _execute_json_command(
             freeze_seeds=freeze_seeds,
             freeze_seeds_file=freeze_seeds_file,
             preset=preset,
+            profile=profile,
             logger=logger,
         )
     except PFGError as exc:

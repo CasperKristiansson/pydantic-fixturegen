@@ -62,6 +62,12 @@ WATCH_DEBOUNCE_OPTION = typer.Option(
     help="Debounce interval in seconds for filesystem events.",
 )
 
+PROFILE_OPTION = typer.Option(
+    None,
+    "--profile",
+    help="Apply a privacy profile before schema generation (e.g. 'pii-safe').",
+)
+
 
 def register(app: typer.Typer) -> None:
     @app.command("schema")
@@ -74,6 +80,7 @@ def register(app: typer.Typer) -> None:
         json_errors: bool = JSON_ERRORS_OPTION,
         watch: bool = WATCH_OPTION,
         watch_debounce: float = WATCH_DEBOUNCE_OPTION,
+        profile: str | None = PROFILE_OPTION,
     ) -> None:
         logger = get_logger()
 
@@ -98,6 +105,7 @@ def register(app: typer.Typer) -> None:
                     indent=indent,
                     include=include,
                     exclude=exclude,
+                    profile=profile,
                 )
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors, exit_app=exit_app)
@@ -142,6 +150,7 @@ def _execute_schema_command(
     indent: int | None,
     include: str | None,
     exclude: str | None,
+    profile: str | None = None,
 ) -> None:
     logger = get_logger()
 
@@ -155,6 +164,7 @@ def _execute_schema_command(
             indent=indent,
             include=include_patterns,
             exclude=exclude_patterns,
+            profile=profile,
             logger=logger,
         )
     except PFGError as exc:

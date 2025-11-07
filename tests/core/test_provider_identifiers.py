@@ -108,6 +108,52 @@ def test_generate_identifier_payment_card_and_ip_types() -> None:
     ipaddress.ip_network(network, strict=False)
 
 
+def test_generate_identifier_masks_email_when_requested() -> None:
+    rng = random.Random(42)
+    config = IdentifierConfig(mask_sensitive=True)
+    email = identifiers_mod.generate_identifier(
+        _summary("email"),
+        random_generator=rng,
+        identifier_config=config,
+    )
+    assert email.endswith("@example.invalid")
+    assert email.startswith("user-")
+
+
+def test_generate_identifier_masks_url_and_card() -> None:
+    rng = random.Random(43)
+    config = IdentifierConfig(mask_sensitive=True, url_include_path=True)
+    url = identifiers_mod.generate_identifier(
+        _summary("url"),
+        random_generator=rng,
+        identifier_config=config,
+    )
+    assert url.startswith("https://example.invalid")
+
+    card = identifiers_mod.generate_identifier(
+        _summary("payment-card"),
+        random_generator=random.Random(44),
+        identifier_config=config,
+    )
+    assert card == "4000000000000002"
+
+
+def test_generate_identifier_masks_secret_and_ip() -> None:
+    config = IdentifierConfig(mask_sensitive=True, secret_str_length=5, secret_bytes_length=4)
+    secret = identifiers_mod.generate_identifier(
+        _summary("secret-str"),
+        random_generator=random.Random(45),
+        identifier_config=config,
+    )
+    expected_secret = "REDACTED"[: config.secret_str_length] or "REDACTED"
+    assert secret.get_secret_value() == expected_secret
+
+    ip_value = identifiers_mod.generate_identifier(
+        _summary("ip-address"),
+        random_generator=random.Random(46),
+        identifier_config=config,
+    )
+    assert ip_value.startswith("192.0.2.")
 def test_generate_identifier_unknown_type() -> None:
     with pytest.raises(ValueError):
         identifiers_mod.generate_identifier(_summary("custom"), random_generator=random.Random())
@@ -123,7 +169,9 @@ def test_resolve_length_clamps_and_defaults() -> None:
 
 def test_generate_email_handles_short_max() -> None:
     summary = _summary("email", min_length=None, max_length=2)
-    assert identifiers_mod._generate_email(summary, random.Random(0)) == "a@"
+    assert (
+        identifiers_mod._generate_email(summary, random.Random(0), IdentifierConfig()) == "a@"
+    )
 
 
 def test_generate_url_without_path_padding() -> None:

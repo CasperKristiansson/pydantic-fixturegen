@@ -190,6 +190,19 @@ dtypes = ["float32", "int16"]
 - Deterministic seeds flow through `SeedManager.numpy_for`, so array contents remain stable across runs.
 - Combine with field policies when you need to override other behaviours (for example `p_none`).
 
+## Recipe 9 — Enforce privacy profiles per environment
+
+Use the built-in privacy bundles when you need obviously synthetic datasets in CI but richer identifiers locally.
+
+```bash
+pfg gen json ./models.py --out snapshots/users.json --profile pii-safe
+pfg diff ./models.py --json-out snapshots/users.json --profile realistic
+```
+
+- `pii-safe` masks emails/URLs/IPs with reserved example values and makes optional PII fields far more likely to be `None`.
+- `realistic` keeps optional contact fields populated and re-enables full identifier distributions.
+- Set `[tool.pydantic_fixturegen].profile = "pii-safe"` for CI defaults, then override locally with `PFG_PROFILE=realistic` or `--profile realistic`.
+
 ## More plays
 
 - Automate regeneration with watch mode: `pfg gen fixtures ... --watch`.

@@ -119,6 +119,12 @@ PRESET_OPTION = typer.Option(
     help="Apply a curated generation preset during diff regeneration.",
 )
 
+PROFILE_OPTION = typer.Option(
+    None,
+    "--profile",
+    help="Apply a privacy profile (e.g. 'pii-safe', 'realistic') before diffing.",
+)
+
 FREEZE_SEEDS_OPTION = typer.Option(
     False,
     "--freeze-seeds/--no-freeze-seeds",
@@ -268,6 +274,7 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
     show_diff: bool = SHOW_DIFF_OPTION,
     json_errors: bool = JSON_ERRORS_OPTION,
     preset: str | None = PRESET_OPTION,
+    profile: str | None = PROFILE_OPTION,
     freeze_seeds: bool = FREEZE_SEEDS_OPTION,
     freeze_seeds_file: Path | None = FREEZE_FILE_OPTION,
 ) -> None:
@@ -304,6 +311,7 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
                 indent=schema_indent,
             ),
             preset=preset,
+            profile=profile,
             freeze_seeds=freeze_seeds,
             freeze_seeds_file=freeze_seeds_file,
             now_override=now,
@@ -386,6 +394,7 @@ def _execute_diff(
     freeze_seeds: bool,
     freeze_seeds_file: Path | None,
     preset: str | None,
+    profile: str | None = None,
     now_override: str | None,
 ) -> list[DiffReport]:
     if not any((json_options.out, fixtures_options.out, schema_options.out)):
@@ -417,6 +426,8 @@ def _execute_diff(
     config_cli_overrides: dict[str, Any] = {}
     if preset is not None:
         config_cli_overrides["preset"] = preset
+    if profile is not None:
+        config_cli_overrides["profile"] = profile
     if now_override is not None:
         config_cli_overrides["now"] = now_override
 

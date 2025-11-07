@@ -152,6 +152,7 @@ def generate_json_artifacts(
     freeze_seeds: bool,
     freeze_seeds_file: Path | None,
     preset: str | None,
+    profile: str | None = None,
     logger: Logger | None = None,
 ) -> JsonGenerationResult:
     logger = logger or get_logger()
@@ -184,6 +185,8 @@ def generate_json_artifacts(
     cli_overrides: dict[str, Any] = {}
     if preset is not None:
         cli_overrides["preset"] = preset
+    if profile is not None:
+        cli_overrides["profile"] = profile
     if seed is not None:
         cli_overrides["seed"] = seed
     if now is not None:
@@ -368,6 +371,7 @@ def generate_fixtures_artifacts(
     freeze_seeds: bool,
     freeze_seeds_file: Path | None,
     preset: str | None,
+    profile: str | None = None,
     logger: Logger | None = None,
 ) -> FixturesGenerationResult:
     logger = logger or get_logger()
@@ -400,6 +404,8 @@ def generate_fixtures_artifacts(
     cli_overrides: dict[str, Any] = {}
     if preset is not None:
         cli_overrides["preset"] = preset
+    if profile is not None:
+        cli_overrides["profile"] = profile
     if seed is not None:
         cli_overrides["seed"] = seed
     if now is not None:
@@ -605,6 +611,7 @@ def generate_schema_artifacts(
     indent: int | None,
     include: Sequence[str] | None,
     exclude: Sequence[str] | None,
+    profile: str | None = None,
     logger: Logger | None = None,
 ) -> SchemaGenerationResult:
     logger = logger or get_logger()
@@ -625,6 +632,8 @@ def generate_schema_artifacts(
     cli_overrides: dict[str, Any] = {}
     if indent is not None:
         cli_overrides.setdefault("json", {})["indent"] = indent
+    if profile is not None:
+        cli_overrides["profile"] = profile
     if clear_include:
         cli_overrides["include"] = list(clear_include)
     if clear_exclude:

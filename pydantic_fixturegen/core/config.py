@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime
 import fnmatch
 import os
-from collections.abc import Mapping, MutableMapping, Sequence
+from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, field, replace
 from importlib import import_module
 from pathlib import Path
@@ -15,6 +15,7 @@ from faker import Faker
 
 from .field_policies import FieldPolicy
 from .presets import get_preset_spec, normalize_preset_name
+from .privacy_profiles import get_privacy_profile_spec, normalize_privacy_profile_name
 from .seed import DEFAULT_LOCALE
 
 
@@ -81,6 +82,7 @@ class IdentifierConfig:
     url_schemes: tuple[str, ...] = ("https",)
     url_include_path: bool = True
     uuid_version: int = 4
+    mask_sensitive: bool = False
 
 
 @dataclass(frozen=True)
@@ -107,6 +109,7 @@ class PathConfig:
 @dataclass(frozen=True)
 class AppConfig:
     preset: str | None = None
+    profile: str | None = None
     seed: int | str | None = None
     locale: str = DEFAULT_LOCALE
     include: tuple[str, ...] = ()
@@ -161,6 +164,7 @@ def load_config(
 def _config_defaults_dict() -> dict[str, Any]:
     return {
         "preset": DEFAULT_CONFIG.preset,
+        "profile": DEFAULT_CONFIG.profile,
         "seed": DEFAULT_CONFIG.seed,
         "locale": DEFAULT_CONFIG.locale,
         "include": list(DEFAULT_CONFIG.include),
@@ -306,6 +310,7 @@ def _coerce_env_value(value: str) -> Any:
 
 def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
     preset_value = _coerce_preset_value(data.get("preset"))
+    profile_value = _coerce_profile_value(data.get("profile"))
 
     seed = data.get("seed")
     locale = _coerce_str(data.get("locale"), "locale")
@@ -346,6 +351,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
 
     config = AppConfig(
         preset=preset_value,
+        profile=profile_value,
         seed=seed_value,
         locale=locale,
         include=include,
@@ -629,6 +635,7 @@ def _normalize_identifier_config(value: Any) -> IdentifierConfig:
     url_schemes_raw = value.get("url_schemes", config.url_schemes)
     url_include_path_raw = value.get("url_include_path", config.url_include_path)
     uuid_version_raw = value.get("uuid_version", config.uuid_version)
+    mask_sensitive_raw = value.get("mask_sensitive", config.mask_sensitive)
 
     try:
         secret_str_length = int(secret_str_raw)
@@ -670,12 +677,16 @@ def _normalize_identifier_config(value: Any) -> IdentifierConfig:
     if uuid_version not in {1, 4}:
         raise ConfigError("identifiers.uuid_version must be 1 or 4.")
 
+    if not isinstance(mask_sensitive_raw, bool):
+        raise ConfigError("identifiers.mask_sensitive must be a boolean.")
+
     return IdentifierConfig(
         secret_str_length=secret_str_length,
         secret_bytes_length=secret_bytes_length,
         url_schemes=schemes,
         url_include_path=url_include_path,
         uuid_version=uuid_version,
+        mask_sensitive=mask_sensitive_raw,
     )
 
 
@@ -773,6 +784,22 @@ def _coerce_preset_value(value: Any) -> str | None:
     return spec.name
 
 
+def _coerce_profile_value(value: Any) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ConfigError("profile must be a string when specified.")
+    stripped = value.strip()
+    if not stripped:
+        return None
+    normalized = normalize_privacy_profile_name(stripped)
+    try:
+        spec = get_privacy_profile_spec(normalized)
+    except KeyError as exc:
+        raise ConfigError(f"Unknown profile '{value}'.") from exc
+    return spec.name
+
+
 def _ensure_mutable(mapping: Mapping[str, Any]) -> dict[str, Any]:
     mutable: dict[str, Any] = {}
     for key, value in mapping.items():
@@ -809,21 +836,30 @@ def _merge_source_with_preset(data: MutableMapping[str, Any], source: Mapping[st
         return
 
     mutable = _ensure_mutable(source)
+    bundles: tuple[tuple[str, Callable[[str], str], Callable[[str], Any]], ...] = (
+        ("preset", normalize_preset_name, get_preset_spec),
+        ("profile", normalize_privacy_profile_name, get_privacy_profile_spec),
+    )
 
-    if "preset" in mutable:
-        preset_raw = mutable.pop("preset")
-        if preset_raw is None:
-            data["preset"] = None
-        else:
-            if not isinstance(preset_raw, str):
-                raise ConfigError("preset must be a string when specified.")
-            preset_name = normalize_preset_name(preset_raw)
-            try:
-                preset_spec = get_preset_spec(preset_name)
-            except KeyError as exc:
-                raise ConfigError(f"Unknown preset '{preset_raw}'.") from exc
-
-            _deep_merge(data, _ensure_mutable(preset_spec.settings))
-            data["preset"] = preset_spec.name
+    for key_name, normalizer, resolver in bundles:
+        if key_name not in mutable:
+            continue
+        raw_value = mutable.pop(key_name)
+        if raw_value is None:
+            data[key_name] = None
+            continue
+        if not isinstance(raw_value, str):
+            raise ConfigError(f"{key_name} must be a string when specified.")
+        stripped = raw_value.strip()
+        if not stripped:
+            data[key_name] = None
+            continue
+        normalized = normalizer(stripped)
+        try:
+            spec = resolver(normalized)
+        except KeyError as exc:
+            raise ConfigError(f"Unknown {key_name} '{raw_value}'.") from exc
+        _deep_merge(data, _ensure_mutable(spec.settings))
+        data[key_name] = spec.name
 
     _deep_merge(data, mutable)

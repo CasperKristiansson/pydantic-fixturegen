@@ -108,6 +108,7 @@ class SnapshotRunner:
         p_none: float | None = None,
         now: str | None = None,
         preset: str | None = None,
+        profile: str | None = None,
         freeze_seeds: bool = False,
         freeze_seeds_file: str | Path | None = None,
         update: SnapshotUpdateMode | str | None = None,
@@ -143,6 +144,7 @@ class SnapshotRunner:
             freeze_seeds=freeze_seeds,
             freeze_seeds_file=Path(freeze_seeds_file) if freeze_seeds_file else None,
             preset=preset,
+            profile=profile,
             now_override=now,
         )
 
@@ -161,6 +163,7 @@ class SnapshotRunner:
                 p_none=p_none,
                 now=now,
                 preset=preset,
+                profile=profile,
                 freeze_seeds=freeze_seeds,
                 freeze_seeds_file=freeze_seeds_file,
             )
@@ -180,6 +183,7 @@ class SnapshotRunner:
                 freeze_seeds=freeze_seeds,
                 freeze_seeds_file=Path(freeze_seeds_file) if freeze_seeds_file else None,
                 preset=preset,
+                profile=profile,
                 now_override=now,
             )
             if not any(report.changed for report in reports):
@@ -201,6 +205,7 @@ class SnapshotRunner:
         p_none: float | None,
         now: str | None,
         preset: str | None,
+        profile: str | None = None,
         freeze_seeds: bool,
         freeze_seeds_file: str | Path | None,
     ) -> None:
@@ -223,6 +228,7 @@ class SnapshotRunner:
                 freeze_seeds=freeze_seeds,
                 freeze_seeds_file=freeze_seeds_file,
                 preset=preset,
+                profile=profile,
             )
 
         if fixtures and fixtures.out:
@@ -241,6 +247,7 @@ class SnapshotRunner:
                 freeze_seeds=freeze_seeds,
                 freeze_seeds_file=freeze_seeds_file,
                 preset=preset,
+                profile=profile,
             )
 
         if schema and schema.out:
@@ -250,6 +257,7 @@ class SnapshotRunner:
                 indent=schema.indent,
                 include=include_seq,
                 exclude=exclude_seq,
+                profile=profile,
             )
 
 

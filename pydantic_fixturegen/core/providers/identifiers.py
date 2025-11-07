@@ -24,6 +24,10 @@ _CARD_PREFIXES = (
     ("37", 15),
     ("6011", 16),
 )
+_MASK_EMAIL_DOMAIN = "example.invalid"
+_MASK_URL_HOST = "example.invalid"
+_MASK_PAYMENT_CARD = "4000000000000002"
+_MASK_SECRET_VALUE = "REDACTED"
 
 
 def generate_identifier(
@@ -42,23 +46,23 @@ def generate_identifier(
         raise RuntimeError("Identifier provider requires a seeded random generator.")
 
     if type_name == "email":
-        return _generate_email(summary, rng)
+        return _generate_email(summary, rng, config)
     if type_name == "url":
         return _generate_url(summary, rng, config)
     if type_name == "uuid":
         return _generate_uuid(rng, config.uuid_version)
     if type_name == "payment-card":
-        return _generate_payment_card(rng)
+        return _generate_payment_card(rng, config)
     if type_name == "secret-str":
         return _generate_secret_str(summary, rng, config)
     if type_name == "secret-bytes":
         return _generate_secret_bytes(summary, rng, config)
     if type_name == "ip-address":
-        return _generate_ip_address(rng)
+        return _generate_ip_address(rng, config)
     if type_name == "ip-interface":
-        return _generate_ip_interface(rng)
+        return _generate_ip_interface(rng, config)
     if type_name == "ip-network":
-        return _generate_ip_network(rng)
+        return _generate_ip_network(rng, config)
 
     raise ValueError(f"Unsupported identifier type: {type_name}")
 
@@ -100,7 +104,7 @@ def _resolve_length(summary: FieldSummary, default_length: int) -> int:
     return max(1, length)
 
 
-def _generate_email(summary: FieldSummary, rng: Any) -> str:
+def _generate_email(summary: FieldSummary, rng: Any, config: IdentifierConfig) -> str:
     constraints = summary.constraints
     min_total = constraints.min_length or 3
     max_total = constraints.max_length
@@ -109,10 +113,13 @@ def _generate_email(summary: FieldSummary, rng: Any) -> str:
     if max_total is not None and max_total < 3:
         return "a@b"[:max_total]
 
-    domain_label_length = _choose_length(rng, 3, 10)
-    domain_label = _random_string(rng, domain_label_length, _HOST_CHARS)
-    tld = rng.choice(_TLDS)
-    domain = f"{domain_label}.{tld}"
+    if config.mask_sensitive:
+        domain = _MASK_EMAIL_DOMAIN
+    else:
+        domain_label_length = _choose_length(rng, 3, 10)
+        domain_label = _random_string(rng, domain_label_length, _HOST_CHARS)
+        tld = rng.choice(_TLDS)
+        domain = f"{domain_label}.{tld}"
 
     if max_total is not None:
         max_domain_length = max(max_total - 2, 1)
@@ -129,7 +136,10 @@ def _generate_email(summary: FieldSummary, rng: Any) -> str:
     if max_total is not None:
         max_local = max(1, max_total - len(suffix))
     local_length = _choose_length(rng, min_local, max_local, default=8)
-    local_part = _random_string(rng, local_length, _EMAIL_LOCAL_CHARS)
+    if config.mask_sensitive:
+        local_part = _masked_local_part(rng, local_length)
+    else:
+        local_part = _random_string(rng, local_length, _EMAIL_LOCAL_CHARS)
     email = f"{local_part}{suffix}"
 
     if len(email) < min_total:
@@ -147,19 +157,27 @@ def _generate_url(summary: FieldSummary, rng: Any, config: IdentifierConfig) -> 
     max_length = constraints.max_length
 
     scheme = rng.choice(tuple(config.url_schemes))
-    host_length = _choose_length(rng, 3, 12)
-    host = _random_string(rng, host_length, _HOST_CHARS)
-    tld = rng.choice(_TLDS)
+    if config.mask_sensitive:
+        host = "example"
+        tld = "invalid"
+    else:
+        host_length = _choose_length(rng, 3, 12)
+        host = _random_string(rng, host_length, _HOST_CHARS)
+        tld = rng.choice(_TLDS)
     base = f"{scheme}://{host}.{tld}"
 
     url = base
     if config.url_include_path:
-        path_segments = []
-        segment_count = rng.randint(1, 3)
-        for _ in range(segment_count):
-            segment_length = _choose_length(rng, 2, 8)
-            path_segments.append(_random_string(rng, segment_length, _PATH_CHARS))
-        path = "/".join(path_segments)
+        if config.mask_sensitive:
+            token = f"resource-{rng.randint(0, 9999):04d}"
+            path = token
+        else:
+            path_segments = []
+            segment_count = rng.randint(1, 3)
+            for _ in range(segment_count):
+                segment_length = _choose_length(rng, 2, 8)
+                path_segments.append(_random_string(rng, segment_length, _PATH_CHARS))
+            path = "/".join(path_segments)
         url = f"{base}/{path}"
 
     if len(url) < min_length:
@@ -202,7 +220,9 @@ def _generate_uuid(rng: Any, version: int) -> uuid.UUID:
     raise ValueError(f"Unsupported UUID version: {version}")
 
 
-def _generate_payment_card(rng: Any) -> str:
+def _generate_payment_card(rng: Any, config: IdentifierConfig) -> str:
+    if config.mask_sensitive:
+        return _MASK_PAYMENT_CARD
     prefix, length = rng.choice(_CARD_PREFIXES)
     digits = [int(char) for char in prefix]
     body_length = length - len(prefix) - 1
@@ -216,7 +236,11 @@ def _generate_payment_card(rng: Any) -> str:
 def _generate_secret_str(summary: FieldSummary, rng: Any, config: IdentifierConfig) -> SecretStr:
     charset = string.ascii_letters + string.digits
     length = _resolve_length(summary, config.secret_str_length)
-    value = "".join(rng.choice(charset) for _ in range(length))
+    if config.mask_sensitive:
+        mask = (_MASK_SECRET_VALUE * ((length // len(_MASK_SECRET_VALUE)) + 1))[:length]
+        value = mask or _MASK_SECRET_VALUE
+    else:
+        value = "".join(rng.choice(charset) for _ in range(length))
     return SecretStr(value)
 
 
@@ -226,24 +250,36 @@ def _generate_secret_bytes(
     config: IdentifierConfig,
 ) -> SecretBytes:
     length = _resolve_length(summary, config.secret_bytes_length)
-    data = bytes(rng.getrandbits(8) for _ in range(length))
+    if config.mask_sensitive:
+        data = bytes([0] * length)
+    else:
+        data = bytes(rng.getrandbits(8) for _ in range(length))
     return SecretBytes(data)
 
 
-def _generate_ip_address(rng: Any) -> str:
+def _generate_ip_address(rng: Any, config: IdentifierConfig) -> str:
+    if config.mask_sensitive:
+        return f"192.0.2.{rng.randint(0, 255)}"
     return str(ipaddress.IPv4Address(rng.getrandbits(32)))
 
 
-def _generate_ip_interface(rng: Any) -> str:
-    address = _generate_ip_address(rng)
+def _generate_ip_interface(rng: Any, config: IdentifierConfig) -> str:
+    address = _generate_ip_address(rng, config)
     prefix = rng.randint(8, 30)
     return str(ipaddress.ip_interface(f"{address}/{prefix}"))
 
 
-def _generate_ip_network(rng: Any) -> str:
-    address = _generate_ip_address(rng)
+def _generate_ip_network(rng: Any, config: IdentifierConfig) -> str:
+    address = _generate_ip_address(rng, config)
     prefix = rng.randint(8, 30)
     return str(ipaddress.ip_network(f"{address}/{prefix}", strict=False))
+
+
+def _masked_local_part(rng: Any, target_length: int) -> str:
+    token = f"user-{rng.randint(0, 999999):06d}"
+    if len(token) < target_length:
+        token += "0" * (target_length - len(token))
+    return token[: max(1, target_length)]
 
 
 def _random_string(rng: Any, length: int, alphabet: str) -> str:

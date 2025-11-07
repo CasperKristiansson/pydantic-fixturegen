@@ -332,6 +332,7 @@ def test_identifier_config_parsing(tmp_path: Path) -> None:
                 "url_schemes": ["http", "https"],
                 "url_include_path": False,
                 "uuid_version": 1,
+                "mask_sensitive": True,
             }
         },
     )
@@ -342,6 +343,7 @@ def test_identifier_config_parsing(tmp_path: Path) -> None:
     assert identifiers.url_schemes == ("http", "https")
     assert identifiers.url_include_path is False
     assert identifiers.uuid_version == 1
+    assert identifiers.mask_sensitive is True
 
 
 def test_identifier_config_validation(tmp_path: Path) -> None:
@@ -355,6 +357,21 @@ def test_identifier_config_validation(tmp_path: Path) -> None:
         load_config(root=tmp_path, cli={"identifiers": {"url_include_path": "yes"}})
     with pytest.raises(ConfigError):
         load_config(root=tmp_path, cli={"identifiers": {"uuid_version": 5}})
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"identifiers": {"mask_sensitive": "on"}})
+
+
+def test_profile_applies_privacy_settings(tmp_path: Path) -> None:
+    config = load_config(root=tmp_path, cli={"profile": "pii-safe"})
+
+    assert config.profile == "pii-safe"
+    assert config.identifiers.mask_sensitive is True
+    assert any(policy.pattern == "*.email" for policy in config.field_policies)
+
+
+def test_profile_validation(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"profile": "unknown-profile"})
 
 
 def test_preset_applies_policies(tmp_path: Path) -> None:

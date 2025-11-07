@@ -40,6 +40,7 @@ def generate_json(
     freeze_seeds: bool = False,
     freeze_seeds_file: str | Path | None = None,
     preset: str | None = None,
+    profile: str | None = None,
 ) -> JsonGenerationResult:
     """Generate JSON artifacts for a single Pydantic model.
 
@@ -64,6 +65,7 @@ def generate_json(
         freeze_seeds=freeze_seeds,
         freeze_seeds_file=freeze_path,
         preset=preset,
+        profile=profile,
     )
 
 
@@ -83,6 +85,7 @@ def generate_fixtures(
     freeze_seeds: bool = False,
     freeze_seeds_file: str | Path | None = None,
     preset: str | None = None,
+    profile: str | None = None,
 ) -> FixturesGenerationResult:
     """Emit pytest fixtures for discovered models.
 
@@ -107,6 +110,7 @@ def generate_fixtures(
         freeze_seeds=freeze_seeds,
         freeze_seeds_file=freeze_path,
         preset=preset,
+        profile=profile,
     )
 
 
@@ -117,6 +121,7 @@ def generate_schema(
     indent: int | None = None,
     include: Sequence[str] | None = None,
     exclude: Sequence[str] | None = None,
+    profile: str | None = None,
 ) -> SchemaGenerationResult:
     """Emit JSON Schema for one or more models."""
 
@@ -128,6 +133,7 @@ def generate_schema(
         indent=indent,
         include=_normalize_sequence(include),
         exclude=_normalize_sequence(exclude),
+        profile=profile,
     )
 
 

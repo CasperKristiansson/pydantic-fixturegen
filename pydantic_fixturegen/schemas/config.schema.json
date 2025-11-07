@@ -111,6 +111,12 @@
       "additionalProperties": false,
       "description": "Schema describing identifier provider settings.",
       "properties": {
+        "mask_sensitive": {
+          "default": false,
+          "description": "Mask email domains, URLs, cards, and IPs with reserved example data.",
+          "title": "Mask Sensitive",
+          "type": "boolean"
+        },
         "secret_bytes_length": {
           "default": 16,
           "description": "Default length for generated SecretBytes values.",
@@ -340,6 +346,19 @@
       "default": null,
       "description": "Curated preset name applied before other configuration (e.g., 'boundary').",
       "title": "Preset"
+    },
+    "profile": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Privacy profile applied ahead of other configuration (e.g., 'pii-safe').",
+      "title": "Profile"
     },
     "seed": {
       "anyOf": [
