@@ -57,6 +57,7 @@ class StrategyBuilder:
         plugin_manager: pluggy.PluginManager | None = None,
         array_config: Any | None = None,
         identifier_config: Any | None = None,
+        number_config: Any | None = None,
     ) -> None:
         self.registry = registry
         self.enum_policy = enum_policy
@@ -66,6 +67,7 @@ class StrategyBuilder:
         self._plugin_manager = plugin_manager or get_plugin_manager()
         self._array_config = array_config
         self._identifier_config = identifier_config
+        self._number_config = number_config
 
     def build_model_strategies(self, model: type[BaseModel]) -> Mapping[str, StrategyResult]:
         summaries = summarize_model_fields(model)
@@ -176,6 +178,9 @@ class StrategyBuilder:
         }
         if summary.type in identifier_types and self._identifier_config is not None:
             strategy.provider_kwargs["identifier_config"] = self._identifier_config
+        numeric_types = {"int", "float", "decimal"}
+        if summary.type in numeric_types and self._number_config is not None:
+            strategy.provider_kwargs["number_config"] = self._number_config
         return self._apply_strategy_plugins(model, field_name, strategy)
 
     # ------------------------------------------------------------------ utilities

@@ -4,6 +4,7 @@ import decimal
 import random
 
 import pytest
+from pydantic_fixturegen.core.config import NumberDistributionConfig
 from pydantic_fixturegen.core.providers import numbers as numbers_mod
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
 
@@ -61,3 +62,30 @@ def test_generate_numeric_decimal_limits_digits() -> None:
 def test_generate_numeric_raises_unknown_type() -> None:
     with pytest.raises(ValueError):
         numbers_mod.generate_numeric(_summary("complex"))
+
+
+def test_generate_numeric_int_with_normal_distribution() -> None:
+    summary = _summary("int", ge=0, le=10)
+    rng = random.Random(0)
+    config = NumberDistributionConfig(distribution="normal", normal_stddev_fraction=0.1)
+    values = [
+        numbers_mod.generate_numeric(summary, random_generator=rng, number_config=config)
+        for _ in range(5)
+    ]
+
+    assert all(0 <= value <= 10 for value in values)
+    assert values[0] == 5
+
+
+def test_generate_numeric_float_with_spike_distribution() -> None:
+    summary = _summary("float", ge=0.0, le=1.0)
+    rng = random.Random(1)
+    config = NumberDistributionConfig(
+        distribution="spike", spike_ratio=1.0, spike_width_fraction=0.05
+    )
+    values = [
+        numbers_mod.generate_numeric(summary, random_generator=rng, number_config=config)
+        for _ in range(3)
+    ]
+
+    assert all(0.45 <= value <= 0.55 for value in values)

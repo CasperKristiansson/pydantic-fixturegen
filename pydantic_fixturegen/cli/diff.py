@@ -13,7 +13,13 @@ from typing import Any, cast
 import typer
 from pydantic import BaseModel
 
-from pydantic_fixturegen.core.config import ArrayConfig, IdentifierConfig, PathConfig, load_config
+from pydantic_fixturegen.core.config import (
+    ArrayConfig,
+    IdentifierConfig,
+    NumberDistributionConfig,
+    PathConfig,
+    load_config,
+)
 from pydantic_fixturegen.core.errors import (
     DiffError,
     DiscoveryError,
@@ -545,6 +551,7 @@ def _execute_diff(
                 app_config_arrays=app_config.arrays,
                 app_config_identifiers=app_config.identifiers,
                 app_config_paths=app_config.paths,
+                app_config_numbers=app_config.numbers,
             )
         )
 
@@ -723,6 +730,7 @@ def _diff_fixtures_artifact(
     app_config_arrays: ArrayConfig,
     app_config_identifiers: IdentifierConfig,
     app_config_paths: PathConfig,
+    app_config_numbers: NumberDistributionConfig,
 ) -> DiffReport:
     if options.out is None:
         raise DiscoveryError("Fixtures diff requires --fixtures-out.")
@@ -765,6 +773,7 @@ def _diff_fixtures_artifact(
             arrays=app_config_arrays,
             identifiers=app_config_identifiers,
             paths=app_config_paths,
+            numbers=app_config_numbers,
         )
 
         context = EmitterContext(

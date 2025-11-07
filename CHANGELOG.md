@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added per-model/field Faker locale mapping with validation and runtime overrides.
 - Locale override patterns now match bare model names (with or without module prefixes), so specifying `app.models.User` or `User` applies to every field without writing `.*`.
 - Added privacy profiles (`pii-safe`, `realistic`) selectable via `--profile`/`PFG_PROFILE`/`[tool.pydantic_fixturegen].profile` to mask identifiers or favour realistic datasets.
+- Added numeric distribution controls (`[numbers]` config) enabling uniform, normal, or bounded spike sampling for ints/floats/decimals.
 - Added deterministic NumPy array providers with configurable shape/dtype caps (requires the `numpy` extra).
 
 ## [1.1.0] - 2025-11-04

@@ -203,6 +203,10 @@ class ConfigSchemaModel(BaseModel):
             "Configuration for identifier providers (secret lengths, URL schemes, UUID version)."
         ),
     )
+    numbers: NumbersSettingsSchema = Field(
+        default_factory=lambda: NumbersSettingsSchema(),
+        description="Control numeric distributions (uniform, normal, spike).",
+    )
     paths: PathSettingsSchema = Field(
         default_factory=lambda: PathSettingsSchema(),
         description="Configuration for filesystem path providers.",
@@ -242,6 +246,33 @@ class IdentifierSettingsSchema(BaseModel):
     mask_sensitive: bool = Field(
         default=DEFAULT_CONFIG.identifiers.mask_sensitive,
         description="Mask email domains, URLs, cards, and IPs with reserved example data.",
+    )
+
+
+class NumbersSettingsSchema(BaseModel):
+    """Schema describing numeric distribution controls."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    distribution: Literal["uniform", "normal", "spike"] = Field(
+        default=DEFAULT_CONFIG.numbers.distribution,
+        description="Distribution applied to ints/floats/decimals.",
+    )
+    normal_stddev_fraction: float = Field(
+        default=DEFAULT_CONFIG.numbers.normal_stddev_fraction,
+        gt=0.0,
+        description="For normal distribution, standard deviation as a fraction of the value range.",
+    )
+    spike_ratio: float = Field(
+        default=DEFAULT_CONFIG.numbers.spike_ratio,
+        ge=0.0,
+        le=1.0,
+        description="Probability of sampling inside the spike window when distribution='spike'.",
+    )
+    spike_width_fraction: float = Field(
+        default=DEFAULT_CONFIG.numbers.spike_width_fraction,
+        gt=0.0,
+        description="Spike window width expressed as a fraction of the min/max range.",
     )
 
 

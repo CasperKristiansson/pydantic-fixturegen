@@ -179,6 +179,47 @@
       "title": "JsonSchema",
       "type": "object"
     },
+    "NumbersSettingsSchema": {
+      "additionalProperties": false,
+      "description": "Schema describing numeric distribution controls.",
+      "properties": {
+        "distribution": {
+          "default": "uniform",
+          "description": "Distribution applied to ints/floats/decimals.",
+          "enum": [
+            "uniform",
+            "normal",
+            "spike"
+          ],
+          "title": "Distribution",
+          "type": "string"
+        },
+        "normal_stddev_fraction": {
+          "default": 0.25,
+          "description": "For normal distribution, standard deviation as a fraction of the value range.",
+          "exclusiveMinimum": 0.0,
+          "title": "Normal Stddev Fraction",
+          "type": "number"
+        },
+        "spike_ratio": {
+          "default": 0.7,
+          "description": "Probability of sampling inside the spike window when distribution='spike'.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Spike Ratio",
+          "type": "number"
+        },
+        "spike_width_fraction": {
+          "default": 0.1,
+          "description": "Spike window width expressed as a fraction of the min/max range.",
+          "exclusiveMinimum": 0.0,
+          "title": "Spike Width Fraction",
+          "type": "number"
+        }
+      },
+      "title": "NumbersSettingsSchema",
+      "type": "object"
+    },
     "PathSettingsSchema": {
       "additionalProperties": false,
       "description": "Schema describing filesystem path provider settings.",
@@ -305,6 +346,10 @@
       "description": "Mapping of glob or regex patterns (models or fields) to Faker locale identifiers.",
       "title": "Locales",
       "type": "object"
+    },
+    "numbers": {
+      "$ref": "#/$defs/NumbersSettingsSchema",
+      "description": "Control numeric distributions (uniform, normal, spike)."
     },
     "overrides": {
       "additionalProperties": {

@@ -104,6 +104,7 @@ scope = "module"
 | `emitters`     | object                       | see below | Configure emitters such as pytest fixtures.                              |
 | `json`         | object                       | see below | Configure JSON emitters (shared by JSON/JSONL).                           |
 | `paths`        | object                       | see below | Configure filesystem path providers (OS-specific generation). |
+| `numbers`      | object                       | see below | Control numeric distributions for ints/floats/decimals. |
 
 ### JSON settings
 
@@ -150,6 +151,17 @@ Identifier settings apply to `EmailStr`, `HttpUrl`/`AnyUrl`, secret strings/byte
 > **Note:** Email validation relies on the optional `email` extra. Install it with `pip install "pydantic-fixturegen[email]"` when you need `EmailStr` support.
 
 > **Note:** Payment card fields use the optional `payment` extra backed by `pydantic-extra-types`. Install it with `pip install "pydantic-fixturegen[payment]"` to enable typed `PaymentCardNumber` support.
+
+### Number distribution settings
+
+| Key | Type | Default | Description |
+| --- | ---- | ------- | ----------- |
+| `distribution` | `"uniform" \| "normal" \| "spike"` | `"uniform"` | Base distribution applied to ints/floats/decimals. |
+| `normal_stddev_fraction` | `float` | `0.25` | When `distribution="normal"`, standard deviation expressed as a fraction of the min/max range. |
+| `spike_ratio` | `float` | `0.7` | For `distribution="spike"`, probability of sampling inside the spike window. |
+| `spike_width_fraction` | `float` | `0.1` | Width of the spike window (fraction of the min/max range). |
+
+`normal` sampling is truncated to the configured bounds so values remain deterministic. `spike` mode biases generation toward the midpoint (`spike_ratio` chance) while occasionally falling back to uniform sampling to explore outliers.
 
 ### Path settings
 
@@ -214,6 +226,7 @@ Profiles are applied before the rest of your configuration just like presets, so
 | Purpose             | Variable                           | Example                                  |
 | ------------------- | ---------------------------------- | ---------------------------------------- |
 | Privacy profile     | `PFG_PROFILE`                      | `export PFG_PROFILE=pii-safe`            |
+| Numeric distribution | `PFG_NUMBERS__DISTRIBUTION`        | `export PFG_NUMBERS__DISTRIBUTION=normal` |
 | Seed override       | `PFG_SEED`                         | `export PFG_SEED=1234`                   |
 | JSON indent         | `PFG_JSON__INDENT`                 | `export PFG_JSON__INDENT=0`              |
 | Enable orjson       | `PFG_JSON__ORJSON`                 | `export PFG_JSON__ORJSON=true`           |

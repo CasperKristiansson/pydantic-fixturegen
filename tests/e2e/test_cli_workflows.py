@@ -33,6 +33,14 @@ class Order(BaseModel):
     total: float
 """
 
+FLOAT_SAMPLE_MODULE = """
+from pydantic import BaseModel, Field
+
+
+class Sample(BaseModel):
+    reading: float = Field(ge=0.0, le=1.0)
+"""
+
 
 def _write_module(tmp_path: Path, source: str, name: str = "models") -> Path:
     module_path = tmp_path / f"{name}.py"
@@ -173,3 +181,35 @@ def test_snapshot_runner_validates_cli_snapshots(tmp_path: Path) -> None:
             include=["models.User"],
             seed=404,
         )
+
+
+def test_numeric_distribution_env_controls(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path, FLOAT_SAMPLE_MODULE)
+    runner = create_cli_runner()
+    output = tmp_path / "readings.json"
+
+    monkeypatch.setenv("PFG_NUMBERS__DISTRIBUTION", "spike")
+    monkeypatch.setenv("PFG_NUMBERS__SPIKE_RATIO", "1.0")
+    monkeypatch.setenv("PFG_NUMBERS__SPIKE_WIDTH_FRACTION", "0.02")
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(output),
+            "--include",
+            "models.Sample",
+            "--n",
+            "3",
+            "--seed",
+            "91",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+
+    rows = json.loads(output.read_text(encoding="utf-8"))
+    readings = [row["reading"] for row in rows]
+    assert all(0.48 <= reading <= 0.52 for reading in readings)

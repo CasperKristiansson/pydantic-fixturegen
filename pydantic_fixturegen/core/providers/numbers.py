@@ -6,6 +6,7 @@ import decimal
 import random
 from typing import Any
 
+from pydantic_fixturegen.core.config import NumberDistributionConfig
 from pydantic_fixturegen.core.providers.registry import ProviderRegistry
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
 
@@ -20,20 +21,22 @@ def generate_numeric(
     summary: FieldSummary,
     *,
     random_generator: random.Random | None = None,
+    number_config: NumberDistributionConfig | None = None,
 ) -> Any:
     rng = random_generator or random.Random()
+    config = number_config or NumberDistributionConfig()
 
     if summary.type == "bool":
         return rng.choice([True, False])
 
     if summary.type == "int":
-        return _generate_int(summary.constraints, rng)
+        return _generate_int(summary.constraints, rng, config)
 
     if summary.type == "float":
-        return _generate_float(summary.constraints, rng)
+        return _generate_float(summary.constraints, rng, config)
 
     if summary.type == "decimal":
-        return _generate_decimal(summary.constraints, rng)
+        return _generate_decimal(summary.constraints, rng, config)
 
     raise ValueError(f"Unsupported numeric type: {summary.type}")
 
@@ -65,7 +68,11 @@ def register_numeric_providers(registry: ProviderRegistry) -> None:
     )
 
 
-def _generate_int(constraints: FieldConstraints, rng: random.Random) -> int:
+def _generate_int(
+    constraints: FieldConstraints,
+    rng: random.Random,
+    config: NumberDistributionConfig,
+) -> int:
     minimum = INT_DEFAULT_MIN
     maximum = INT_DEFAULT_MAX
 
@@ -81,10 +88,14 @@ def _generate_int(constraints: FieldConstraints, rng: random.Random) -> int:
     if minimum > maximum:
         minimum = maximum
 
-    return rng.randint(minimum, maximum)
+    return _sample_int_with_distribution(rng, minimum, maximum, config)
 
 
-def _generate_float(constraints: FieldConstraints, rng: random.Random) -> float:
+def _generate_float(
+    constraints: FieldConstraints,
+    rng: random.Random,
+    config: NumberDistributionConfig,
+) -> float:
     minimum = FLOAT_DEFAULT_MIN
     maximum = FLOAT_DEFAULT_MAX
 
@@ -100,10 +111,14 @@ def _generate_float(constraints: FieldConstraints, rng: random.Random) -> float:
     if minimum > maximum:
         minimum = maximum
 
-    return rng.uniform(minimum, maximum)
+    return _sample_float_with_distribution(rng, minimum, maximum, config)
 
 
-def _generate_decimal(constraints: FieldConstraints, rng: random.Random) -> decimal.Decimal:
+def _generate_decimal(
+    constraints: FieldConstraints,
+    rng: random.Random,
+    config: NumberDistributionConfig,
+) -> decimal.Decimal:
     decimal_places = constraints.decimal_places or DECIMAL_DEFAULT_PLACES
     quantizer = decimal.Decimal(1).scaleb(-decimal_places)
 
@@ -136,9 +151,73 @@ def _generate_decimal(constraints: FieldConstraints, rng: random.Random) -> deci
     if lower_steps > upper_steps:
         lower_steps = upper_steps
 
-    step = rng.randint(lower_steps, upper_steps)
+    step = _sample_int_with_distribution(rng, lower_steps, upper_steps, config)
     value = quantizer * decimal.Decimal(step)
     return value.quantize(quantizer, rounding=decimal.ROUND_HALF_UP)
+
+
+def _sample_int_with_distribution(
+    rng: random.Random,
+    minimum: int,
+    maximum: int,
+    config: NumberDistributionConfig,
+) -> int:
+    if minimum >= maximum:
+        return minimum
+    if config.distribution == "uniform":
+        return rng.randint(minimum, maximum)
+
+    span = maximum - minimum
+    center = minimum + span / 2
+
+    if config.distribution == "normal":
+        stddev = max(1, int(span * config.normal_stddev_fraction))
+        value = int(round(rng.normalvariate(center, stddev)))
+        return int(max(minimum, min(maximum, value)))
+
+    # spike distribution
+    if rng.random() < config.spike_ratio:
+        width = max(1, int(span * config.spike_width_fraction))
+        local_min = max(minimum, int(center - width))
+        local_max = min(maximum, int(center + width))
+        if local_min > local_max:
+            local_min = local_max
+        return rng.randint(local_min, local_max)
+    return rng.randint(minimum, maximum)
+
+
+def _sample_float_with_distribution(
+    rng: random.Random,
+    minimum: float,
+    maximum: float,
+    config: NumberDistributionConfig,
+) -> float:
+    if minimum >= maximum:
+        return minimum
+    if config.distribution == "uniform":
+        return rng.uniform(minimum, maximum)
+
+    span = maximum - minimum
+    center = minimum + span / 2
+
+    if config.distribution == "normal":
+        stddev = max(span * config.normal_stddev_fraction, 1e-9)
+        value = rng.normalvariate(center, stddev)
+        if value < minimum:
+            value = minimum
+        if value > maximum:
+            value = maximum
+        return value
+
+    # spike
+    if rng.random() < config.spike_ratio:
+        width = max(span * config.spike_width_fraction, span * 0.01)
+        local_min = max(minimum, center - width)
+        local_max = min(maximum, center + width)
+        if local_min > local_max:
+            local_min = local_max
+        return rng.uniform(local_min, local_max)
+    return rng.uniform(minimum, maximum)
 
 
 __all__ = ["generate_numeric", "register_numeric_providers"]

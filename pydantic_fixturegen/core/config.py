@@ -86,6 +86,14 @@ class IdentifierConfig:
 
 
 @dataclass(frozen=True)
+class NumberDistributionConfig:
+    distribution: str = "uniform"
+    normal_stddev_fraction: float = 0.25
+    spike_ratio: float = 0.7
+    spike_width_fraction: float = 0.1
+
+
+@dataclass(frozen=True)
 class PathConfig:
     default_os: str = "posix"
     model_targets: tuple[tuple[str, str], ...] = ()
@@ -123,6 +131,8 @@ class AppConfig:
     locale_policies: tuple[FieldPolicy, ...] = ()
     arrays: ArrayConfig = field(default_factory=ArrayConfig)
     identifiers: IdentifierConfig = field(default_factory=IdentifierConfig)
+    numbers: NumberDistributionConfig = field(default_factory=NumberDistributionConfig)
+    numbers: NumberDistributionConfig = field(default_factory=NumberDistributionConfig)
     paths: PathConfig = field(default_factory=PathConfig)
     emitters: EmittersConfig = field(default_factory=EmittersConfig)
     json: JsonConfig = field(default_factory=JsonConfig)
@@ -198,6 +208,13 @@ def _config_defaults_dict() -> dict[str, Any]:
             "url_schemes": list(DEFAULT_CONFIG.identifiers.url_schemes),
             "url_include_path": DEFAULT_CONFIG.identifiers.url_include_path,
             "uuid_version": DEFAULT_CONFIG.identifiers.uuid_version,
+            "mask_sensitive": DEFAULT_CONFIG.identifiers.mask_sensitive,
+        },
+        "numbers": {
+            "distribution": DEFAULT_CONFIG.numbers.distribution,
+            "normal_stddev_fraction": DEFAULT_CONFIG.numbers.normal_stddev_fraction,
+            "spike_ratio": DEFAULT_CONFIG.numbers.spike_ratio,
+            "spike_width_fraction": DEFAULT_CONFIG.numbers.spike_width_fraction,
         },
         "paths": {
             "default_os": DEFAULT_CONFIG.paths.default_os,
@@ -340,6 +357,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
     locale_policies_value = _normalize_locale_policies(data.get("locales"))
     arrays_value = _normalize_array_config(data.get("arrays"))
     identifiers_value = _normalize_identifier_config(data.get("identifiers"))
+    numbers_value = _normalize_number_config(data.get("numbers"))
     paths_value = _normalize_path_config(data.get("paths"))
     now_value = _coerce_datetime(data.get("now"), "now")
 
@@ -365,6 +383,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         locale_policies=locale_policies_value,
         arrays=arrays_value,
         identifiers=identifiers_value,
+        numbers=numbers_value,
         paths=paths_value,
         emitters=emitters_value,
         json=json_value,
@@ -687,6 +706,55 @@ def _normalize_identifier_config(value: Any) -> IdentifierConfig:
         url_include_path=url_include_path,
         uuid_version=uuid_version,
         mask_sensitive=mask_sensitive_raw,
+    )
+
+
+def _normalize_number_config(value: Any) -> NumberDistributionConfig:
+    config = NumberDistributionConfig()
+    if value is None:
+        return config
+    if not isinstance(value, Mapping):
+        raise ConfigError("numbers configuration must be a mapping.")
+
+    distribution_raw = value.get("distribution", config.distribution)
+    stddev_raw = value.get("normal_stddev_fraction", config.normal_stddev_fraction)
+    spike_ratio_raw = value.get("spike_ratio", config.spike_ratio)
+    spike_width_raw = value.get("spike_width_fraction", config.spike_width_fraction)
+
+    if not isinstance(distribution_raw, str):
+        raise ConfigError("numbers.distribution must be a string.")
+    distribution = distribution_raw.strip().lower()
+    if distribution not in {"uniform", "normal", "spike"}:
+        raise ConfigError(
+            "numbers.distribution must be one of 'uniform', 'normal', or 'spike'."
+        )
+
+    try:
+        stddev_value = float(stddev_raw)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError("numbers.normal_stddev_fraction must be a float.") from exc
+    if stddev_value <= 0:
+        raise ConfigError("numbers.normal_stddev_fraction must be greater than 0.")
+
+    try:
+        spike_ratio_value = float(spike_ratio_raw)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError("numbers.spike_ratio must be a float.") from exc
+    if not (0.0 <= spike_ratio_value <= 1.0):
+        raise ConfigError("numbers.spike_ratio must be between 0.0 and 1.0.")
+
+    try:
+        spike_width_value = float(spike_width_raw)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError("numbers.spike_width_fraction must be a float.") from exc
+    if spike_width_value <= 0:
+        raise ConfigError("numbers.spike_width_fraction must be greater than 0.")
+
+    return NumberDistributionConfig(
+        distribution=distribution,
+        normal_stddev_fraction=stddev_value,
+        spike_ratio=spike_ratio_value,
+        spike_width_fraction=spike_width_value,
     )
 
 

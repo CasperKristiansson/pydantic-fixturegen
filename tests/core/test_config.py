@@ -361,6 +361,37 @@ def test_identifier_config_validation(tmp_path: Path) -> None:
         load_config(root=tmp_path, cli={"identifiers": {"mask_sensitive": "on"}})
 
 
+def test_numbers_config_parsing(tmp_path: Path) -> None:
+    config = load_config(
+        root=tmp_path,
+        cli={
+            "numbers": {
+                "distribution": "normal",
+                "normal_stddev_fraction": 0.5,
+                "spike_ratio": 0.2,
+                "spike_width_fraction": 0.05,
+            }
+        },
+    )
+
+    numbers = config.numbers
+    assert numbers.distribution == "normal"
+    assert numbers.normal_stddev_fraction == pytest.approx(0.5)
+    assert numbers.spike_ratio == pytest.approx(0.2)
+    assert numbers.spike_width_fraction == pytest.approx(0.05)
+
+
+def test_numbers_config_validation(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"numbers": {"distribution": "unknown"}})
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"numbers": {"normal_stddev_fraction": 0}})
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"numbers": {"spike_ratio": 2}})
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"numbers": {"spike_width_fraction": 0}})
+
+
 def test_profile_applies_privacy_settings(tmp_path: Path) -> None:
     config = load_config(root=tmp_path, cli={"profile": "pii-safe"})
 

@@ -8,7 +8,12 @@ import pydantic_fixturegen.cli as cli_package
 import pydantic_fixturegen.cli.diff as diff_module
 import pytest
 from pydantic import BaseModel
-from pydantic_fixturegen.core.config import ArrayConfig, IdentifierConfig, PathConfig
+from pydantic_fixturegen.core.config import (
+    ArrayConfig,
+    IdentifierConfig,
+    NumberDistributionConfig,
+    PathConfig,
+)
 from tests._cli import create_cli_runner
 
 runner = create_cli_runner()
@@ -16,6 +21,7 @@ runner = create_cli_runner()
 DEFAULT_ARRAY_CONFIG = ArrayConfig()
 DEFAULT_IDENTIFIER_CONFIG = IdentifierConfig()
 DEFAULT_PATH_CONFIG = PathConfig()
+DEFAULT_NUMBER_CONFIG = NumberDistributionConfig()
 
 
 def _write_simple_module(path: Path) -> None:
@@ -427,6 +433,7 @@ def test_diff_fixtures_require_output() -> None:
             app_config_arrays=DEFAULT_ARRAY_CONFIG,
             app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
             app_config_paths=DEFAULT_PATH_CONFIG,
+            app_config_numbers=DEFAULT_NUMBER_CONFIG,
         )
 
 
@@ -459,6 +466,7 @@ def test_diff_fixtures_emit_artifact_success(
         app_config_arrays=DEFAULT_ARRAY_CONFIG,
         app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
         app_config_paths=DEFAULT_PATH_CONFIG,
+        app_config_numbers=DEFAULT_NUMBER_CONFIG,
     )
 
     assert report.summary == "Fixtures artifact matches."
@@ -487,6 +495,7 @@ def test_diff_fixtures_emit_artifact_without_file(
             app_config_arrays=DEFAULT_ARRAY_CONFIG,
             app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
             app_config_paths=DEFAULT_PATH_CONFIG,
+            app_config_numbers=DEFAULT_NUMBER_CONFIG,
         )
 
 
@@ -509,6 +518,7 @@ def test_diff_fixtures_detect_directory_target(tmp_path: Path) -> None:
         app_config_arrays=DEFAULT_ARRAY_CONFIG,
         app_config_identifiers=DEFAULT_IDENTIFIER_CONFIG,
         app_config_paths=DEFAULT_PATH_CONFIG,
+        app_config_numbers=DEFAULT_NUMBER_CONFIG,
     )
 
     assert "Fixtures path is a directory" in report.messages[0]
