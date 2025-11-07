@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added privacy profiles (`pii-safe`, `realistic`) selectable via `--profile`/`PFG_PROFILE`/`[tool.pydantic_fixturegen].profile` to mask identifiers or favour realistic datasets.
 - Added numeric distribution controls (`[numbers]` config) enabling uniform, normal, or bounded spike sampling for ints/floats/decimals.
 - Added deterministic NumPy array providers with configurable shape/dtype caps (requires the `numpy` extra).
+- Added validator-aware retries controlled by `respect_validators`/`validator_max_retries`, exposing matching CLI flags on `gen json`, `gen fixtures`, and `diff` plus structured `validator_failure` diagnostics when retries exhaust.
 
 ## [1.1.0] - 2025-11-04
 

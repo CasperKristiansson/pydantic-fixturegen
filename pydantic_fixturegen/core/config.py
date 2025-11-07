@@ -136,6 +136,8 @@ class AppConfig:
     paths: PathConfig = field(default_factory=PathConfig)
     emitters: EmittersConfig = field(default_factory=EmittersConfig)
     json: JsonConfig = field(default_factory=JsonConfig)
+    respect_validators: bool = False
+    validator_max_retries: int = 2
 
 
 DEFAULT_CONFIG = AppConfig()
@@ -220,6 +222,8 @@ def _config_defaults_dict() -> dict[str, Any]:
             "default_os": DEFAULT_CONFIG.paths.default_os,
             "models": {pattern: target for pattern, target in DEFAULT_CONFIG.paths.model_targets},
         },
+        "respect_validators": DEFAULT_CONFIG.respect_validators,
+        "validator_max_retries": DEFAULT_CONFIG.validator_max_retries,
     }
 
 
@@ -367,6 +371,17 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
     else:
         raise ConfigError("seed must be an int, str, or null.")
 
+    respect_validators_value = _coerce_bool_value(
+        data.get("respect_validators"),
+        field_name="respect_validators",
+        default=DEFAULT_CONFIG.respect_validators,
+    )
+    validator_max_retries_value = _coerce_non_negative_int(
+        data.get("validator_max_retries"),
+        field_name="validator_max_retries",
+        default=DEFAULT_CONFIG.validator_max_retries,
+    )
+
     config = AppConfig(
         preset=preset_value,
         profile=profile_value,
@@ -387,6 +402,8 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         paths=paths_value,
         emitters=emitters_value,
         json=json_value,
+        respect_validators=respect_validators_value,
+        validator_max_retries=validator_max_retries_value,
     )
 
     return config
@@ -398,6 +415,36 @@ def _coerce_str(value: Any, field_name: str) -> str:
     if not isinstance(value, str):
         raise ConfigError(f"{field_name} must be a string.")
     return value
+
+
+def _coerce_bool_value(value: Any, *, field_name: str, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in TRUTHY:
+            return True
+        if lowered in FALSY:
+            return False
+    raise ConfigError(f"{field_name} must be a boolean value.")
+
+
+def _coerce_non_negative_int(value: Any, *, field_name: str, default: int) -> int:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        raise ConfigError(f"{field_name} must be a non-negative integer.")
+    try:
+        coerced = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(f"{field_name} must be a non-negative integer.") from exc
+    if coerced < 0:
+        raise ConfigError(f"{field_name} must be >= 0.")
+    return coerced
 
 
 def _normalize_sequence(value: Any) -> tuple[str, ...]:

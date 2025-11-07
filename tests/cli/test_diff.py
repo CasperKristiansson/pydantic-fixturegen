@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from pydantic import BaseModel
@@ -131,6 +132,50 @@ def test_diff_json_errors_payload(tmp_path: Path) -> None:
     assert result.exit_code == 50
     assert "DiffError" in result.stdout
     assert "Missing JSON artifact" in result.stdout
+
+
+def test_diff_cli_forwards_validator_flags(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module_path = _write_module(tmp_path)
+    json_out = tmp_path / "artifacts" / "products.json"
+    json_out.parent.mkdir(parents=True, exist_ok=True)
+    json_out.write_text("[]\n", encoding="utf-8")
+
+    captured: dict[str, Any] = {}
+
+    report = DiffReport(
+        kind="json",
+        target=json_out,
+        checked_paths=[json_out],
+        messages=[],
+        diff_outputs=[],
+        summary="ok",
+        constraint_report=None,
+    )
+
+    def fake_execute(**kwargs: Any) -> list[DiffReport]:
+        captured.update(kwargs)
+        return [report]
+
+    monkeypatch.setattr("pydantic_fixturegen.cli.diff._execute_diff", fake_execute)
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "diff",
+            "--json-out",
+            str(json_out),
+            "--respect-validators",
+            "--validator-max-retries",
+            "6",
+            str(module_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["respect_validators"] is True
+    assert captured["validator_max_retries"] == 6
 
 
 def test_diff_fixtures_missing_file(tmp_path: Path) -> None:

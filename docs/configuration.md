@@ -105,6 +105,12 @@ scope = "module"
 | `json`         | object                       | see below | Configure JSON emitters (shared by JSON/JSONL).                           |
 | `paths`        | object                       | see below | Configure filesystem path providers (OS-specific generation). |
 | `numbers`      | object                       | see below | Control numeric distributions for ints/floats/decimals. |
+| `respect_validators` | `bool`                 | `false` | Retry instance generation when model/dataclass validators raise errors. |
+| `validator_max_retries` | `int`              | `2`     | Additional attempts made per instance when `respect_validators` is enabled. |
+
+### Validator retries
+
+`respect_validators` tells the instance generator to treat `@field_validator`, `@model_validator`, and dataclass `__post_init__` failures as recoverable. Each rejection triggers a deterministic reseed (`validator_max_retries` controls how many extra attempts run), so invariants such as `start < end` or checksum math can be satisfied without hand-written fixtures. If retries are exhausted, CLI commands attach a `validator_failure` payload showing the offending validator, attempt counters, and the last set of field values. Toggle the behaviour globally via config/environment (`PFG_RESPECT_VALIDATORS` / `PFG_VALIDATOR_MAX_RETRIES`) or per run with `--respect-validators` and `--validator-max-retries`.
 
 ### JSON settings
 

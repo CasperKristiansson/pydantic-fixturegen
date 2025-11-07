@@ -127,6 +127,19 @@ PROFILE_OPTION = typer.Option(
     help="Apply a privacy profile (e.g. 'pii-safe', 'realistic').",
 )
 
+RESPECT_VALIDATORS_OPTION = typer.Option(
+    None,
+    "--respect-validators/--no-respect-validators",
+    help="Retry instance generation to satisfy validators before emitting fixtures.",
+)
+
+VALIDATOR_MAX_RETRIES_OPTION = typer.Option(
+    None,
+    "--validator-max-retries",
+    min=0,
+    help="Maximum additional validator retries when --respect-validators is enabled.",
+)
+
 
 def register(app: typer.Typer) -> None:
     @app.command("fixtures")
@@ -149,6 +162,8 @@ def register(app: typer.Typer) -> None:
         freeze_seeds_file: Path | None = FREEZE_FILE_OPTION,
         preset: str | None = PRESET_OPTION,
         profile: str | None = PROFILE_OPTION,
+        respect_validators: bool | None = RESPECT_VALIDATORS_OPTION,
+        validator_max_retries: int | None = VALIDATOR_MAX_RETRIES_OPTION,
     ) -> None:
         logger = get_logger()
 
@@ -183,6 +198,8 @@ def register(app: typer.Typer) -> None:
                     freeze_seeds_file=freeze_seeds_file,
                     preset=preset,
                     profile=profile,
+                    respect_validators=respect_validators,
+                    validator_max_retries=validator_max_retries,
                 )
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors, exit_app=exit_app)
@@ -237,6 +254,8 @@ def _execute_fixtures_command(
     freeze_seeds_file: Path | None,
     preset: str | None,
     profile: str | None = None,
+    respect_validators: bool | None = None,
+    validator_max_retries: int | None = None,
 ) -> None:
     logger = get_logger()
 
@@ -264,6 +283,8 @@ def _execute_fixtures_command(
             freeze_seeds_file=freeze_seeds_file,
             preset=preset,
             profile=profile,
+            respect_validators=respect_validators,
+            validator_max_retries=validator_max_retries,
             logger=logger,
         )
     except PFGError as exc:

@@ -6,6 +6,7 @@ import dataclasses
 import datetime
 import enum
 import inspect
+import random
 from collections.abc import Iterable, Mapping, Sized
 from dataclasses import dataclass, field, is_dataclass
 from dataclasses import fields as dataclass_fields
@@ -58,6 +59,8 @@ class GenerationConfig:
     identifiers: IdentifierConfig = field(default_factory=IdentifierConfig)
     numbers: NumberDistributionConfig = field(default_factory=NumberDistributionConfig)
     paths: PathConfig = field(default_factory=PathConfig)
+    respect_validators: bool = False
+    validator_max_retries: int = 2
 
 
 @dataclass(slots=True)
@@ -90,6 +93,13 @@ class InstanceGenerator:
         self.identifier_config = self.config.identifiers
         self.number_config = self.config.numbers
         self.path_config = self.config.paths
+        if self.config.validator_max_retries < 0:
+            raise ValueError("validator_max_retries must be >= 0.")
+        self._validator_retry_enabled = bool(self.config.respect_validators)
+        self._last_validator_failure: dict[str, Any] | None = None
+        self._pending_validator_failure: dict[str, Any] | None = None
+        self._retry_stream_state: tuple[random.Random, Faker] | None = None  # type: ignore[name-defined]
+        self._retry_seed_token: tuple[Any, ...] | None = None
 
         load_entrypoint_plugins()
         self._plugin_manager = get_plugin_manager()
@@ -125,7 +135,7 @@ class InstanceGenerator:
     # ------------------------------------------------------------------ public API
     def generate_one(self, model: type[BaseModel]) -> BaseModel | None:
         self._objects_remaining = self.config.max_objects
-        return self._build_model_instance(model, depth=0)
+        return self._generate_with_retries(model, depth=0)
 
     def generate(self, model: type[BaseModel], count: int = 1) -> list[BaseModel]:
         results: list[BaseModel] = []
@@ -135,6 +145,70 @@ class InstanceGenerator:
                 break
             results.append(instance)
         return results
+
+    def _activate_validator_retry(self, model_type: type[Any], attempt_index: int) -> None:
+        model_key = self._describe_model(model_type)
+        token = (model_key, attempt_index)
+        self._retry_seed_token = token
+        self._retry_stream_state = (self.random, self.faker)
+        self.random = self.seed_manager.random_for("validator_retry", *token)
+        self.faker = self.seed_manager.faker_for("validator_retry", *token)
+
+    def _restore_validator_retry(self) -> None:
+        if self._retry_stream_state is None:
+            return
+        self.random, self.faker = self._retry_stream_state
+        self._retry_stream_state = None
+        self._retry_seed_token = None
+
+    @property
+    def validator_failure_details(self) -> dict[str, Any] | None:
+        return self._last_validator_failure
+
+    def _generate_with_retries(
+        self,
+        model: type[Any],
+        *,
+        depth: int,
+    ) -> Any | None:
+        max_attempts = 1
+        if self._validator_retry_enabled:
+            max_attempts = max(1, self.config.validator_max_retries + 1)
+
+        last_failure: dict[str, Any] | None = None
+        for attempt_index in range(max_attempts):
+            if self._validator_retry_enabled:
+                self._activate_validator_retry(model, attempt_index)
+            objects_snapshot = self._objects_remaining
+            self._pending_validator_failure = None
+            result = self._build_model_instance(
+                model,
+                depth=depth,
+            )
+            if self._validator_retry_enabled:
+                self._restore_validator_retry()
+            if result is not None:
+                self._last_validator_failure = None
+                return result
+
+            failure = self._pending_validator_failure
+            self._pending_validator_failure = None
+            if failure is not None:
+                failure["attempt"] = attempt_index + 1
+                failure["max_attempts"] = max_attempts
+                last_failure = failure
+
+            if (
+                not self._validator_retry_enabled
+                or failure is None
+                or attempt_index + 1 >= max_attempts
+            ):
+                break
+
+            self._objects_remaining = objects_snapshot
+
+        self._last_validator_failure = last_failure
+        return None
 
     # ------------------------------------------------------------------ internals
     def _build_model_instance(
@@ -182,6 +256,12 @@ class InstanceGenerator:
             ):
                 instance = model_type(**values)
         except ValidationError as exc:
+            self._record_validator_failure(
+                model_type,
+                values,
+                message=str(exc),
+                errors=exc.errors(),
+            )
             if report_model is not None:
                 self._constraint_reporter.finish_model(
                     report_model,
@@ -189,7 +269,19 @@ class InstanceGenerator:
                     errors=exc.errors(),
                 )
             return None
-        except Exception:
+        except Exception as exc:
+            self._record_validator_failure(
+                model_type,
+                values,
+                message=str(exc),
+                errors=(
+                    {
+                        "loc": ["__root__"],
+                        "msg": str(exc),
+                        "type": exc.__class__.__name__,
+                    },
+                ),
+            )
             if report_model is not None:
                 self._constraint_reporter.finish_model(report_model, success=False)
             return None
@@ -223,6 +315,16 @@ class InstanceGenerator:
             getattr(model_type, "__name__", str(model_type)),
         )
         return _PathEntry(module=module, qualname=qualname, via_field=via_field)
+
+    @staticmethod
+    def _describe_model(model_type: type[Any]) -> str:
+        module = getattr(model_type, "__module__", "<unknown>")
+        qualname = getattr(
+            model_type,
+            "__qualname__",
+            getattr(model_type, "__name__", str(model_type)),
+        )
+        return f"{module}.{qualname}"
 
     def _apply_field_policies(self, field_name: str, strategy: StrategyResult) -> None:
         if self._field_policy_set is None:
@@ -329,9 +431,12 @@ class InstanceGenerator:
         if locale == self.config.locale:
             return self.faker
 
-        cache_key = (locale, path_key)
+        cache_key = (locale, path_key, self._retry_seed_token)
         if cache_key not in self._faker_cache:
-            seed = self.seed_manager.derive_child_seed("faker", locale, path_key)
+            seed_parts: list[Any] = ["faker", locale, path_key]
+            if self._retry_seed_token is not None:
+                seed_parts.extend(self._retry_seed_token)
+            seed = self.seed_manager.derive_child_seed(*seed_parts)
             faker = Faker(locale)
             faker.seed_instance(seed)
             self._faker_cache[cache_key] = faker
@@ -518,6 +623,53 @@ class InstanceGenerator:
         else:
             constraints = FieldConstraints()
         return schema_module._summarize_annotation(annotation, constraints)
+
+    def _record_validator_failure(
+        self,
+        model_type: type[Any],
+        values: Mapping[str, Any],
+        *,
+        message: str,
+        errors: Iterable[Mapping[str, Any]],
+    ) -> None:
+        snapshot = {
+            name: self._serialize_value(value)
+            for name, value in values.items()
+        }
+        self._pending_validator_failure = {
+            "model": self._describe_model(model_type),
+            "message": message,
+            "errors": list(errors),
+            "values": snapshot,
+        }
+
+    def _serialize_value(self, value: Any, depth: int = 0) -> Any:
+        if value is None or isinstance(value, (bool, int, float, str)):
+            return value
+        if depth > 2:
+            return repr(value)
+        if isinstance(value, BaseModel):
+            try:
+                return value.model_dump()
+            except Exception:  # pragma: no cover - defensive
+                return repr(value)
+        if dataclasses.is_dataclass(value):
+            try:
+                return dataclasses.asdict(value)
+            except Exception:  # pragma: no cover - defensive
+                return repr(value)
+        if isinstance(value, dict):
+            return {
+                str(key): self._serialize_value(val, depth + 1)
+                for key, val in value.items()
+            }
+        if isinstance(value, list):
+            return [self._serialize_value(item, depth + 1) for item in value]
+        if isinstance(value, tuple):
+            return tuple(self._serialize_value(item, depth + 1) for item in value)
+        if isinstance(value, set):
+            return sorted(self._serialize_value(item, depth + 1) for item in value)
+        return repr(value)
 
     @staticmethod
     def _extract_field_info(field: dataclasses.Field[Any]) -> FieldInfo | None:

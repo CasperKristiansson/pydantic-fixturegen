@@ -277,6 +277,51 @@ def test_gen_json_now_option(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     assert captured["now"] == now_value
 
 
+def test_gen_json_validator_flags_forwarded(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "validators.json"
+
+    captured: dict[str, Any] = {}
+
+    def fake_generate(**kwargs: Any) -> JsonGenerationResult:
+        captured.update(kwargs)
+        return JsonGenerationResult(
+            paths=(output,),
+            base_output=output,
+            model=None,
+            config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+            constraint_summary=None,
+            warnings=(),
+            delegated=False,
+        )
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.gen.json.generate_json_artifacts",
+        fake_generate,
+    )
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(output),
+            "--respect-validators",
+            "--validator-max-retries",
+            "5",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["respect_validators"] is True
+    assert captured["validator_max_retries"] == 5
+
+
 def test_gen_json_mapping_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "out.json"

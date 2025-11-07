@@ -8,6 +8,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 from pydantic import (
@@ -21,6 +22,7 @@ from pydantic import (
     IPvAnyNetwork,
     SecretBytes,
     SecretStr,
+    model_validator,
 )
 from pydantic_fixturegen.core.config import ArrayConfig, ConfigError, IdentifierConfig, PathConfig
 from pydantic_fixturegen.core.field_policies import FieldPolicy
@@ -475,6 +477,60 @@ def test_identifier_generation_respects_configuration() -> None:
     assert isinstance(result.ip_interface, ipaddress.IPv4Interface | ipaddress.IPv6Interface)
     assert isinstance(result.ip_network, ipaddress.IPv4Network | ipaddress.IPv6Network)
     assert result.amount.as_tuple().exponent == -2
+
+
+class FailOnceModel(BaseModel):
+    value: int
+    attempts: ClassVar[int] = 0
+
+    @model_validator(mode="after")
+    def fail_first(self) -> FailOnceModel:
+        type(self).attempts += 1
+        if type(self).attempts == 1:
+            raise ValueError("try again")
+        return self
+
+
+class AlwaysInvalidModel(BaseModel):
+    value: int
+
+    @model_validator(mode="after")
+    def always_fail(self) -> AlwaysInvalidModel:
+        raise ValueError("never valid")
+
+
+def test_validator_retry_disabled_returns_none() -> None:
+    FailOnceModel.attempts = 0
+    generator = InstanceGenerator(config=GenerationConfig(seed=1, respect_validators=False))
+
+    assert generator.generate_one(FailOnceModel) is None
+    failure = generator.validator_failure_details
+    assert failure is None or failure["attempt"] == 1
+
+
+def test_validator_retry_enabled_recovers_after_failure() -> None:
+    FailOnceModel.attempts = 0
+    generator = InstanceGenerator(
+        config=GenerationConfig(seed=2, respect_validators=True, validator_max_retries=3)
+    )
+
+    instance = generator.generate_one(FailOnceModel)
+    assert isinstance(instance, FailOnceModel)
+    assert FailOnceModel.attempts == 2
+
+
+def test_validator_failure_details_capture_attempts() -> None:
+    generator = InstanceGenerator(
+        config=GenerationConfig(seed=5, respect_validators=True, validator_max_retries=1)
+    )
+
+    assert generator.generate_one(AlwaysInvalidModel) is None
+    failure = generator.validator_failure_details
+    assert failure is not None
+    assert failure["model"].endswith("AlwaysInvalidModel")
+    assert failure["attempt"] == 2
+    assert failure["max_attempts"] == 2
+    assert "values" in failure and "value" in failure["values"]
 
 
 def test_path_generation_respects_default_os() -> None:

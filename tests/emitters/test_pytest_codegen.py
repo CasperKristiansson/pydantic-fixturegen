@@ -3,7 +3,9 @@ from __future__ import annotations
 import datetime
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+import pytest
+from pydantic import BaseModel, Field, model_validator
+from pydantic_fixturegen.core.errors import EmitError
 from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
 from pydantic_fixturegen.emitters.pytest_codegen import PytestEmitConfig, emit_pytest_fixtures
 
@@ -17,6 +19,14 @@ class User(BaseModel):
     name: str = Field(pattern="^User", min_length=5)
     age: int
     address: Address
+
+
+class InvalidUser(BaseModel):
+    name: str
+
+    @model_validator(mode="after")
+    def always_fail(self) -> InvalidUser:
+        raise ValueError("nope")
 
 
 def test_emit_pytest_fixtures_model_return(tmp_path: Path) -> None:
@@ -104,3 +114,17 @@ def test_emit_pytest_fixtures_with_template(tmp_path: Path) -> None:
     assert result.wrote is True
     assert result.path.parent.name == "User"
     assert result.path.name.startswith("fixtures-20240721")
+
+
+def test_emit_pytest_fixtures_validator_failure(tmp_path: Path) -> None:
+    output = tmp_path / "invalid.py"
+    with pytest.raises(EmitError) as excinfo:
+        emit_pytest_fixtures(
+            [InvalidUser],
+            output_path=output,
+            config=PytestEmitConfig(seed=99),
+        )
+
+    details = excinfo.value.details
+    assert "validator_failure" in details
+    assert details["validator_failure"]["message"]

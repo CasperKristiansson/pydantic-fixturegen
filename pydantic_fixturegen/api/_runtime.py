@@ -133,6 +133,8 @@ def _build_instance_generator(
         identifiers=app_config.identifiers,
         numbers=app_config.numbers,
         paths=app_config.paths,
+        respect_validators=app_config.respect_validators,
+        validator_max_retries=app_config.validator_max_retries,
     )
     return InstanceGenerator(config=gen_config)
 
@@ -154,6 +156,8 @@ def generate_json_artifacts(
     freeze_seeds_file: Path | None,
     preset: str | None,
     profile: str | None = None,
+    respect_validators: bool | None = None,
+    validator_max_retries: int | None = None,
     logger: Logger | None = None,
 ) -> JsonGenerationResult:
     logger = logger or get_logger()
@@ -192,6 +196,10 @@ def generate_json_artifacts(
         cli_overrides["seed"] = seed
     if now is not None:
         cli_overrides["now"] = now
+    if respect_validators is not None:
+        cli_overrides["respect_validators"] = respect_validators
+    if validator_max_retries is not None:
+        cli_overrides["validator_max_retries"] = validator_max_retries
     json_overrides: dict[str, Any] = {}
     if indent is not None:
         json_overrides["indent"] = indent
@@ -261,9 +269,16 @@ def generate_json_artifacts(
     def sample_factory() -> BaseModel:
         instance = generator.generate_one(model_cls)
         if instance is None:
+            details: dict[str, Any] = {"model": target_model.qualname}
+            failure = getattr(generator, "validator_failure_details", None)
+            if failure:
+                details["validator_failure"] = failure
+            summary_snapshot = _summarize_constraint_report(generator.constraint_report)
+            if summary_snapshot:
+                details["constraint_summary"] = summary_snapshot
             raise MappingError(
                 f"Failed to generate instance for {target_model.qualname}.",
-                details={"model": target_model.qualname},
+                details=details,
             )
         return instance
 
@@ -373,6 +388,8 @@ def generate_fixtures_artifacts(
     freeze_seeds_file: Path | None,
     preset: str | None,
     profile: str | None = None,
+    respect_validators: bool | None = None,
+    validator_max_retries: int | None = None,
     logger: Logger | None = None,
 ) -> FixturesGenerationResult:
     logger = logger or get_logger()
@@ -413,6 +430,10 @@ def generate_fixtures_artifacts(
         cli_overrides["now"] = now
     if p_none is not None:
         cli_overrides["p_none"] = p_none
+    if respect_validators is not None:
+        cli_overrides["respect_validators"] = respect_validators
+    if validator_max_retries is not None:
+        cli_overrides["validator_max_retries"] = validator_max_retries
     emitter_overrides: dict[str, Any] = {}
     if style is not None:
         emitter_overrides["style"] = style
@@ -506,6 +527,8 @@ def generate_fixtures_artifacts(
         identifiers=app_config.identifiers,
         paths=app_config.paths,
         numbers=app_config.numbers,
+        respect_validators=app_config.respect_validators,
+        validator_max_retries=app_config.validator_max_retries,
     )
 
     timestamp = _dt.datetime.now(_dt.timezone.utc)

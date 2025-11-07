@@ -22,6 +22,7 @@ from pydantic_fixturegen.core.config import (
     PathConfig,
 )
 from pydantic_fixturegen.core.constraint_report import ConstraintReporter
+from pydantic_fixturegen.core.errors import EmitError
 from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.io_utils import WriteResult, write_atomic_text
@@ -56,6 +57,8 @@ class PytestEmitConfig:
     identifiers: IdentifierConfig = field(default_factory=IdentifierConfig)
     paths: PathConfig = field(default_factory=PathConfig)
     numbers: NumberDistributionConfig = field(default_factory=NumberDistributionConfig)
+    respect_validators: bool = False
+    validator_max_retries: int = 2
 
 
 def emit_pytest_fixtures(
@@ -92,6 +95,8 @@ def emit_pytest_fixtures(
             identifiers=cfg.identifiers,
             numbers=cfg.numbers,
             paths=cfg.paths,
+            respect_validators=cfg.respect_validators,
+            validator_max_retries=cfg.validator_max_retries,
         )
         if cfg.optional_p_none is not None:
             generation_config.optional_p_none = cfg.optional_p_none
@@ -118,8 +123,18 @@ def emit_pytest_fixtures(
 
         instances = generator.generate(model, count=cfg.cases)
         if len(instances) < cfg.cases:
-            raise RuntimeError(
-                f"Failed to generate {cfg.cases} instance(s) for {model.__qualname__}."
+            failure = getattr(generator, "validator_failure_details", None)
+            summary = generator.constraint_report.summary()
+            details: dict[str, Any] = {
+                "model": f"{model.__module__}.{model.__qualname__}",
+            }
+            if failure:
+                details["validator_failure"] = failure
+            if summary.get("models"):
+                details["constraint_summary"] = summary
+            raise EmitError(
+                f"Failed to generate {cfg.cases} instance(s) for {model.__qualname__}.",
+                details=details,
             )
         if per_model_seeds:
             constraint_reporters.append(generator.constraint_report)

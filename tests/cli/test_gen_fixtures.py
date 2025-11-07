@@ -164,6 +164,55 @@ def test_gen_fixtures_with_now(tmp_path: Path) -> None:
     assert f"time_anchor={now_value.replace('Z', '+00:00')}" in text
 
 
+def test_gen_fixtures_validator_flags_forwarded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "validators.py"
+    captured: dict[str, Any] = {}
+
+    def fake_generate(**kwargs: Any) -> FixturesGenerationResult:
+        captured.update(kwargs)
+        return FixturesGenerationResult(
+            path=output,
+            base_output=output,
+            models=(),
+            config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+            metadata={},
+            warnings=(),
+            constraint_summary=None,
+            skipped=False,
+            delegated=False,
+            style="functions",
+            scope="function",
+            return_type="model",
+            cases=1,
+        )
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.gen.fixtures.generate_fixtures_artifacts",
+        fake_generate,
+    )
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "fixtures",
+            str(module_path),
+            "--out",
+            str(output),
+            "--respect-validators",
+            "--validator-max-retries",
+            "4",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["respect_validators"] is True
+    assert captured["validator_max_retries"] == 4
+
+
 def test_gen_fixtures_factory_dict(tmp_path: Path) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "factories.py"

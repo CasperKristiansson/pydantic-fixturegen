@@ -46,6 +46,7 @@ pfg gen json ./models.py \
 - Control volume with `--n` (records) and `--shard-size` (records per file).
 - Switch encoding with `--jsonl`, `--indent`, `--orjson/--no-orjson`.
 - Determinism helpers: `--seed`, `--freeze-seeds`, `--freeze-seeds-file`, `--preset`.
+- Validator enforcement: add `--respect-validators` to retry on model/dataclass validator failures and `--validator-max-retries` to cap the extra attempts.
 - Privacy bundles: `--profile pii-safe` masks identifiers; `--profile realistic` restores richer distributions.
 - Observability: `--json-errors`, `--watch`, `--watch-debounce`, `--now`.
 
@@ -67,6 +68,7 @@ pfg gen fixtures ./models.py \
 - `--scope` sets fixture scope; `--cases` parametrises templates.
 - `--return-type` chooses between returning the model or its dict representation.
 - Determinism flags mirror `gen json`, and `--profile` applies the same privacy bundles before fixture emission.
+- Validator enforcement mirrors `gen json`: `--respect-validators` applies bounded retries and `--validator-max-retries` adjusts the ceiling.
 
 ### `pfg gen schema`
 
@@ -102,6 +104,7 @@ pfg diff ./models.py \
 - Writes JSON summaries when you pass output paths.
 - `--show-diff` streams unified diffs to stdout.
 - Determinism helpers: `--seed`, `--freeze-seeds`, plus `--profile` to mirror the privacy bundle used in generation.
+- Validator parity: `--respect-validators`/`--validator-max-retries` ensure diff regeneration matches the validator policy used when the golden artifacts were created.
 
 ## `pfg check`
 

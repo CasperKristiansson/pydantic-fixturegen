@@ -143,6 +143,19 @@ FREEZE_FILE_OPTION = typer.Option(
     help="Seed freeze file path (defaults to `.pfg-seeds.json`).",
 )
 
+RESPECT_VALIDATORS_OPTION = typer.Option(
+    None,
+    "--respect-validators/--no-respect-validators",
+    help="Retry regeneration to satisfy validators before comparing artifacts.",
+)
+
+VALIDATOR_MAX_RETRIES_OPTION = typer.Option(
+    None,
+    "--validator-max-retries",
+    min=0,
+    help="Maximum additional validator retries when validator enforcement is enabled.",
+)
+
 JSON_OUT_OPTION = typer.Option(
     None,
     "--json-out",
@@ -283,6 +296,8 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
     profile: str | None = PROFILE_OPTION,
     freeze_seeds: bool = FREEZE_SEEDS_OPTION,
     freeze_seeds_file: Path | None = FREEZE_FILE_OPTION,
+    respect_validators: bool | None = RESPECT_VALIDATORS_OPTION,
+    validator_max_retries: int | None = VALIDATOR_MAX_RETRIES_OPTION,
 ) -> None:
     _ = ctx
     logger = get_logger()
@@ -321,6 +336,8 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
             freeze_seeds=freeze_seeds,
             freeze_seeds_file=freeze_seeds_file,
             now_override=now,
+            respect_validators=respect_validators,
+            validator_max_retries=validator_max_retries,
         )
     except PFGError as exc:
         render_cli_error(exc, json_errors=json_errors)
@@ -402,6 +419,8 @@ def _execute_diff(
     preset: str | None,
     profile: str | None = None,
     now_override: str | None,
+    respect_validators: bool | None = None,
+    validator_max_retries: int | None = None,
 ) -> list[DiffReport]:
     if not any((json_options.out, fixtures_options.out, schema_options.out)):
         raise DiscoveryError("Provide at least one artifact path to diff.")
@@ -436,6 +455,10 @@ def _execute_diff(
         config_cli_overrides["profile"] = profile
     if now_override is not None:
         config_cli_overrides["now"] = now_override
+    if respect_validators is not None:
+        config_cli_overrides["respect_validators"] = respect_validators
+    if validator_max_retries is not None:
+        config_cli_overrides["validator_max_retries"] = validator_max_retries
 
     app_config = load_config(
         root=Path.cwd(), cli=config_cli_overrides if config_cli_overrides else None
@@ -530,6 +553,12 @@ def _execute_diff(
                 app_config_arrays=app_config.arrays,
                 app_config_identifiers=app_config.identifiers,
                 app_config_paths=app_config.paths,
+                app_config_numbers=app_config.numbers,
+                app_config_field_policies=app_config.field_policies,
+                app_config_locale=app_config.locale,
+                app_config_locale_policies=app_config.locale_policies,
+                app_config_respect_validators=app_config.respect_validators,
+                app_config_validator_max_retries=app_config.validator_max_retries,
                 options=json_options,
             )
         )
@@ -552,6 +581,8 @@ def _execute_diff(
                 app_config_identifiers=app_config.identifiers,
                 app_config_paths=app_config.paths,
                 app_config_numbers=app_config.numbers,
+                app_config_respect_validators=app_config.respect_validators,
+                app_config_validator_max_retries=app_config.validator_max_retries,
             )
         )
 
@@ -590,6 +621,12 @@ def _diff_json_artifact(
     app_config_arrays: ArrayConfig,
     app_config_identifiers: IdentifierConfig,
     app_config_paths: PathConfig,
+    app_config_numbers: NumberDistributionConfig,
+    app_config_field_policies: tuple[FieldPolicy, ...],
+    app_config_locale: str,
+    app_config_locale_policies: tuple[FieldPolicy, ...],
+    app_config_respect_validators: bool,
+    app_config_validator_max_retries: int,
     options: JsonDiffOptions,
 ) -> DiffReport:
     if not model_classes:
@@ -621,14 +658,27 @@ def _diff_json_artifact(
             array_config=app_config_arrays,
             identifier_config=app_config_identifiers,
             path_config=app_config_paths,
+            number_config=app_config_numbers,
+            field_policies=app_config_field_policies,
+            locale=app_config_locale,
+            locale_policies=app_config_locale_policies,
+            respect_validators=app_config_respect_validators,
+            validator_max_retries=app_config_validator_max_retries,
         )
 
         def sample_factory() -> BaseModel:
             instance = generator.generate_one(target_model)
             if instance is None:
+                details: dict[str, Any] = {"model": target_model.__name__}
+                failure = getattr(generator, "validator_failure_details", None)
+                if failure:
+                    details["validator_failure"] = failure
+                summary_snapshot = generator.constraint_report.summary()
+                if summary_snapshot.get("models"):
+                    details["constraint_summary"] = summary_snapshot
                 raise MappingError(
                     f"Failed to generate instance for {target_model.__name__}.",
-                    details={"model": target_model.__name__},
+                    details=details,
                 )
             return instance
 
@@ -731,6 +781,8 @@ def _diff_fixtures_artifact(
     app_config_identifiers: IdentifierConfig,
     app_config_paths: PathConfig,
     app_config_numbers: NumberDistributionConfig,
+    app_config_respect_validators: bool,
+    app_config_validator_max_retries: int,
 ) -> DiffReport:
     if options.out is None:
         raise DiscoveryError("Fixtures diff requires --fixtures-out.")
@@ -774,6 +826,8 @@ def _diff_fixtures_artifact(
             identifiers=app_config_identifiers,
             paths=app_config_paths,
             numbers=app_config_numbers,
+            respect_validators=app_config_respect_validators,
+            validator_max_retries=app_config_validator_max_retries,
         )
 
         context = EmitterContext(
@@ -797,6 +851,8 @@ def _diff_fixtures_artifact(
                     output_path=temp_out,
                     config=pytest_config,
                 )
+            except PFGError:
+                raise
             except Exception as exc:  # pragma: no cover - defensive
                 raise EmitError(str(exc)) from exc
             generated_path = result.path
@@ -951,6 +1007,12 @@ def _build_instance_generator(
     array_config: ArrayConfig,
     identifier_config: IdentifierConfig,
     path_config: PathConfig,
+    number_config: NumberDistributionConfig,
+    field_policies: tuple[FieldPolicy, ...],
+    locale: str,
+    locale_policies: tuple[FieldPolicy, ...],
+    respect_validators: bool,
+    validator_max_retries: int,
 ) -> InstanceGenerator:
     normalized_seed: int | None = None
     if seed_value is not None:
@@ -968,6 +1030,12 @@ def _build_instance_generator(
         arrays=array_config,
         identifiers=identifier_config,
         paths=path_config,
+        numbers=number_config,
+        field_policies=field_policies,
+        locale=locale,
+        locale_policies=locale_policies,
+        respect_validators=respect_validators,
+        validator_max_retries=validator_max_retries,
     )
     return InstanceGenerator(config=gen_config)
 

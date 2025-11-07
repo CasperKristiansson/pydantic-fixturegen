@@ -8,7 +8,7 @@ import pytest
 from pydantic_fixturegen.api import _runtime as runtime_mod
 from pydantic_fixturegen.api.models import FixturesGenerationResult, JsonGenerationResult
 from pydantic_fixturegen.cli.gen import _common as cli_common
-from pydantic_fixturegen.core.errors import DiscoveryError, EmitError
+from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError
 from pydantic_fixturegen.core.io_utils import WriteResult
 from pydantic_fixturegen.core.path_template import OutputTemplate
 from pydantic_fixturegen.core.seed_freeze import FREEZE_FILE_BASENAME
@@ -226,6 +226,50 @@ class Product(BaseModel):
     assert "config" in details and "base_output" in details
 
 
+def test_generate_json_artifacts_includes_validator_failure_details(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module_path = _write_module(
+        tmp_path,
+        """
+from pydantic import BaseModel, model_validator
+
+
+class Broken(BaseModel):
+    value: int
+
+    @model_validator(mode="after")
+    def always_fail(self):
+        raise ValueError("nope")
+""",
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    with pytest.raises(MappingError) as excinfo:
+        runtime_mod.generate_json_artifacts(
+            target=module_path,
+            output_template=OutputTemplate(str(tmp_path / "broken.json")),
+            count=1,
+            jsonl=False,
+            indent=None,
+            use_orjson=None,
+            shard_size=None,
+            include=None,
+            exclude=None,
+            seed=None,
+            now=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+            respect_validators=True,
+        )
+
+    details = excinfo.value.details
+    assert "validator_failure" in details
+    assert details["validator_failure"]["message"].startswith("1 validation error for Broken")
+    assert "constraint_summary" in details
+
+
 def test_generate_fixtures_artifacts_delegates_to_plugin(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -309,6 +353,47 @@ class Item(BaseModel):
         )
 
     assert "config" in excinfo.value.details
+
+
+def test_generate_fixtures_artifacts_reports_validator_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module_path = _write_module(
+        tmp_path,
+        """
+from pydantic import BaseModel, model_validator
+
+
+class Broken(BaseModel):
+    value: int
+
+    @model_validator(mode="after")
+    def always_fail(self):
+        raise ValueError("nope")
+""",
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    with pytest.raises(EmitError) as excinfo:
+        runtime_mod.generate_fixtures_artifacts(
+            target=module_path,
+            output_template=OutputTemplate(str(tmp_path / "conftest.py")),
+            style="functions",
+            scope="function",
+            cases=1,
+            return_type="model",
+            seed=None,
+            now=None,
+            p_none=None,
+            include=None,
+            exclude=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+            respect_validators=True,
+        )
+
+    assert "validator_failure" in excinfo.value.details
 
 
 def test_generate_fixtures_artifacts_warns_on_invalid_freeze_file(
