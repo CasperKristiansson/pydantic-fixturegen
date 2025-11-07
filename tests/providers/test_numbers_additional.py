@@ -88,6 +88,17 @@ def test_generate_numeric_decimal_narrow_window_and_digits() -> None:
     assert value == decimal.Decimal("0.01")
 
 
+def test_generate_numeric_decimal_gt_lt_constraints() -> None:
+    constraints = FieldConstraints(
+        gt=decimal.Decimal("1.00"),
+        lt=decimal.Decimal("1.02"),
+        decimal_places=2,
+    )
+    summary = FieldSummary(type="decimal", constraints=constraints)
+    value = numbers.generate_numeric(summary, random_generator=random.Random(0))
+    assert decimal.Decimal("1.00") < value < decimal.Decimal("1.02")
+
+
 def test_generate_numeric_int_spike_distribution() -> None:
     summary = _summary("int", ge=0, le=100)
     config = NumberDistributionConfig(distribution="spike", spike_ratio=1.0, spike_width_fraction=0.05)

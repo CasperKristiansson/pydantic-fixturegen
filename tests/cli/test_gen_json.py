@@ -11,7 +11,7 @@ from pydantic_fixturegen.api.models import ConfigSnapshot, JsonGenerationResult
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.cli.gen import json as json_mod
 from pydantic_fixturegen.core.config import ConfigError
-from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError
+from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError, WatchError
 from pydantic_fixturegen.core.path_template import OutputTemplate
 from tests._cli import create_cli_runner
 
@@ -715,6 +715,52 @@ def test_gen_json_handles_relative_imports(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
     assert output.exists()
+
+
+def test_gen_json_watch_mode_handles_errors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module_path = _write_relative_import_package(tmp_path)
+    output = tmp_path / "samples.json"
+    logger = FakeLogger()
+    monkeypatch.setattr(json_mod, "get_logger", lambda: logger)
+
+    invoked: dict[str, int] = {"count": 0}
+
+    def fake_execute(**_: object) -> None:  # noqa: ANN001
+        invoked["count"] += 1
+
+    monkeypatch.setattr(json_mod, "_execute_json_command", fake_execute)
+    monkeypatch.setattr(
+        json_mod,
+        "gather_default_watch_paths",
+        lambda *args, **kwargs: [tmp_path],  # noqa: ARG005
+    )
+
+    def fake_run_with_watch(callback: object, watch_paths: list[Path], debounce: float) -> None:
+        assert watch_paths == [tmp_path]
+        assert debounce == 0.5
+        callback()
+        raise WatchError("watch failed")
+
+    monkeypatch.setattr(json_mod, "run_with_watch", fake_run_with_watch)
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(output),
+            "--watch",
+        ],
+    )
+
+    assert result.exit_code == 60
+    assert invoked["count"] == 1
+    assert logger.debug_calls and logger.debug_calls[0][0] == "Entering watch loop"
 
 
 def test_log_generation_snapshot_records_paths(tmp_path: Path) -> None:

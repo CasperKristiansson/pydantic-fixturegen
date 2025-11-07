@@ -30,6 +30,7 @@ def test_snapshot_config_and_details_roundtrip() -> None:
 def test_split_and_resolve_patterns() -> None:
     raw = " modelA , modelB "
     assert runtime_mod._split_patterns(raw) == ["modelA", "modelB"]
+    assert runtime_mod._split_patterns(None) == []
     assert runtime_mod._resolve_patterns(["one, two", " three "]) == ["one", "two", "three"]
     assert runtime_mod._resolve_patterns(None) is None
 

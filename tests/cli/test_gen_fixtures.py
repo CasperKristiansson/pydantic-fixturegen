@@ -9,11 +9,28 @@ from pydantic_fixturegen.api.models import ConfigSnapshot, FixturesGenerationRes
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.cli.gen import fixtures as fixtures_mod
 from pydantic_fixturegen.core.config import ConfigError
-from pydantic_fixturegen.core.errors import DiscoveryError, EmitError
+from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, WatchError
 from pydantic_fixturegen.core.path_template import OutputTemplate
 from tests._cli import create_cli_runner
 
 runner = create_cli_runner()
+
+
+class FakeLogger:
+    def __init__(self) -> None:
+        self.debug_calls: list[tuple[str, dict[str, object]]] = []
+        self.info_calls: list[tuple[str, dict[str, object]]] = []
+        self.warn_calls: list[tuple[str, dict[str, object]]] = []
+        self.config = type("Cfg", (), {"json": False})()
+
+    def debug(self, message: str, **kwargs: object) -> None:  # noqa: D401
+        self.debug_calls.append((message, kwargs))
+
+    def info(self, message: str, **kwargs: object) -> None:
+        self.info_calls.append((message, kwargs))
+
+    def warn(self, message: str, **kwargs: object) -> None:
+        self.warn_calls.append((message, kwargs))
 
 
 def _write_module(tmp_path: Path, name: str = "models") -> Path:
@@ -200,6 +217,25 @@ def test_gen_fixtures_out_template(tmp_path: Path) -> None:
     assert len(files) == 1
     content = files[0].read_text(encoding="utf-8")
     assert "def user(" in content
+
+
+def test_gen_fixtures_invalid_template_reports_error(tmp_path: Path) -> None:
+    module_path = _write_module(tmp_path)
+    template = tmp_path / "{unknown}" / "fixtures.py"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "fixtures",
+            str(module_path),
+            "--out",
+            str(template),
+        ],
+    )
+
+    assert result.exit_code == 30
+    assert "Unsupported template variable" in result.stderr
 
 
 def test_gen_fixtures_class_style_scope(tmp_path: Path) -> None:
@@ -588,3 +624,92 @@ def test_gen_fixtures_handles_relative_imports(tmp_path: Path) -> None:
     assert output.exists()
     text = output.read_text(encoding="utf-8")
     assert "example_request" in text
+
+
+def test_gen_fixtures_watch_mode_handles_errors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "fixtures.py"
+    logger = FakeLogger()
+    monkeypatch.setattr(fixtures_mod, "get_logger", lambda: logger)
+
+    invoked: dict[str, int] = {"count": 0}
+
+    def fake_execute(**_: object) -> None:  # noqa: ANN001
+        invoked["count"] += 1
+
+    monkeypatch.setattr(fixtures_mod, "_execute_fixtures_command", fake_execute)
+    monkeypatch.setattr(
+        fixtures_mod,
+        "gather_default_watch_paths",
+        lambda *args, **kwargs: [tmp_path],  # noqa: ARG005
+    )
+
+    def fake_run_with_watch(callback: object, watch_paths: list[Path], debounce: float) -> None:
+        assert watch_paths == [tmp_path]
+        assert debounce == 0.5
+        callback()
+        raise WatchError("watch failed")
+
+    monkeypatch.setattr(fixtures_mod, "run_with_watch", fake_run_with_watch)
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "fixtures",
+            str(module_path),
+            "--out",
+            str(output),
+            "--watch",
+        ],
+    )
+
+    assert result.exit_code == 60
+    assert invoked["count"] == 1
+    assert logger.debug_calls and logger.debug_calls[0][0] == "Entering watch loop"
+
+
+def test_handle_fixtures_error_logs(monkeypatch: pytest.MonkeyPatch) -> None:
+    logger = FakeLogger()
+    constraint_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        fixtures_mod,
+        "emit_constraint_summary",
+        lambda summary, **kwargs: constraint_calls.append({"summary": summary, **kwargs}),
+    )
+    error = EmitError(
+        "bad",
+        details={
+            "config": {
+                "seed": 1,
+                "include": ["A"],
+                "exclude": [],
+                "time_anchor": "2024-01-01T00:00:00+00:00",
+            },
+            "warnings": ["warn"],
+            "constraint_summary": {"fields": 1},
+        },
+    )
+
+    fixtures_mod._handle_fixtures_error(logger, error)
+
+    assert logger.debug_calls
+    assert any(call[1].get("event") == "temporal_anchor_set" for call in logger.info_calls)
+    assert logger.warn_calls and logger.warn_calls[0][0] == "warn"
+    assert constraint_calls and constraint_calls[0]["summary"] == {"fields": 1}
+
+
+def test_coerce_helpers_validate_inputs() -> None:
+    assert fixtures_mod._coerce_style("Functions") == "functions"
+    assert fixtures_mod._coerce_scope("module") == "module"
+    assert fixtures_mod._coerce_return_type("dict") == "dict"
+
+    with pytest.raises(DiscoveryError):
+        fixtures_mod._coerce_style("bad")
+    with pytest.raises(DiscoveryError):
+        fixtures_mod._coerce_scope("invalid")
+    with pytest.raises(DiscoveryError):
+        fixtures_mod._coerce_return_type("bad")
