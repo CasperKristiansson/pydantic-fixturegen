@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added a pytest snapshot helper (`pfg_snapshot`) with update modes for JSON, fixture, and schema artifacts.
 - Added `@pytest.mark.pfg_snapshot_config(...)` so individual pytest tests can override the snapshot fixture's update mode and sandbox controls without affecting the rest of the suite.
 - Added per-model/field Faker locale mapping with validation and runtime overrides.
+- Locale override patterns now match bare model names (with or without module prefixes), so specifying `app.models.User` or `User` applies to every field without writing `.*`.
 - Added deterministic NumPy array providers with configurable shape/dtype caps (requires the `numpy` extra).
 
 ## [1.1.0] - 2025-11-04

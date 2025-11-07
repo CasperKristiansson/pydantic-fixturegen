@@ -195,6 +195,7 @@ Add a `locales` mapping when you need region-specific Faker providers:
 
 - Patterns follow the same rules as `field_policies` (glob or `re:`-prefixed regex).
 - Field-level entries override broader model matches; unmatched paths fall back to the global `locale`.
+- You can omit the trailing `.*` for model-wide overrides — `"app.models.User"` and `"app.models.User.*"` behave the same, as does using bare class names such as `"User"`.
 - Configuration loading validates locales by instantiating `Faker(locale)`, so typos raise descriptive errors.
 
 ## Environment variable cheatsheet

@@ -302,6 +302,24 @@ def test_field_policy_updates_union_strategy() -> None:
     assert all(choice.p_none == 0.0 for choice in union_strategy.choices)
 
 
+def test_field_policy_applies_via_model_alias() -> None:
+    class OptionalModel(BaseModel):
+        maybe: str | None = None
+
+    policy = FieldPolicy(pattern=OptionalModel.__qualname__, options={"p_none": 0.0}, index=0)
+    generator = InstanceGenerator(
+        config=GenerationConfig(
+            seed=17,
+            optional_p_none=1.0,
+            field_policies=(policy,),
+        )
+    )
+
+    instance = generator.generate_one(OptionalModel)
+    assert instance is not None
+    assert instance.maybe is not None
+
+
 class TemporalModel(BaseModel):
     created_at: datetime.datetime
     birthday: datetime.date
@@ -312,7 +330,9 @@ class LocaleModel(BaseModel):
     city: str
 
 
-def test_locale_policy_applies_to_field() -> None:
+def _capture_locale_generator(
+    pattern: str, locale_value: str
+) -> tuple[InstanceGenerator, dict[str, list[str]]]:
     registry = ProviderRegistry()
     captured: dict[str, list[str]] = {}
 
@@ -322,15 +342,35 @@ def test_locale_policy_applies_to_field() -> None:
         return locales[0] if locales else "unknown"
 
     registry.register("string", locale_provider)
-
-    policy = FieldPolicy(pattern="*LocaleModel.city", options={"locale": "fr_FR"}, index=0)
+    policy = FieldPolicy(pattern=pattern, options={"locale": locale_value}, index=0)
     config = GenerationConfig(seed=456, locale_policies=(policy,))
     generator = InstanceGenerator(registry=registry, config=config)
+    return generator, captured
+
+
+def test_locale_policy_applies_to_field() -> None:
+    generator, captured = _capture_locale_generator("*LocaleModel.city", "fr_FR")
 
     instance = generator.generate_one(LocaleModel)
     assert instance is not None
     assert instance.city == "fr_FR"
     assert captured.get("locale") == ["fr_FR"]
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        str(f"{LocaleModel.__module__}.{LocaleModel.__qualname__}"),
+        str(LocaleModel.__qualname__),
+    ],
+)
+def test_locale_policy_applies_to_model_alias(pattern: str) -> None:
+    generator, captured = _capture_locale_generator(pattern, "de_DE")
+
+    instance = generator.generate_one(LocaleModel)
+    assert instance is not None
+    assert instance.city == "de_DE"
+    assert captured.get("locale") == ["de_DE"]
 
 
 def test_numpy_array_generation() -> None:

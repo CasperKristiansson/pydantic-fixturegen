@@ -169,6 +169,7 @@ Reflect regional datasets by mapping models or fields to specific locales.
 
 - Patterns accept glob wildcards or regex (`re:` prefix).
 - Field matches override broader model patterns, so the example keeps German defaults while forcing `.email` to the UK locale.
+- To blanket a model you can omit the trailing `.*` (`"app.models.Customer"`) or use the bare class name (`"Customer"`).
 - Combine with `pfg gen json --seed 42` to verify deterministic outputs across locales.
 - See the configuration reference at [docs/configuration.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md#locale-overrides) for deeper details and validation rules.
 

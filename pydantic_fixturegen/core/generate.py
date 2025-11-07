@@ -283,6 +283,12 @@ class InstanceGenerator:
         alias_candidates.append(".".join((last_entry.full, field_name)))
         alias_candidates.append(field_name)
 
+        # Allow model-level policies (with or without module prefixes) by matching
+        # the current path entries directly, not only field-qualified variants.
+        for entry in self._path_stack:
+            alias_candidates.append(entry.qualname)
+            alias_candidates.append(entry.full)
+
         aliases = self._dedupe_paths(alias_candidates, exclude=full_path)
         return full_path, aliases
 
