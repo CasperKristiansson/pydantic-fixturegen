@@ -52,6 +52,27 @@ pfg gen json ./models.py \
 - Privacy bundles: `--profile pii-safe` masks identifiers; `--profile realistic` restores richer distributions.
 - Observability: `--json-errors`, `--watch`, `--watch-debounce`, `--now`.
 
+### `pfg gen dataset`
+
+```bash
+pfg gen dataset ./models.py \
+  --out ./warehouse/users.csv \
+  --format parquet \
+  --compression zstd \
+  --n 1000000 \
+  --shard-size 200000 \
+  --include pkg.User \
+  --seed 7 \
+  --preset boundary-max
+```
+
+- `--format` selects `csv`, `parquet`, or `arrow`. Each honours deterministic seeds and shares the same generation pipeline as `gen json`.
+- CSV output streams line-by-line (optionally via `--compression gzip`), while Parquet and Arrow use PyArrow writers; install the `[dataset]` extra or `pyarrow` to enable columnar formats.
+- `--shard-size` splits high-volume runs across multiple files without buffering the entire dataset in memory; templates with `{case_index}` apply per shard exactly like `gen json`.
+- Cycle metadata is preserved via the `__cycles__` column so downstream checks can reason about recursion heuristics.
+- Determinism helpers mirror `gen json`: `--seed`, `--freeze-seeds`, `--preset`, `--profile`, `--now`, `--respect-validators`, `--validator-max-retries`, `--max-depth`, `--on-cycle`, `--rng-mode`.
+- Observability: `--json-errors`, `--watch`, `--watch-debounce`, and relation links via `--link source.field=target.field` stay consistent with other emitters.
+
 ### `pfg gen fixtures`
 
 ```bash

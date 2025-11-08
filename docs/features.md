@@ -54,6 +54,7 @@
 ## Emitters
 
 - JSON/JSONL with optional `orjson`, sharding, and metadata banners.
+- High-volume datasets via `pfg gen dataset` with streaming CSV writers and PyArrow-backed Parquet/Arrow sinks (install the `dataset` extra); cycle metadata is preserved in a `__cycles__` column for downstream QA.
 - Pytest fixtures with deterministic parametrisation, configurable style/scope, and atomic writes.
 - JSON Schema emission with sorted keys and trailing newline stability.
 

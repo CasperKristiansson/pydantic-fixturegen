@@ -42,6 +42,20 @@ class JsonGenerationResult:
 
 
 @dataclass(slots=True)
+class DatasetGenerationResult:
+    """Result payload for dataset emission (CSV/Parquet/Arrow)."""
+
+    paths: tuple[Path, ...]
+    base_output: Path
+    model: type[BaseModel]
+    config: ConfigSnapshot
+    warnings: tuple[str, ...]
+    constraint_summary: Mapping[str, Any] | None
+    delegated: bool
+    format: str
+
+
+@dataclass(slots=True)
 class FixturesGenerationResult:
     """Result payload for pytest fixture emission."""
 
@@ -74,6 +88,7 @@ class SchemaGenerationResult:
 
 __all__ = [
     "ConfigSnapshot",
+    "DatasetGenerationResult",
     "FixturesGenerationResult",
     "JsonGenerationResult",
     "SchemaGenerationResult",

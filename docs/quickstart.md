@@ -73,6 +73,24 @@ The command writes `out/User.json` with deterministic content:
 ]
 ```
 
+## Step 3b — Generate tabular datasets
+
+When you need warehouse-friendly sinks instead of JSON blobs, install the `dataset` extra (`pip install 'pydantic-fixturegen[dataset]'`) and stream directly to CSV, Parquet, or Arrow:
+
+```bash
+pfg gen dataset ./models.py \
+  --include models.User \
+  --format parquet \
+  --compression zstd \
+  --n 500000 \
+  --shard-size 100000 \
+  --out ./warehouse/users.parquet
+```
+
+- CSV writers stream line-by-line (add `--compression gzip` if you want `.csv.gz` files), and the PyArrow-backed Parquet/Arrow emitters flush in batches so multi-million record runs stay memory-friendly.
+- The column order derives from your Pydantic model and includes a `__cycles__` column whenever recursion policies fire, making QA investigations trivial.
+- Seeds, presets, validator retries, relation links, and cycle policies mirror the `gen json` options, so you can share a single configuration block across emitters.
+
 ## Step 4 — Emit pytest fixtures
 
 ### No models yet? Start from schema or OpenAPI

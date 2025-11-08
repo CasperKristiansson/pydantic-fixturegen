@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import datetime as _dt
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import suppress
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
@@ -25,6 +26,7 @@ from pydantic_fixturegen.core.seed_freeze import (
     model_identifier,
     resolve_freeze_path,
 )
+from pydantic_fixturegen.emitters.dataset_out import DatasetFormat, emit_dataset_samples
 from pydantic_fixturegen.emitters.json_out import emit_json_samples
 from pydantic_fixturegen.emitters.pytest_codegen import PytestEmitConfig, emit_pytest_fixtures
 from pydantic_fixturegen.emitters.schema_out import emit_model_schema, emit_models_schema
@@ -35,6 +37,7 @@ from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_pl
 from ..logging import Logger
 from .models import (
     ConfigSnapshot,
+    DatasetGenerationResult,
     FixturesGenerationResult,
     JsonGenerationResult,
     SchemaGenerationResult,
@@ -68,8 +71,12 @@ def _config_details(snapshot: ConfigSnapshot) -> dict[str, Any]:
     }
 
 
-def _instance_payload(instance: BaseModel) -> dict[str, Any]:
-    data = instance.model_dump()
+def _instance_payload(
+    instance: BaseModel,
+    *,
+    mode: Literal["python", "json"] = "python",
+) -> dict[str, Any]:
+    data = instance.model_dump(mode=mode)
     events = consume_cycle_events(instance)
     if events:
         data["__cycles__"] = [event.to_payload() for event in events]
@@ -124,6 +131,286 @@ def _resolve_patterns(patterns: Sequence[str] | None) -> Sequence[str] | None:
 
 def _collect_warnings(messages: Iterable[str]) -> tuple[str, ...]:
     return tuple(message.strip() for message in messages if message.strip())
+
+
+def _build_model_artifact_plan(
+    *,
+    target_path: Path,
+    output_template: OutputTemplate,
+    include: Sequence[str] | None,
+    exclude: Sequence[str] | None,
+    seed: int | None,
+    now: str | None,
+    freeze_seeds: bool,
+    freeze_seeds_file: Path | None,
+    preset: str | None,
+    profile: str | None,
+    respect_validators: bool | None,
+    validator_max_retries: int | None,
+    relations: Mapping[str, str] | None,
+    with_related: Sequence[str] | None,
+    logger: Logger,
+    max_depth: int | None,
+    cycle_policy: str | None,
+    rng_mode: str | None,
+    payload_mode: Literal["python", "json"],
+) -> ModelArtifactPlan:
+    from ..cli.gen import _common as cli_common
+
+    path = target_path
+    if not path.exists():
+        raise DiscoveryError(
+            f"Target path '{path}' does not exist.",
+            details={"path": str(path)},
+        )
+    if not path.is_file():
+        raise DiscoveryError(
+            "Target must be a Python module file.",
+            details={"path": str(path)},
+        )
+
+    cli_common.clear_module_cache()
+    load_entrypoint_plugins()
+
+    freeze_manager: SeedFreezeFile | None = None
+    selected_seed: int | None = None
+    if freeze_seeds:
+        freeze_path = resolve_freeze_path(freeze_seeds_file, root=Path.cwd())
+        freeze_manager = SeedFreezeFile.load(freeze_path)
+        for message in freeze_manager.messages:
+            logger.warn(
+                "Seed freeze file ignored",
+                event="seed_freeze_invalid",
+                path=str(freeze_manager.path),
+                reason=message,
+            )
+
+    cli_overrides: dict[str, Any] = {}
+    related_identifiers = list(with_related or [])
+    related_include_patterns: list[str] = []
+    for identifier in related_identifiers:
+        if any(marker in identifier for marker in ("*", "?", ".")):
+            related_include_patterns.append(identifier)
+        else:
+            related_include_patterns.append(f"*.{identifier}")
+    if preset is not None:
+        cli_overrides["preset"] = preset
+    if profile is not None:
+        cli_overrides["profile"] = profile
+    if seed is not None:
+        cli_overrides["seed"] = seed
+    if now is not None:
+        cli_overrides["now"] = now
+    if respect_validators is not None:
+        cli_overrides["respect_validators"] = respect_validators
+    if validator_max_retries is not None:
+        cli_overrides["validator_max_retries"] = validator_max_retries
+    if max_depth is not None:
+        cli_overrides["max_depth"] = max_depth
+    if cycle_policy is not None:
+        cli_overrides["cycle_policy"] = cycle_policy
+    if rng_mode is not None:
+        cli_overrides["rng_mode"] = rng_mode
+    include_values = _resolve_patterns(include)
+    exclude_values = _resolve_patterns(exclude)
+    if include_values:
+        include_list = list(include_values)
+        if related_include_patterns:
+            include_list.extend(related_include_patterns)
+        cli_overrides["include"] = include_list
+    elif related_include_patterns:
+        cli_overrides["include"] = ["*"] + related_include_patterns
+    if exclude_values:
+        cli_overrides["exclude"] = list(exclude_values)
+    if relations:
+        cli_overrides["relations"] = dict(relations)
+
+    app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
+    config_snapshot = _snapshot_config(app_config)
+
+    discovery = cli_common.discover_models(
+        path,
+        include=app_config.include,
+        exclude=app_config.exclude,
+    )
+
+    if discovery.errors:
+        raise DiscoveryError("; ".join(discovery.errors))
+
+    warnings = _collect_warnings(discovery.warnings)
+
+    if not discovery.models:
+        raise DiscoveryError("No models discovered.")
+
+    related_infos: list[IntrospectedModel] = []
+    related_set: set[str] = set()
+    if related_identifiers:
+        for identifier in related_identifiers:
+            match = next(
+                (
+                    model
+                    for model in discovery.models
+                    if model.qualname == identifier or model.name == identifier
+                ),
+                None,
+            )
+            if match is None:
+                raise DiscoveryError(f"Related model '{identifier}' not found.")
+            if match.qualname in related_set:
+                continue
+            related_infos.append(match)
+            related_set.add(match.qualname)
+
+    remaining_models = [model for model in discovery.models if model.qualname not in related_set]
+
+    if not remaining_models:
+        raise DiscoveryError("No primary model discovered.")
+    if len(remaining_models) > 1:
+        names = ", ".join(model.qualname for model in remaining_models)
+        raise DiscoveryError(
+            f"Multiple models discovered ({names}). Use include/exclude to narrow selection.",
+            details={"models": names},
+        )
+
+    target_model = remaining_models[0]
+
+    try:
+        model_class_lookup = {
+            model.qualname: cli_common.load_model_class(model) for model in discovery.models
+        }
+    except RuntimeError as exc:  # pragma: no cover - defensive
+        raise DiscoveryError(str(exc)) from exc
+
+    model_cls = model_class_lookup[target_model.qualname]
+    related_model_classes = [model_class_lookup[info.qualname] for info in related_infos]
+
+    model_id = model_identifier(model_cls)
+    model_digest = compute_model_digest(model_cls)
+
+    if freeze_manager is not None:
+        default_seed = derive_default_model_seed(app_config.seed, model_id)
+        selected_seed = default_seed
+        stored_seed, status = freeze_manager.resolve_seed(model_id, model_digest=model_digest)
+        if status is FreezeStatus.VALID and stored_seed is not None:
+            selected_seed = stored_seed
+        else:
+            event = "seed_freeze_missing" if status is FreezeStatus.MISSING else "seed_freeze_stale"
+            logger.warn(
+                "Seed freeze entry unavailable; deriving new seed",
+                event=event,
+                model=model_id,
+                path=str(freeze_manager.path),
+            )
+            selected_seed = default_seed
+
+    relation_model_map = _build_relation_model_map(list(model_class_lookup.values()))
+
+    polyfactory_bindings = _collect_polyfactory_bindings(
+        app_config=app_config,
+        discovery=discovery.models,
+        model_class_lookup=model_class_lookup,
+        logger=logger,
+    )
+
+    generator = _build_instance_generator(
+        app_config,
+        seed_override=selected_seed,
+        relation_models=relation_model_map,
+    )
+    _maybe_enable_polyfactory_delegation(
+        generator=generator,
+        app_config=app_config,
+        bindings=polyfactory_bindings,
+        logger=logger,
+    )
+
+    related_class_tuple = tuple(related_model_classes)
+
+    def sample_factory() -> Mapping[str, Any]:
+        related_instances: list[tuple[type[BaseModel], dict[str, Any]]] = []
+        for related_cls in related_class_tuple:
+            related_instance = generator.generate_one(related_cls)
+            if related_instance is None:
+                raise MappingError(
+                    f"Failed to generate instance for {related_cls.__qualname__}.",
+                    details={"model": related_cls.__qualname__},
+                )
+            related_instances.append(
+                (related_cls, _instance_payload(related_instance, mode=payload_mode))
+            )
+
+        instance = generator.generate_one(model_cls)
+        if instance is None:
+            details: dict[str, Any] = {"model": target_model.qualname}
+            failure = getattr(generator, "validator_failure_details", None)
+            if failure:
+                details["validator_failure"] = failure
+            summary_snapshot = _summarize_constraint_report(generator.constraint_report)
+            if summary_snapshot:
+                details["constraint_summary"] = summary_snapshot
+            raise MappingError(
+                f"Failed to generate instance for {target_model.qualname}.",
+                details=details,
+            )
+        payload = _instance_payload(instance, mode=payload_mode)
+        if related_instances:
+            bundle: dict[str, Any] = {model_cls.__name__: payload}
+            for related_cls, related_payload in related_instances:
+                bundle[related_cls.__name__] = related_payload
+            return bundle
+        return payload
+
+    timestamp = _dt.datetime.now(_dt.timezone.utc)
+    template_context = OutputTemplateContext(
+        model=model_cls.__name__,
+        timestamp=timestamp,
+    )
+    base_output = output_template.render(
+        context=template_context,
+        case_index=1 if output_template.uses_case_index() else None,
+    )
+
+    reporter = getattr(generator, "constraint_report", None)
+
+    return ModelArtifactPlan(
+        app_config=app_config,
+        config_snapshot=config_snapshot,
+        model_cls=model_cls,
+        sample_factory=sample_factory,
+        template_context=template_context,
+        base_output=base_output,
+        warnings=warnings,
+        freeze_manager=freeze_manager,
+        model_id=model_id,
+        model_digest=model_digest,
+        selected_seed=selected_seed,
+        reporter=reporter,
+    )
+
+
+@dataclass(slots=True)
+class ModelArtifactPlan:
+    """Container with shared model generation state for emitters."""
+
+    app_config: AppConfig
+    config_snapshot: ConfigSnapshot
+    model_cls: type[BaseModel]
+    sample_factory: Callable[[], Mapping[str, Any]]
+    template_context: OutputTemplateContext
+    base_output: Path
+    warnings: tuple[str, ...]
+    freeze_manager: SeedFreezeFile | None
+    model_id: str
+    model_digest: str | None
+    selected_seed: int | None
+    reporter: Any
+
+
+def _dataset_columns(model_cls: type[BaseModel]) -> tuple[str, ...]:
+    fields = tuple(getattr(model_cls, "model_fields", {}).keys())
+    if "__cycles__" in fields:
+        return fields
+    return fields + ("__cycles__",)
 
 
 def _build_relation_model_map(
@@ -299,8 +586,6 @@ def generate_json_artifacts(
     cycle_policy: str | None = None,
     rng_mode: str | None = None,
 ) -> JsonGenerationResult:
-    from ..cli.gen import _common as cli_common
-
     logger = logger or get_logger()
 
     path: Path | None = None
@@ -327,82 +612,37 @@ def generate_json_artifacts(
         if with_related:
             raise DiscoveryError("Related model generation is unavailable for --type targets.")
 
-    clear_include = _resolve_patterns(include)
-    clear_exclude = _resolve_patterns(exclude)
-    related_identifiers: list[str] = []
-    related_include_patterns: list[str] = []
-    if with_related:
-        for identifier in with_related:
-            related_identifiers.append(identifier)
-            if any(marker in identifier for marker in ("*", "?", ".")):
-                related_include_patterns.append(identifier)
-            else:
-                related_include_patterns.append(f"*.{identifier}")
-
-    cli_common.clear_module_cache()
-    load_entrypoint_plugins()
-
-    freeze_manager: SeedFreezeFile | None = None
-    if freeze_seeds:
-        freeze_path = resolve_freeze_path(freeze_seeds_file, root=Path.cwd())
-        freeze_manager = SeedFreezeFile.load(freeze_path)
-        for message in freeze_manager.messages:
-            logger.warn(
-                "Seed freeze file ignored",
-                event="seed_freeze_invalid",
-                path=str(freeze_manager.path),
-                reason=message,
-            )
-
-    cli_overrides: dict[str, Any] = {}
-    if preset is not None:
-        cli_overrides["preset"] = preset
-    if profile is not None:
-        cli_overrides["profile"] = profile
-    if seed is not None:
-        cli_overrides["seed"] = seed
-    if now is not None:
-        cli_overrides["now"] = now
-    if respect_validators is not None:
-        cli_overrides["respect_validators"] = respect_validators
-    if validator_max_retries is not None:
-        cli_overrides["validator_max_retries"] = validator_max_retries
-    if max_depth is not None:
-        cli_overrides["max_depth"] = max_depth
-    if cycle_policy is not None:
-        cli_overrides["cycle_policy"] = cycle_policy
-    if rng_mode is not None:
-        cli_overrides["rng_mode"] = rng_mode
-    if max_depth is not None:
-        cli_overrides["max_depth"] = max_depth
-    if cycle_policy is not None:
-        cli_overrides["cycle_policy"] = cycle_policy
-    json_overrides: dict[str, Any] = {}
-    if indent is not None:
-        json_overrides["indent"] = indent
-    if use_orjson is not None:
-        json_overrides["orjson"] = use_orjson
-    if json_overrides:
-        cli_overrides["json"] = json_overrides
-    include_values: list[str] | None = None
-    if clear_include is not None:
-        include_values = list(clear_include)
-        if related_include_patterns:
-            include_values.extend(related_include_patterns)
-    elif related_include_patterns:
-        include_values = ["*"]
-        include_values.extend(related_include_patterns)
-    if include_values:
-        cli_overrides["include"] = include_values
-    if clear_exclude:
-        cli_overrides["exclude"] = list(clear_exclude)
-    if relations:
-        cli_overrides["relations"] = dict(relations)
-
-    app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
-    config_snapshot = _snapshot_config(app_config)
-
     if type_annotation is not None:
+        cli_overrides: dict[str, Any] = {}
+        if preset is not None:
+            cli_overrides["preset"] = preset
+        if profile is not None:
+            cli_overrides["profile"] = profile
+        if seed is not None:
+            cli_overrides["seed"] = seed
+        if now is not None:
+            cli_overrides["now"] = now
+        if respect_validators is not None:
+            cli_overrides["respect_validators"] = respect_validators
+        if validator_max_retries is not None:
+            cli_overrides["validator_max_retries"] = validator_max_retries
+        if max_depth is not None:
+            cli_overrides["max_depth"] = max_depth
+        if cycle_policy is not None:
+            cli_overrides["cycle_policy"] = cycle_policy
+        if rng_mode is not None:
+            cli_overrides["rng_mode"] = rng_mode
+        json_overrides: dict[str, Any] = {}
+        if indent is not None:
+            json_overrides["indent"] = indent
+        if use_orjson is not None:
+            json_overrides["orjson"] = use_orjson
+        if json_overrides:
+            cli_overrides["json"] = json_overrides
+
+        app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
+        config_snapshot = _snapshot_config(app_config)
+
         return _generate_type_adapter_json(
             annotation=type_annotation,
             label=type_label,
@@ -417,150 +657,36 @@ def generate_json_artifacts(
         )
 
     assert path is not None
-    discovery = cli_common.discover_models(
-        path,
-        include=app_config.include,
-        exclude=app_config.exclude,
-    )
 
-    if discovery.errors:
-        raise DiscoveryError("; ".join(discovery.errors))
-
-    warnings = _collect_warnings(discovery.warnings)
-
-    if not discovery.models:
-        raise DiscoveryError("No models discovered.")
-
-    related_infos: list[IntrospectedModel] = []
-    related_set: set[str] = set()
-    if related_identifiers:
-        for identifier in related_identifiers:
-            match = next(
-                (
-                    model
-                    for model in discovery.models
-                    if model.qualname == identifier or model.name == identifier
-                ),
-                None,
-            )
-            if match is None:
-                raise DiscoveryError(f"Related model '{identifier}' not found.")
-            if match.qualname in related_set:
-                continue
-            related_infos.append(match)
-            related_set.add(match.qualname)
-
-    remaining_models = [model for model in discovery.models if model.qualname not in related_set]
-
-    if not remaining_models:
-        raise DiscoveryError("No primary model discovered.")
-    if len(remaining_models) > 1:
-        names = ", ".join(model.qualname for model in remaining_models)
-        raise DiscoveryError(
-            f"Multiple models discovered ({names}). Use include/exclude to narrow selection.",
-            details={"models": names},
-        )
-
-    target_model = remaining_models[0]
-
-    try:
-        model_class_lookup = {
-            model.qualname: cli_common.load_model_class(model) for model in discovery.models
-        }
-    except RuntimeError as exc:  # pragma: no cover - defensive
-        raise DiscoveryError(str(exc)) from exc
-
-    model_cls = model_class_lookup[target_model.qualname]
-    related_model_classes = [model_class_lookup[info.qualname] for info in related_infos]
-
-    model_id = model_identifier(model_cls)
-    model_digest = compute_model_digest(model_cls)
-
-    if freeze_manager is not None:
-        default_seed = derive_default_model_seed(app_config.seed, model_id)
-        selected_seed: int | None = default_seed
-        stored_seed, status = freeze_manager.resolve_seed(model_id, model_digest=model_digest)
-        if status is FreezeStatus.VALID and stored_seed is not None:
-            selected_seed = stored_seed
-        else:
-            event = "seed_freeze_missing" if status is FreezeStatus.MISSING else "seed_freeze_stale"
-            logger.warn(
-                "Seed freeze entry unavailable; deriving new seed",
-                event=event,
-                model=model_id,
-                path=str(freeze_manager.path),
-            )
-            selected_seed = default_seed
-    else:
-        selected_seed = None
-
-    relation_model_map = _build_relation_model_map(list(model_class_lookup.values()))
-
-    polyfactory_bindings = _collect_polyfactory_bindings(
-        app_config=app_config,
-        discovery=discovery.models,
-        model_class_lookup=model_class_lookup,
+    plan = _build_model_artifact_plan(
+        target_path=path,
+        output_template=output_template,
+        include=include,
+        exclude=exclude,
+        seed=seed,
+        now=now,
+        freeze_seeds=freeze_seeds,
+        freeze_seeds_file=freeze_seeds_file,
+        preset=preset,
+        profile=profile,
+        respect_validators=respect_validators,
+        validator_max_retries=validator_max_retries,
+        relations=relations,
+        with_related=with_related,
         logger=logger,
+        max_depth=max_depth,
+        cycle_policy=cycle_policy,
+        rng_mode=rng_mode,
+        payload_mode="python",
     )
 
-    generator = _build_instance_generator(
-        app_config,
-        seed_override=selected_seed,
-        relation_models=relation_model_map,
-    )
-    _maybe_enable_polyfactory_delegation(
-        generator=generator,
-        app_config=app_config,
-        bindings=polyfactory_bindings,
-        logger=logger,
-    )
-
-    related_class_tuple = tuple(related_model_classes)
-
-    def sample_factory() -> BaseModel | dict[str, Any]:
-        related_instances: list[tuple[type[BaseModel], dict[str, Any]]] = []
-        for related_cls in related_class_tuple:
-            related_instance = generator.generate_one(related_cls)
-            if related_instance is None:
-                raise MappingError(
-                    f"Failed to generate instance for {related_cls.__qualname__}.",
-                    details={"model": related_cls.__qualname__},
-                )
-            related_instances.append((related_cls, _instance_payload(related_instance)))
-
-        instance = generator.generate_one(model_cls)
-        if instance is None:
-            details: dict[str, Any] = {"model": target_model.qualname}
-            failure = getattr(generator, "validator_failure_details", None)
-            if failure:
-                details["validator_failure"] = failure
-            summary_snapshot = _summarize_constraint_report(generator.constraint_report)
-            if summary_snapshot:
-                details["constraint_summary"] = summary_snapshot
-            raise MappingError(
-                f"Failed to generate instance for {target_model.qualname}.",
-                details=details,
-            )
-        payload = _instance_payload(instance)
-        if related_instances:
-            bundle: dict[str, Any] = {model_cls.__name__: payload}
-            for related_cls, related_payload in related_instances:
-                bundle[related_cls.__name__] = related_payload
-            return bundle
-        return payload
-
-    indent_value = indent if indent is not None else app_config.json.indent
-    use_orjson_value = use_orjson if use_orjson is not None else app_config.json.orjson
-
-    timestamp = _dt.datetime.now(_dt.timezone.utc)
-    template_context = OutputTemplateContext(
-        model=model_cls.__name__,
-        timestamp=timestamp,
-    )
-    base_output = output_template.render(
-        context=template_context,
-        case_index=1 if output_template.uses_case_index() else None,
-    )
+    indent_value = indent if indent is not None else plan.app_config.json.indent
+    use_orjson_value = use_orjson if use_orjson is not None else plan.app_config.json.orjson
+    template_context = plan.template_context
+    base_output = plan.base_output
+    model_cls = plan.model_cls
+    config_snapshot = plan.config_snapshot
+    warnings = plan.warnings
 
     context = EmitterContext(
         models=(model_cls,),
@@ -586,10 +712,9 @@ def generate_json_artifacts(
             delegated=True,
         )
 
-    reporter = getattr(generator, "constraint_report", None)
     try:
         paths = emit_json_samples(
-            sample_factory,
+            plan.sample_factory,
             output_path=output_template.raw,
             count=count,
             jsonl=jsonl,
@@ -601,7 +726,7 @@ def generate_json_artifacts(
             template_context=template_context,
         )
     except RuntimeError as exc:
-        constraint_summary = _summarize_constraint_report(reporter)
+        constraint_summary = _summarize_constraint_report(plan.reporter)
         details = _build_error_details(
             config_snapshot=config_snapshot,
             warnings=warnings,
@@ -610,7 +735,7 @@ def generate_json_artifacts(
         )
         raise EmitError(str(exc), details=details) from exc
     except PFGError as exc:
-        constraint_summary = _summarize_constraint_report(reporter)
+        constraint_summary = _summarize_constraint_report(plan.reporter)
         details = _build_error_details(
             config_snapshot=config_snapshot,
             warnings=warnings,
@@ -620,12 +745,15 @@ def generate_json_artifacts(
         _attach_error_details(exc, details)
         raise
 
-    if freeze_manager is not None:
-        assert selected_seed is not None
-        freeze_manager.record_seed(model_id, selected_seed, model_digest=model_digest)
-        freeze_manager.save()
+    if plan.freeze_manager is not None and plan.selected_seed is not None:
+        plan.freeze_manager.record_seed(
+            plan.model_id,
+            plan.selected_seed,
+            model_digest=plan.model_digest,
+        )
+        plan.freeze_manager.save()
 
-    constraint_summary = _summarize_constraint_report(reporter)
+    constraint_summary = _summarize_constraint_report(plan.reporter)
 
     return JsonGenerationResult(
         paths=tuple(paths),
@@ -635,6 +763,145 @@ def generate_json_artifacts(
         constraint_summary=constraint_summary,
         warnings=warnings,
         delegated=False,
+    )
+
+
+def generate_dataset_artifacts(
+    *,
+    target: str | Path,
+    output_template: OutputTemplate,
+    count: int,
+    format: str,
+    shard_size: int | None,
+    compression: str | None,
+    include: Sequence[str] | None,
+    exclude: Sequence[str] | None,
+    seed: int | None,
+    now: str | None,
+    freeze_seeds: bool,
+    freeze_seeds_file: Path | None,
+    preset: str | None,
+    profile: str | None = None,
+    respect_validators: bool | None = None,
+    validator_max_retries: int | None = None,
+    relations: Mapping[str, str] | None = None,
+    with_related: Sequence[str] | None = None,
+    logger: Logger | None = None,
+    max_depth: int | None = None,
+    cycle_policy: str | None = None,
+    rng_mode: str | None = None,
+) -> DatasetGenerationResult:
+    logger = logger or get_logger()
+    fmt = format.lower()
+    if fmt not in {"csv", "parquet", "arrow"}:
+        raise DiscoveryError(f"Unsupported dataset format '{format}'.")
+
+    plan = _build_model_artifact_plan(
+        target_path=Path(target),
+        output_template=output_template,
+        include=include,
+        exclude=exclude,
+        seed=seed,
+        now=now,
+        freeze_seeds=freeze_seeds,
+        freeze_seeds_file=freeze_seeds_file,
+        preset=preset,
+        profile=profile,
+        respect_validators=respect_validators,
+        validator_max_retries=validator_max_retries,
+        relations=relations,
+        with_related=with_related,
+        logger=logger,
+        max_depth=max_depth,
+        cycle_policy=cycle_policy,
+        rng_mode=rng_mode,
+        payload_mode="json",
+    )
+
+    columns = _dataset_columns(plan.model_cls)
+    template_context = plan.template_context
+    base_output = plan.base_output
+    config_snapshot = plan.config_snapshot
+    warnings = plan.warnings
+    dataset_format = cast(DatasetFormat, fmt)
+
+    context = EmitterContext(
+        models=(plan.model_cls,),
+        output=base_output,
+        parameters={
+            "count": count,
+            "format": dataset_format,
+            "shard_size": shard_size,
+            "compression": compression,
+            "path_template": output_template.raw,
+        },
+    )
+
+    if emit_artifact(f"dataset_{dataset_format}", context):
+        return DatasetGenerationResult(
+            paths=(),
+            base_output=base_output,
+            model=plan.model_cls,
+            config=config_snapshot,
+            warnings=warnings,
+            constraint_summary=None,
+            delegated=True,
+            format=dataset_format,
+        )
+
+    try:
+        paths = emit_dataset_samples(
+            plan.sample_factory,
+            output_path=output_template.raw,
+            format=dataset_format,
+            count=count,
+            shard_size=shard_size,
+            compression=compression,
+            template=output_template,
+            template_context=template_context,
+            columns=columns,
+        )
+    except RuntimeError as exc:
+        constraint_summary = _summarize_constraint_report(plan.reporter)
+        details = _build_error_details(
+            config_snapshot=config_snapshot,
+            warnings=warnings,
+            base_output=base_output,
+            constraint_summary=constraint_summary,
+        )
+        raise EmitError(str(exc), details=details) from exc
+    except (ValueError, PFGError) as exc:
+        constraint_summary = _summarize_constraint_report(plan.reporter)
+        details = _build_error_details(
+            config_snapshot=config_snapshot,
+            warnings=warnings,
+            base_output=base_output,
+            constraint_summary=constraint_summary,
+        )
+        if isinstance(exc, PFGError):
+            _attach_error_details(exc, details)
+            raise
+        raise EmitError(str(exc), details=details) from exc
+
+    if plan.freeze_manager is not None and plan.selected_seed is not None:
+        plan.freeze_manager.record_seed(
+            plan.model_id,
+            plan.selected_seed,
+            model_digest=plan.model_digest,
+        )
+        plan.freeze_manager.save()
+
+    constraint_summary = _summarize_constraint_report(plan.reporter)
+
+    return DatasetGenerationResult(
+        paths=tuple(paths),
+        base_output=base_output,
+        model=plan.model_cls,
+        config=config_snapshot,
+        warnings=warnings,
+        constraint_summary=constraint_summary,
+        delegated=False,
+        format=dataset_format,
     )
 
 

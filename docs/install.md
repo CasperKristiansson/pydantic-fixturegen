@@ -34,6 +34,7 @@ pip install 'pydantic-fixturegen[all-dev]'
 - `watch` adds filesystem watching via `watchfiles`.
 - `fastapi` pulls in FastAPI + Uvicorn so you can use `pfg fastapi smoke` and `pfg fastapi serve`.
 - `polyfactory` installs Polyfactory so model discovery can delegate to existing factories and `pfg gen polyfactory` runs immediately.
+- `dataset` installs PyArrow so `pfg gen dataset --format parquet|arrow` works without additional steps.
 - `openapi` bundles `datamodel-code-generator` + `PyYAML` so you can ingest JSON Schema/OpenAPI documents directly in `pfg`.
 - `all` bundles runtime extras; `all-dev` adds Ruff, mypy, pytest, and pytest-cov.
 
@@ -73,6 +74,7 @@ hatch run pfg --help
 | `numpy`          | Deterministic NumPy array providers           | Models embedding `numpy.ndarray` fields    |
 | `fastapi`        | FastAPI + Uvicorn                             | Smoke tests and mock servers               |
 | `polyfactory`    | Polyfactory                                   | Delegating to existing `ModelFactory` classes |
+| `dataset`        | PyArrow                                       | CSV/Parquet/Arrow dataset emission         |
 | `openapi`        | `datamodel-code-generator` + PyYAML           | JSON Schema / OpenAPI ingestion workflows  |
 | `all`            | Every runtime extra                           | One-shot enablement                        |
 | `all-dev`        | Runtime extras + mypy, Ruff, pytest, pytest-cov | Local development stacks                  |
