@@ -8,12 +8,14 @@ from .explain import app as explain_app
 from .fixtures import register as register_fixtures
 from .json import register as register_json
 from .schema import register as register_schema
+from .strategies import register as register_strategies
 
 app = typer.Typer(help="Generate data artifacts from Pydantic models.")
 
 register_json(app)
 register_schema(app)
 register_fixtures(app)
+register_strategies(app)
 app.add_typer(
     explain_app,
     name="explain",

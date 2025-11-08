@@ -30,6 +30,7 @@ from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerato
 from pydantic_fixturegen.core.io_utils import WriteResult, write_atomic_text
 from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
 from pydantic_fixturegen.core.seed import DEFAULT_LOCALE, RNGModeLiteral
+from pydantic_fixturegen.core.seed_freeze import canonical_module_name, model_identifier
 from pydantic_fixturegen.core.version import build_artifact_header
 
 DEFAULT_SCOPE = "function"
@@ -124,7 +125,7 @@ def emit_pytest_fixtures(
     constraint_reporters: list[ConstraintReporter] = []
 
     for model in models:
-        model_id = f"{model.__module__}.{model.__qualname__}"
+        model_id = model_identifier(model)
         if per_model_seeds:
             seed_value = per_model_seeds.get(model_id, cfg.seed)
             generator = _build_generator(seed_value)
@@ -137,9 +138,7 @@ def emit_pytest_fixtures(
         if len(instances) < cfg.cases:
             failure = getattr(generator, "validator_failure_details", None)
             summary = generator.constraint_report.summary()
-            details: dict[str, Any] = {
-                "model": f"{model.__module__}.{model.__qualname__}",
-            }
+            details: dict[str, Any] = {"model": model_id}
             if failure:
                 details["validator_failure"] = failure
             if summary.get("models"):
@@ -213,7 +212,7 @@ class _ModelEntry:
 def _render_module(*, entries: Iterable[_ModelEntry], config: PytestEmitConfig) -> str:
     entries_list = list(entries)
     models_metadata = ", ".join(
-        f"{entry.model.__module__}.{entry.model.__name__}" for entry in entries_list
+        f"{canonical_module_name(entry.model)}.{entry.model.__name__}" for entry in entries_list
     )
     header_extras = {
         "style": config.style,
@@ -269,7 +268,8 @@ def _render_module(*, entries: Iterable[_ModelEntry], config: PytestEmitConfig) 
 def _collect_model_imports(entries: Iterable[_ModelEntry]) -> dict[str, set[str]]:
     imports: dict[str, set[str]] = {}
     for entry in entries:
-        imports.setdefault(entry.model.__module__, set()).add(entry.model.__name__)
+        module_name = canonical_module_name(entry.model)
+        imports.setdefault(module_name, set()).add(entry.model.__name__)
     return imports
 
 

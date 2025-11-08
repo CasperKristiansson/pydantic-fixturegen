@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added recursion-aware generation with configurable `max_depth`/`cycle_policy` settings plus `--max-depth`/`--on-cycle` CLI overrides; recursive fields now reuse prior instances, emit stubs, or fall back to null deterministically, and JSON/fixture emitters surface the behaviour via a `__cycles__` metadata block while `pfg gen explain` shows the active policy per field.
 - Added a portable SplitMix64 RNG core that keeps seeded runs byte-for-byte identical across Python versions and operating systems, along with a new `rng_mode` configuration key and `--rng-mode {portable,legacy}` CLI/ENV overrides for teams that need to temporarily fall back to the legacy CPython RNG.
 - Added adversarial generation profiles (`edge`, `adversarial`) that bias datasets toward boundary conditions—spiky numeric sampling, higher optional `None` rates, and smaller collections—accessible via `profile = "edge"`/`"adversarial"` or `--profile`.
+- Added a Hypothesis strategy exporter: `pydantic_fixturegen.hypothesis.strategy_for(Model)` converts model metadata into shrinkable strategies, and `pfg gen strategies` writes ready-to-import modules wired to the same seed/rng-mode/cycle-policy options for property-based tests.
 - Made email and payment identifier dependencies optional extras (`[email]`, `[payment]`), so base installations no longer require `email-validator` or `pydantic-extra-types`, and the docs now call out the opt-in requirements explicitly.
 - Established tested minimum dependency floors on Python 3.10 and 3.14: `faker>=3.0.0`, `pydantic>=2.12.4`, `typer>=0.12.4,<0.13`, `click>=8.1.7,<8.2`, `pluggy>=1.5.0`, and `tomli>=2.0.1` (for Python 3.10 only). Optional extras now document the verified baselines: `email-validator>=2.0.0`, `pydantic-extra-types>=2.6.0`, `rstr>=3.2.2`, `orjson>=3.11.1`, `hypothesis>=1.0.0`, `numpy>=2.2.6` on Python 3.10 / `>=2.3.2` on Python ≥3.11`, and `watchfiles>=0.20.0`.
 - Added `pfg plugin new` to scaffold pluggy provider projects with packaging metadata, tests, and CI workflow templates.
@@ -34,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Fixed
 
 - Cycle metadata is now attached to generated models even when recursion is limited solely by `max_depth`, ensuring `__cycles__` blocks in JSON and pytest fixtures always report the active `cycle_policy` (addresses issue #33).
+- Deterministic seed freezing, explain/doctor reports, heuristics, and pytest fixture emitters now normalize models back to their canonical `module.Class` identifiers even when the same file is imported multiple times under internal aliases, keeping `.pfg-seeds.json`, CLI output, and generated imports stable after running other commands (fixes issue #35).
 
 ## [1.1.0] - 2025-11-04
 

@@ -42,6 +42,8 @@ __all__ = [
 
 
 _module_cache: dict[str, ModuleType] = {}
+_CANONICAL_ATTR = "__pfg_canonical_name__"
+_MODEL_CANONICAL_ATTR = "__pfg_canonical_module__"
 
 
 JSON_ERRORS_OPTION = typer.Option(
@@ -298,8 +300,25 @@ def _import_module_by_path(module_name: str, path: Path) -> ModuleType:
     except Exception as exc:  # pragma: no cover - surface to caller
         raise RuntimeError(f"Error importing module {path}: {exc}") from exc
 
+    _annotate_canonical_names(module, module_name)
     _module_cache[module_name] = module
     return module
+
+
+def _annotate_canonical_names(module: ModuleType, canonical_name: str) -> None:
+    setattr(module, _CANONICAL_ATTR, canonical_name)
+    module_name = getattr(module, "__name__", None)
+    if not module_name:
+        return
+
+    for value in module.__dict__.values():
+        owner = getattr(value, "__module__", None)
+        if owner != module_name:
+            continue
+        try:
+            setattr(value, _MODEL_CANONICAL_ATTR, canonical_name)
+        except Exception:  # pragma: no cover - attribute may be read-only
+            continue
 
 
 def evaluate_type_expression(expression: str, *, module_path: Path | None = None) -> Any:

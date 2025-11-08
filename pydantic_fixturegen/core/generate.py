@@ -36,6 +36,7 @@ from pydantic_fixturegen.core.field_policies import (
 from pydantic_fixturegen.core.providers import ProviderRegistry, create_default_registry
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary, extract_constraints
 from pydantic_fixturegen.core.seed import DEFAULT_LOCALE, RNGModeLiteral, SeedManager
+from pydantic_fixturegen.core.seed_freeze import canonical_module_name
 from pydantic_fixturegen.core.strategies import (
     Strategy,
     StrategyBuilder,
@@ -516,7 +517,7 @@ class InstanceGenerator:
         *,
         path: str | None,
     ) -> _PathEntry:
-        module = getattr(model_type, "__module__", "<unknown>")
+        module = canonical_module_name(model_type)
         qualname = getattr(
             model_type,
             "__qualname__",
@@ -532,7 +533,7 @@ class InstanceGenerator:
 
     @staticmethod
     def _describe_model(model_type: type[Any]) -> str:
-        module = getattr(model_type, "__module__", "<unknown>")
+        module = canonical_module_name(model_type)
         qualname = getattr(
             model_type,
             "__qualname__",

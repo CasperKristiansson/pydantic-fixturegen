@@ -17,6 +17,7 @@ from .field_policies import FieldPolicy
 from .presets import get_preset_spec, normalize_preset_name
 from .privacy_profiles import get_privacy_profile_spec, normalize_privacy_profile_name
 from .seed import DEFAULT_LOCALE, RNGModeLiteral
+from .seed_freeze import canonical_module_name
 
 
 def _import_tomllib() -> Any:
@@ -106,7 +107,7 @@ class PathConfig:
         if model is None or not self.model_targets:
             return self.default_os
 
-        module = getattr(model, "__module__", "")
+        module = canonical_module_name(model)
         qualname = getattr(model, "__qualname__", getattr(model, "__name__", ""))
         full_name = f"{module}.{qualname}" if module else qualname
 

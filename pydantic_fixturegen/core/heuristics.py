@@ -11,6 +11,7 @@ from typing import Any
 from pydantic.fields import FieldInfo
 
 from pydantic_fixturegen.core.schema import FieldSummary
+from pydantic_fixturegen.core.seed_freeze import canonical_module_name
 from pydantic_fixturegen.plugins.loader import (
     get_plugin_manager,
     load_entrypoint_plugins,
@@ -317,7 +318,7 @@ def _build_context(
 def _describe_path(model: type[Any] | None, field_name: str) -> str:
     if model is None:
         return field_name
-    module = getattr(model, "__module__", "")
+    module = canonical_module_name(model)
     qualname = getattr(model, "__qualname__", getattr(model, "__name__", ""))
     prefix = f"{module}.{qualname}" if module else qualname
     return f"{prefix}.{field_name}" if prefix else field_name

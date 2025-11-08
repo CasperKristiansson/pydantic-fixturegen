@@ -19,6 +19,7 @@ pfg gen json ./models.py --out ./out/users.json --freeze-seeds
 - Default path: `.pfg-seeds.json` in the project root.
 - Override via `--freeze-seeds-file` or `PFG_FREEZE_SEEDS_FILE`.
 - The file records per-model seeds and digests:
+- Entries are keyed by the model's canonical `module.Class` name, so identifiers remain stable even if the same module was imported earlier via an internal alias.
 
 ```json
 {

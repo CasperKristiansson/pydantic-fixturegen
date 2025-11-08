@@ -11,14 +11,13 @@ import typer
 from pydantic import BaseModel
 
 from pydantic_fixturegen.core.errors import DiscoveryError, PFGError
-from pydantic_fixturegen.core.extra_types import (
-    describe_extra_annotation,
-)
+from pydantic_fixturegen.core.extra_types import describe_extra_annotation
 from pydantic_fixturegen.core.extra_types import (
     resolve_type_id as resolve_extra_type_id,
 )
 from pydantic_fixturegen.core.providers import create_default_registry
 from pydantic_fixturegen.core.schema import FieldSummary, summarize_model_fields
+from pydantic_fixturegen.core.seed_freeze import canonical_module_name
 from pydantic_fixturegen.core.strategies import StrategyBuilder, StrategyResult, UnionStrategy
 from pydantic_fixturegen.plugins.loader import get_plugin_manager
 
@@ -407,7 +406,8 @@ def _render_report(reports: list[ModelReport], gap_summary: GapSummary) -> None:
     for report in reports:
         covered, total = report.coverage
         coverage_pct = (covered / total * 100) if total else 100.0
-        typer.echo(f"Model: {report.model.__module__}.{report.model.__name__}")
+        module_name = canonical_module_name(report.model)
+        typer.echo(f"Model: {module_name}.{report.model.__name__}")
         typer.echo(f"  Coverage: {covered}/{total} fields ({coverage_pct:.0f}%)")
         if report.issues:
             typer.echo("  Issues:")

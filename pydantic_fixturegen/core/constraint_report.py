@@ -9,6 +9,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from .schema import FieldSummary
+from .seed_freeze import canonical_module_name
 
 
 @dataclass(slots=True)
@@ -51,7 +52,7 @@ class ConstraintReporter:
 
     @staticmethod
     def _model_key(model: type[BaseModel]) -> str:
-        return f"{model.__module__}.{model.__qualname__}"
+        return f"{canonical_module_name(model)}.{model.__qualname__}"
 
     def begin_model(self, model: type[BaseModel]) -> None:
         key = self._model_key(model)

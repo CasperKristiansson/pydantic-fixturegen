@@ -123,6 +123,25 @@ User
 
 Use this view to confirm plugin overrides or preset tweaks.
 
+## Step 7 — Property-based tests with Hypothesis
+
+Install the `hypothesis` extra and import `strategy_for` whenever you need shrinkable strategies:
+
+```python
+from hypothesis import given
+from pydantic_fixturegen.hypothesis import strategy_for
+from models import User
+
+
+@given(strategy_for(User, profile="edge"))
+def test_user_round_trips_through_api(instance: User) -> None:
+    payload = instance.model_dump()
+    restored = User.model_validate(payload)
+    assert restored == instance
+```
+
+Prefer repeatable fixtures? Generate a python module with `pfg gen strategies models.py --out tests/strategies.py --strategy-profile edge` and import the exported `user_strategy` in multiple tests without writing boilerplate.
+
 ## Watch mode
 
 <a id="watch-mode"></a>

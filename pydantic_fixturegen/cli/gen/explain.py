@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from pydantic_fixturegen.core.errors import DiscoveryError, PFGError
 from pydantic_fixturegen.core.providers import create_default_registry
 from pydantic_fixturegen.core.schema import FieldSummary, summarize_model_fields
+from pydantic_fixturegen.core.seed_freeze import canonical_module_name
 from pydantic_fixturegen.core.strategies import StrategyBuilder, StrategyResult, UnionStrategy
 from pydantic_fixturegen.plugins.loader import get_plugin_manager
 
@@ -190,7 +191,7 @@ def _collect_model_report(
     report: dict[str, Any] = {
         "kind": "model",
         "name": model_cls.__name__,
-        "module": model_cls.__module__,
+        "module": canonical_module_name(model_cls),
         "qualname": qualname,
         "fields": [],
     }
@@ -475,7 +476,7 @@ def _resolve_runtime_type(annotation: Any) -> type[Any] | None:
 
 def _describe_callable(factory: Any) -> str:
     name = getattr(factory, "__qualname__", getattr(factory, "__name__", None))
-    module = getattr(factory, "__module__", None)
+    module = getattr(factory, "__pfg_canonical_module__", getattr(factory, "__module__", None))
     if name and module:
         return f"{module}.{name}"
     if name:
@@ -512,7 +513,8 @@ def _describe_annotation(annotation: Any) -> str | None:
 
 
 def _describe_type(tp: type[Any]) -> str:
-    return f"{tp.__module__}.{tp.__qualname__}"
+    module_name = getattr(tp, "__pfg_canonical_module__", tp.__module__)
+    return f"{module_name}.{tp.__qualname__}"
 
 
 def _is_subclass(candidate: type[Any], parent: type[Any]) -> bool:

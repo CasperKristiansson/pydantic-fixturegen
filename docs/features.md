@@ -23,6 +23,12 @@
 - Field policies for enums, unions, and optional probabilities (`p_none`).
 - Configuration precedence: CLI → environment (`PFG_*`) → pyproject/YAML → defaults.
 
+## Hypothesis
+
+- `pydantic_fixturegen.hypothesis.strategy_for(Model)` turns the generation metadata into shrinkable Hypothesis strategies that honour the same constraints, providers, and recursion policies as the fixture engine.
+- `pfg gen strategies` emits a ready-to-import Python module that wires the discovered models into `strategy_for`, so property-based tests can share the exact same configuration (seed, cycle policy, RNG mode) as CLI/json workflows.
+- Profiles (`typical`, `edge`, `adversarial`) bias the exporter toward larger boundary coverage when you need to stress validators or replicate adversarial scenarios.
+
 ## Emitters
 
 - JSON/JSONL with optional `orjson`, sharding, and metadata banners.

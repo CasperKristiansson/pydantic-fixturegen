@@ -145,8 +145,14 @@ def resolve_freeze_path(path_option: Path | None, *, root: Path | None = None) -
     return base / candidate
 
 
+def canonical_module_name(model: type[BaseModel]) -> str:
+    """Return the canonical module name for a dynamically imported model."""
+
+    return getattr(model, "__pfg_canonical_module__", model.__module__)
+
+
 def model_identifier(model: type[BaseModel]) -> str:
-    return f"{model.__module__}.{model.__qualname__}"
+    return f"{canonical_module_name(model)}.{model.__qualname__}"
 
 
 def compute_model_digest(model: type[BaseModel]) -> str | None:
@@ -168,6 +174,7 @@ __all__ = [
     "FREEZE_FILE_BASENAME",
     "FREEZE_FILE_VERSION",
     "FreezeStatus",
+    "canonical_module_name",
     "SeedFreezeFile",
     "compute_model_digest",
     "derive_default_model_seed",

@@ -62,7 +62,7 @@ hatch run pfg --help
 | ---------------- | --------------------------------------------- | ------------------------------------------ |
 | `regex`          | `rstr` for regex-based string providers       | Models with `Field(regex=...)` constraints |
 | `orjson`         | Fast JSON encoder                             | Large JSON/JSONL dumps                     |
-| `hypothesis`     | Property-based helpers                        | Generative testing combos                  |
+| `hypothesis`     | Property-based strategy exporter (`strategy_for`, `pfg gen strategies`) | Generative testing combos                  |
 | `watch`          | Live regeneration via `watchfiles`            | Watch mode in CI or local loops            |
 | `numpy`          | Deterministic NumPy array providers           | Models embedding `numpy.ndarray` fields    |
 | `all`            | Every runtime extra                           | One-shot enablement                        |
