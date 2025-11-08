@@ -31,10 +31,22 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Determine pip cache dir
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+
+          cache_dir = Path.home() / ".cache" / "pip"
+          cache_dir.mkdir(parents=True, exist_ok=True)
+          print(f"Using pip cache directory: {cache_dir}")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
+              env_file.write(f"PIP_CACHE_DIR={cache_dir}\n")
+
       - name: Cache pip
         uses: actions/cache@v4
         with:
-          path: ~/.cache/pip
+          path: ${{ env.PIP_CACHE_DIR }}
           key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-pip-${{ matrix.python-version }}-
