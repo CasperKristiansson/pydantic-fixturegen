@@ -118,6 +118,19 @@ def test_generate_user_instance() -> None:
     assert user.preference is not None
 
 
+def test_required_fields_ignore_global_p_none() -> None:
+    class RequiredModel(BaseModel):
+        value: int
+
+    generator = InstanceGenerator(
+        config=GenerationConfig(seed=123, default_p_none=1.0, optional_p_none=1.0)
+    )
+
+    instance = generator.generate_one(RequiredModel)
+    assert instance is not None
+    assert isinstance(instance.value, int)
+
+
 def test_optional_none_probability() -> None:
     config = GenerationConfig(seed=1, optional_p_none=1.0)
     generator = InstanceGenerator(config=config)

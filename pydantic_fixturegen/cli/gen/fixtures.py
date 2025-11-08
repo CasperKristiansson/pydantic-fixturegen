@@ -16,7 +16,13 @@ from pydantic_fixturegen.core.path_template import OutputTemplate
 from ...logging import Logger, get_logger
 from ..watch import gather_default_watch_paths, run_with_watch
 from . import _common as cli_common
-from ._common import JSON_ERRORS_OPTION, NOW_OPTION, emit_constraint_summary, render_cli_error
+from ._common import (
+    JSON_ERRORS_OPTION,
+    NOW_OPTION,
+    RNG_MODE_OPTION,
+    emit_constraint_summary,
+    render_cli_error,
+)
 
 STYLE_CHOICES = {"functions", "factory", "class"}
 SCOPE_CHOICES = {"function", "module", "session"}
@@ -197,6 +203,7 @@ def register(app: typer.Typer) -> None:
         with_related: list[str] | None = WITH_RELATED_OPTION,
         max_depth: int | None = MAX_DEPTH_OPTION,
         cycle_policy: str | None = CYCLE_POLICY_OPTION,
+        rng_mode: str | None = RNG_MODE_OPTION,
     ) -> None:
         logger = get_logger()
 
@@ -237,6 +244,7 @@ def register(app: typer.Typer) -> None:
                     with_related=with_related,
                     max_depth=max_depth,
                     cycle_policy=cycle_policy,
+                    rng_mode=rng_mode,
                 )
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors, exit_app=exit_app)
@@ -297,6 +305,7 @@ def _execute_fixtures_command(
     with_related: list[str] | None = None,
     max_depth: int | None = None,
     cycle_policy: str | None = None,
+    rng_mode: str | None = None,
 ) -> None:
     logger = get_logger()
 
@@ -348,6 +357,7 @@ def _execute_fixtures_command(
             logger=logger,
             max_depth=max_depth,
             cycle_policy=cycle_policy,
+            rng_mode=rng_mode,
         )
     except PFGError as exc:
         _handle_fixtures_error(logger, exc)

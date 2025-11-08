@@ -48,6 +48,7 @@ def _snapshot_config(app_config: AppConfig) -> ConfigSnapshot:
         time_anchor=app_config.now,
         max_depth=app_config.max_depth,
         cycle_policy=app_config.cycle_policy,
+        rng_mode=app_config.rng_mode,
     )
 
 
@@ -59,6 +60,7 @@ def _config_details(snapshot: ConfigSnapshot) -> dict[str, Any]:
         "time_anchor": snapshot.time_anchor.isoformat() if snapshot.time_anchor else None,
         "max_depth": snapshot.max_depth,
         "cycle_policy": snapshot.cycle_policy,
+        "rng_mode": snapshot.rng_mode,
     }
 
 
@@ -143,7 +145,9 @@ def _build_instance_generator(
     else:
         seed_value = None
         if app_config.seed is not None:
-            seed_value = SeedManager(seed=app_config.seed).normalized_seed
+            seed_value = SeedManager(
+                seed=app_config.seed, rng_mode=app_config.rng_mode
+            ).normalized_seed
 
     p_none = app_config.p_none if app_config.p_none is not None else 0.0
     gen_config = GenerationConfig(
@@ -167,6 +171,7 @@ def _build_instance_generator(
         heuristics_enabled=app_config.heuristics.enabled,
         max_depth=app_config.max_depth,
         cycle_policy=app_config.cycle_policy,
+        rng_mode=app_config.rng_mode,
     )
     return InstanceGenerator(config=gen_config)
 
@@ -197,6 +202,7 @@ def generate_json_artifacts(
     logger: Logger | None = None,
     max_depth: int | None = None,
     cycle_policy: str | None = None,
+    rng_mode: str | None = None,
 ) -> JsonGenerationResult:
     from ..cli.gen import _common as cli_common
 
@@ -270,6 +276,8 @@ def generate_json_artifacts(
         cli_overrides["max_depth"] = max_depth
     if cycle_policy is not None:
         cli_overrides["cycle_policy"] = cycle_policy
+    if rng_mode is not None:
+        cli_overrides["rng_mode"] = rng_mode
     if max_depth is not None:
         cli_overrides["max_depth"] = max_depth
     if cycle_policy is not None:
@@ -685,6 +693,7 @@ def generate_fixtures_artifacts(
     logger: Logger | None = None,
     max_depth: int | None = None,
     cycle_policy: str | None = None,
+    rng_mode: str | None = None,
 ) -> FixturesGenerationResult:
     from ..cli.gen import _common as cli_common
 
@@ -736,6 +745,8 @@ def generate_fixtures_artifacts(
         cli_overrides["respect_validators"] = respect_validators
     if validator_max_retries is not None:
         cli_overrides["validator_max_retries"] = validator_max_retries
+    if rng_mode is not None:
+        cli_overrides["rng_mode"] = rng_mode
     emitter_overrides: dict[str, Any] = {}
     if style is not None:
         emitter_overrides["style"] = style
@@ -789,7 +800,7 @@ def generate_fixtures_artifacts(
 
     seed_value: int | None = None
     if app_config.seed is not None:
-        seed_value = SeedManager(seed=app_config.seed).normalized_seed
+        seed_value = SeedManager(seed=app_config.seed, rng_mode=app_config.rng_mode).normalized_seed
 
     style_value = style or app_config.emitters.pytest.style
     scope_value = scope or app_config.emitters.pytest.scope
@@ -854,6 +865,7 @@ def generate_fixtures_artifacts(
         relation_models=relation_model_map,
         max_depth=app_config.max_depth,
         cycle_policy=app_config.cycle_policy,
+        rng_mode=app_config.rng_mode,
     )
 
     timestamp = _dt.datetime.now(_dt.timezone.utc)

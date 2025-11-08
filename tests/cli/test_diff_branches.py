@@ -263,6 +263,7 @@ def test_diff_json_requires_models() -> None:
             app_config_respect_validators=False,
             app_config_validator_max_retries=2,
             app_config_heuristics=DEFAULT_HEURISTICS_CONFIG,
+            app_config_rng_mode="portable",
             options=_json_options(Path("unused.json")),
         )
 
@@ -289,6 +290,7 @@ def test_diff_json_rejects_multiple_models(tmp_path: Path) -> None:
             app_config_respect_validators=False,
             app_config_validator_max_retries=2,
             app_config_heuristics=DEFAULT_HEURISTICS_CONFIG,
+            app_config_rng_mode="portable",
             options=_json_options(tmp_path / "artifact.json"),
         )
 
@@ -326,6 +328,7 @@ def test_diff_json_requires_output(tmp_path: Path) -> None:
             app_config_respect_validators=False,
             app_config_validator_max_retries=2,
             app_config_heuristics=DEFAULT_HEURISTICS_CONFIG,
+            app_config_rng_mode="portable",
             options=options,
         )
 
@@ -366,6 +369,7 @@ def test_diff_json_handles_mapping_failure(tmp_path: Path, monkeypatch: pytest.M
             app_config_respect_validators=False,
             app_config_validator_max_retries=2,
             app_config_heuristics=DEFAULT_HEURISTICS_CONFIG,
+            app_config_rng_mode="portable",
             options=_json_options(output_path),
         )
 
@@ -410,6 +414,7 @@ def test_diff_json_detects_directory_targets(
         app_config_respect_validators=False,
         app_config_validator_max_retries=2,
         app_config_heuristics=DEFAULT_HEURISTICS_CONFIG,
+        app_config_rng_mode="portable",
         options=_json_options(output_path),
     )
 
@@ -459,6 +464,7 @@ def test_diff_json_ignores_extra_directories(
         app_config_respect_validators=False,
         app_config_validator_max_retries=2,
         app_config_heuristics=DEFAULT_HEURISTICS_CONFIG,
+        app_config_rng_mode="portable",
         options=_json_options(output_path),
     )
 
@@ -487,6 +493,7 @@ def test_diff_fixtures_require_output() -> None:
             app_config_relations=(),
             app_config_respect_validators=False,
             app_config_validator_max_retries=2,
+            app_config_rng_mode="portable",
         )
 
 
@@ -523,6 +530,7 @@ def test_diff_fixtures_emit_artifact_success(
         app_config_relations=(),
         app_config_respect_validators=False,
         app_config_validator_max_retries=2,
+        app_config_rng_mode="portable",
     )
 
     assert report.summary == "Fixtures artifact matches."
@@ -555,6 +563,7 @@ def test_diff_fixtures_emit_artifact_without_file(
             app_config_relations=(),
             app_config_respect_validators=False,
             app_config_validator_max_retries=2,
+            app_config_rng_mode="portable",
         )
 
 
@@ -581,6 +590,7 @@ def test_diff_fixtures_detect_directory_target(tmp_path: Path) -> None:
         app_config_relations=(),
         app_config_respect_validators=False,
         app_config_validator_max_retries=2,
+        app_config_rng_mode="portable",
     )
 
     assert "Fixtures path is a directory" in report.messages[0]

@@ -33,6 +33,7 @@ def test_default_configuration(tmp_path: Path) -> None:
     assert config.now is None
     assert config.paths == PathConfig()
     assert config.heuristics.enabled is True
+    assert config.rng_mode == "portable"
 
 
 def test_load_from_pyproject(tmp_path: Path) -> None:
@@ -198,6 +199,26 @@ def test_cli_overrides_validator_settings(tmp_path: Path) -> None:
 
     assert config.respect_validators is True
     assert config.validator_max_retries == 7
+
+
+def test_cli_override_rng_mode(tmp_path: Path) -> None:
+    config = load_config(root=tmp_path, cli={"rng_mode": "legacy"})
+
+    assert config.rng_mode == "legacy"
+
+
+def test_edge_profile_adjusts_numbers(tmp_path: Path) -> None:
+    config = load_config(root=tmp_path, cli={"profile": "edge"})
+
+    assert config.numbers.distribution == "spike"
+    assert config.union_policy == "random"
+
+
+def test_adversarial_profile_adjusts_arrays(tmp_path: Path) -> None:
+    config = load_config(root=tmp_path, cli={"profile": "adversarial"})
+
+    assert config.arrays.max_elements == 2
+    assert config.p_none and config.p_none > 0.5
 
 
 def test_env_overrides_nested_preserve_case(tmp_path: Path) -> None:

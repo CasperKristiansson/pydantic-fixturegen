@@ -16,7 +16,7 @@ from faker import Faker
 from .field_policies import FieldPolicy
 from .presets import get_preset_spec, normalize_preset_name
 from .privacy_profiles import get_privacy_profile_spec, normalize_privacy_profile_name
-from .seed import DEFAULT_LOCALE
+from .seed import DEFAULT_LOCALE, RNGModeLiteral
 
 
 def _import_tomllib() -> Any:
@@ -42,6 +42,7 @@ _DEFAULT_YAML_NAMES = (
 UNION_POLICIES = {"first", "random", "weighted"}
 ENUM_POLICIES = {"first", "random"}
 CYCLE_POLICIES = {"reuse", "stub", "null"}
+RNG_MODES = {"portable", "legacy"}
 
 TRUTHY = {"1", "true", "yes", "on"}
 FALSY = {"0", "false", "no", "off"}
@@ -139,6 +140,7 @@ class AppConfig:
     enum_policy: str = "first"
     max_depth: int = 5
     cycle_policy: str = "reuse"
+    rng_mode: RNGModeLiteral = "portable"
     now: datetime.datetime | None = None
     overrides: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     field_policies: tuple[FieldPolicy, ...] = ()
@@ -201,6 +203,7 @@ def _config_defaults_dict() -> dict[str, Any]:
         "enum_policy": DEFAULT_CONFIG.enum_policy,
         "max_depth": DEFAULT_CONFIG.max_depth,
         "cycle_policy": DEFAULT_CONFIG.cycle_policy,
+        "rng_mode": DEFAULT_CONFIG.rng_mode,
         "now": DEFAULT_CONFIG.now,
         "locales": {},
         "field_policies": {},
@@ -382,6 +385,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         data.get("cycle_policy"),
         field_name="cycle_policy",
     )
+    rng_mode_value: RNGModeLiteral = _coerce_rng_mode(data.get("rng_mode"))
 
     overrides_value = _normalize_overrides(data.get("overrides"))
 
@@ -439,6 +443,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         relations=relations_value,
         max_depth=max_depth_value,
         cycle_policy=cycle_policy_value,
+        rng_mode=rng_mode_value,
         heuristics=heuristics_value,
     )
 
@@ -507,6 +512,18 @@ def _coerce_cycle_policy(value: Any, *, field_name: str) -> str:
     if lowered not in CYCLE_POLICIES:
         raise ConfigError(f"{field_name} must be one of {sorted(CYCLE_POLICIES)}.")
     return lowered
+
+
+def _coerce_rng_mode(value: Any) -> RNGModeLiteral:
+    default = DEFAULT_CONFIG.rng_mode
+    if value is None:
+        return default
+    if not isinstance(value, str):
+        raise ConfigError("rng_mode must be a string.")
+    lowered = value.strip().lower()
+    if lowered not in RNG_MODES:
+        raise ConfigError(f"rng_mode must be one of {sorted(RNG_MODES)}.")
+    return cast(RNGModeLiteral, lowered)
 
 
 def _normalize_sequence(value: Any) -> tuple[str, ...]:

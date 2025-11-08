@@ -35,7 +35,7 @@ from pydantic_fixturegen.core.field_policies import (
 )
 from pydantic_fixturegen.core.providers import ProviderRegistry, create_default_registry
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary, extract_constraints
-from pydantic_fixturegen.core.seed import DEFAULT_LOCALE, SeedManager
+from pydantic_fixturegen.core.seed import DEFAULT_LOCALE, RNGModeLiteral, SeedManager
 from pydantic_fixturegen.core.strategies import (
     Strategy,
     StrategyBuilder,
@@ -67,6 +67,7 @@ class GenerationConfig:
     relations: tuple[RelationLinkConfig, ...] = ()
     relation_models: Mapping[str, type[Any]] = field(default_factory=dict)
     cycle_policy: str = "reuse"
+    rng_mode: RNGModeLiteral = "portable"
     heuristics_enabled: bool = True
 
 
@@ -237,7 +238,11 @@ class InstanceGenerator:
     ) -> None:
         self.config = config or GenerationConfig()
         self.registry = registry or create_default_registry(load_plugins=False)
-        self.seed_manager = SeedManager(seed=self.config.seed, locale=self.config.locale)
+        self.seed_manager = SeedManager(
+            seed=self.config.seed,
+            locale=self.config.locale,
+            rng_mode=self.config.rng_mode,
+        )
         self.random = self.seed_manager.base_random
         self.faker = self.seed_manager.faker
         self._faker_cache: dict[tuple[str, str, tuple[Any, ...] | None], Faker] = {}
@@ -1023,6 +1028,8 @@ class InstanceGenerator:
         return None
 
     def _should_return_none(self, strategy: Strategy) -> bool:
+        if not strategy.summary.is_optional:
+            return False
         if strategy.p_none <= 0:
             return False
         return self.random.random() < strategy.p_none

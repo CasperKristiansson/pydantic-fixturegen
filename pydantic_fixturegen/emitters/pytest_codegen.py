@@ -29,7 +29,7 @@ from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.io_utils import WriteResult, write_atomic_text
 from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
-from pydantic_fixturegen.core.seed import DEFAULT_LOCALE
+from pydantic_fixturegen.core.seed import DEFAULT_LOCALE, RNGModeLiteral
 from pydantic_fixturegen.core.version import build_artifact_header
 
 DEFAULT_SCOPE = "function"
@@ -65,6 +65,7 @@ class PytestEmitConfig:
     relation_models: Mapping[str, type[Any]] = field(default_factory=dict)
     max_depth: int = 5
     cycle_policy: str = "reuse"
+    rng_mode: RNGModeLiteral = "portable"
 
 
 def emit_pytest_fixtures(
@@ -107,6 +108,7 @@ def emit_pytest_fixtures(
             relation_models=cfg.relation_models,
             max_depth=cfg.max_depth,
             cycle_policy=cfg.cycle_policy,
+            rng_mode=cfg.rng_mode,
         )
         if cfg.optional_p_none is not None:
             generation_config.optional_p_none = cfg.optional_p_none

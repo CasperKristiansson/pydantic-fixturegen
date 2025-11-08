@@ -441,6 +441,16 @@
       "description": "Privacy profile applied ahead of other configuration (e.g., 'pii-safe').",
       "title": "Profile"
     },
+    "rng_mode": {
+      "default": "portable",
+      "description": "Random generator mode (`portable` for cross-platform determinism, `legacy` to use CPython's RNG).",
+      "enum": [
+        "portable",
+        "legacy"
+      ],
+      "title": "Rng Mode",
+      "type": "string"
+    },
     "seed": {
       "anyOf": [
         {

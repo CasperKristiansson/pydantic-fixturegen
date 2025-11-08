@@ -31,7 +31,7 @@ from pydantic_fixturegen.core.errors import (
 )
 from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
-from pydantic_fixturegen.core.seed import SeedManager
+from pydantic_fixturegen.core.seed import RNGModeLiteral, SeedManager
 from pydantic_fixturegen.core.seed_freeze import (
     FreezeStatus,
     SeedFreezeFile,
@@ -53,6 +53,7 @@ from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_pl
 from .gen._common import (
     JSON_ERRORS_OPTION,
     NOW_OPTION,
+    RNG_MODE_OPTION,
     DiscoveryMethod,
     clear_module_cache,
     discover_models,
@@ -308,6 +309,7 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
     respect_validators: bool | None = RESPECT_VALIDATORS_OPTION,
     validator_max_retries: int | None = VALIDATOR_MAX_RETRIES_OPTION,
     links: list[str] | None = LINK_OPTION,
+    rng_mode: str | None = RNG_MODE_OPTION,
 ) -> None:
     _ = ctx
     logger = get_logger()
@@ -349,6 +351,7 @@ def diff(  # noqa: PLR0913 - CLI mirrors documented parameters
             respect_validators=respect_validators,
             validator_max_retries=validator_max_retries,
             links=links,
+            rng_mode=rng_mode,
         )
     except PFGError as exc:
         render_cli_error(exc, json_errors=json_errors)
@@ -433,6 +436,7 @@ def _execute_diff(
     respect_validators: bool | None = None,
     validator_max_retries: int | None = None,
     links: list[str] | None = None,
+    rng_mode: str | None = None,
 ) -> list[DiffReport]:
     if not any((json_options.out, fixtures_options.out, schema_options.out)):
         raise DiscoveryError("Provide at least one artifact path to diff.")
@@ -471,6 +475,8 @@ def _execute_diff(
         config_cli_overrides["respect_validators"] = respect_validators
     if validator_max_retries is not None:
         config_cli_overrides["validator_max_retries"] = validator_max_retries
+    if rng_mode is not None:
+        config_cli_overrides["rng_mode"] = rng_mode
     relation_overrides = parse_relation_links(links)
     if relation_overrides:
         config_cli_overrides["relations"] = relation_overrides
@@ -576,6 +582,7 @@ def _execute_diff(
                 app_config_respect_validators=app_config.respect_validators,
                 app_config_validator_max_retries=app_config.validator_max_retries,
                 app_config_heuristics=app_config.heuristics,
+                app_config_rng_mode=app_config.rng_mode,
                 options=json_options,
             )
         )
@@ -601,6 +608,7 @@ def _execute_diff(
                 app_config_relations=app_config.relations,
                 app_config_respect_validators=app_config.respect_validators,
                 app_config_validator_max_retries=app_config.validator_max_retries,
+                app_config_rng_mode=app_config.rng_mode,
             )
         )
 
@@ -647,6 +655,7 @@ def _diff_json_artifact(
     app_config_respect_validators: bool,
     app_config_validator_max_retries: int,
     app_config_heuristics: HeuristicConfig,
+    app_config_rng_mode: RNGModeLiteral,
     options: JsonDiffOptions,
 ) -> DiffReport:
     if not model_classes:
@@ -689,6 +698,7 @@ def _diff_json_artifact(
             relations=app_config_relations,
             relation_models=relation_lookup,
             heuristics_enabled=app_config_heuristics.enabled,
+            rng_mode=app_config_rng_mode,
         )
 
         def sample_factory() -> BaseModel:
@@ -809,6 +819,7 @@ def _diff_fixtures_artifact(
     app_config_relations: tuple[RelationLinkConfig, ...],
     app_config_respect_validators: bool,
     app_config_validator_max_retries: int,
+    app_config_rng_mode: RNGModeLiteral,
 ) -> DiffReport:
     if options.out is None:
         raise DiscoveryError("Fixtures diff requires --fixtures-out.")
@@ -820,7 +831,9 @@ def _diff_fixtures_artifact(
 
     seed_normalized: int | None = None
     if app_config_seed is not None:
-        seed_normalized = SeedManager(seed=app_config_seed).normalized_seed
+        seed_normalized = SeedManager(
+            seed=app_config_seed, rng_mode=app_config_rng_mode
+        ).normalized_seed
 
     style_default = cast(StyleLiteral, app_config_style)
     style_final: StyleLiteral = style_value or style_default
@@ -858,6 +871,7 @@ def _diff_fixtures_artifact(
             relation_models=relation_lookup,
             respect_validators=app_config_respect_validators,
             validator_max_retries=app_config_validator_max_retries,
+            rng_mode=app_config_rng_mode,
         )
 
         context = EmitterContext(
@@ -1056,10 +1070,11 @@ def _build_instance_generator(
     relations: tuple[RelationLinkConfig, ...],
     relation_models: Mapping[str, type[Any]],
     heuristics_enabled: bool,
+    rng_mode: RNGModeLiteral,
 ) -> InstanceGenerator:
     normalized_seed: int | None = None
     if seed_value is not None:
-        normalized_seed = SeedManager(seed=seed_value).normalized_seed
+        normalized_seed = SeedManager(seed=seed_value, rng_mode=rng_mode).normalized_seed
 
     p_none_value = p_none if p_none is not None else 0.0
 
@@ -1082,6 +1097,7 @@ def _build_instance_generator(
         relations=relations,
         relation_models=relation_models,
         heuristics_enabled=heuristics_enabled,
+        rng_mode=rng_mode,
     )
     return InstanceGenerator(config=gen_config)
 

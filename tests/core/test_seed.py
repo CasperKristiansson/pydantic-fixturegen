@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import random
+
 import pytest
-from pydantic_fixturegen.core.seed import SeedManager
+from pydantic_fixturegen.core.seed import PortableRandom, SeedManager
 
 
 def test_base_random_repeatable() -> None:
@@ -12,6 +14,25 @@ def test_base_random_repeatable() -> None:
     sequence_b = [manager_b.base_random.random() for _ in range(3)]
 
     assert sequence_a == sequence_b
+
+
+def test_portable_rng_sequence_is_stable() -> None:
+    manager = SeedManager(seed=1234, rng_mode="portable")
+
+    values = [manager.base_random.random() for _ in range(3)]
+    assert values == pytest.approx(
+        [0.730666524540624, 0.5928898580149862, 0.20213287431010984],
+        rel=0,
+        abs=1e-15,
+    )
+
+
+def test_rng_mode_switches_between_portable_and_legacy() -> None:
+    manager_portable = SeedManager(seed=99)
+    manager_legacy = SeedManager(seed=99, rng_mode="legacy")
+
+    assert isinstance(manager_portable.base_random, PortableRandom)
+    assert type(manager_legacy.base_random) is random.Random
 
 
 def test_substreams_are_repeatable_and_distinct() -> None:

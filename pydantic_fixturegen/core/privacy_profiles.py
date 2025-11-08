@@ -57,12 +57,65 @@ _PROFILE_DEFINITIONS: dict[str, PrivacyProfileSpec] = {
             },
         },
     ),
+    "edge": PrivacyProfileSpec(
+        name="edge",
+        description=(
+            "Bias generation toward boundary values by increasing optional None outputs, "
+            "favoring random enum/union branches, and sampling numeric spikes near min/max."
+        ),
+        settings={
+            "p_none": 0.35,
+            "union_policy": "random",
+            "enum_policy": "random",
+            "numbers": {
+                "distribution": "spike",
+                "spike_ratio": 0.2,
+                "spike_width_fraction": 0.015,
+            },
+            "field_policies": {
+                "re:.*(min|max|limit|count|size|quantity|length).*": {"p_none": 0.6},
+                "re:.*(name|text|slug|title|description).*": {"enum_policy": "random"},
+            },
+        },
+    ),
+    "adversarial": PrivacyProfileSpec(
+        name="adversarial",
+        description=(
+            "Aggressively explore adversarial inputs by maximizing optional None emission, "
+            "favoring empty collections, and constraining numeric output to tight spikes."
+        ),
+        settings={
+            "p_none": 0.55,
+            "union_policy": "random",
+            "enum_policy": "random",
+            "arrays": {
+                "max_ndim": 2,
+                "max_side": 1,
+                "max_elements": 2,
+            },
+            "numbers": {
+                "distribution": "spike",
+                "spike_ratio": 0.1,
+                "spike_width_fraction": 0.005,
+            },
+            "field_policies": {
+                "re:.*(min|max|limit|count|size|quantity|length).*": {"p_none": 0.75},
+                "re:.*(name|text|slug|title|description).*": {
+                    "p_none": 0.4,
+                    "enum_policy": "random",
+                },
+            },
+        },
+    ),
 }
 
 _ALIASES: dict[str, str] = {
     "safe": "pii-safe",
     "pii": "pii-safe",
     "prod": "realistic",
+    "edge-case": "edge",
+    "chaos": "adversarial",
+    "adversary": "adversarial",
 }
 
 

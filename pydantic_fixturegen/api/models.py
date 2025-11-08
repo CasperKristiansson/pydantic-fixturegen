@@ -10,6 +10,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from pydantic_fixturegen.core.seed import RNGModeLiteral
+
 
 @dataclass(slots=True)
 class ConfigSnapshot:
@@ -21,6 +23,7 @@ class ConfigSnapshot:
     time_anchor: _dt.datetime | None
     max_depth: int = 5
     cycle_policy: str = "reuse"
+    rng_mode: RNGModeLiteral = "portable"
 
 
 @dataclass(slots=True)

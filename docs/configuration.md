@@ -89,7 +89,7 @@ scope = "module"
 | Key            | Type                         | Default | Description                                                                 |
 | -------------- | ---------------------------- | ------- | --------------------------------------------------------------------------- |
 | `preset`       | `str \| null`                | `null`  | Named preset applied before other config. See [presets](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/presets.md).      |
-| `profile`      | `str \| null`                | `null`  | Privacy profile applied ahead of other settings (`pii-safe`, `realistic`). |
+| `profile`      | `str \| null`                | `null`  | Profile applied ahead of other settings (`pii-safe`, `realistic`, `edge`, `adversarial`). |
 | `seed`         | `int \| str \| null`         | `null`  | Global seed. Provide an explicit value for reproducible outputs.            |
 | `locale`       | `str`                        | `en_US` | Faker locale used when generating data.                                     |
 | `include`      | `list[str]`                  | `[]`    | Glob patterns of fully-qualified model names to include by default.         |
@@ -99,6 +99,7 @@ scope = "module"
 | `enum_policy`  | `first \| random`            | `first` | Strategy for selecting enum members.                                        |
 | `max_depth`    | `int`                        | `5`     | Maximum recursion depth before the cycle policy takes effect.              |
 | `cycle_policy` | `reuse \| stub \| null`     | `reuse` | How recursive references are resolved once depth or cycles are detected.   |
+| `rng_mode`     | `portable \| legacy`        | `portable` | RNG implementation: portable SplitMix64 for cross-platform determinism or the legacy CPython RNG. |
 | `now`          | `datetime \| null`           | `null`  | Anchor timestamp used for temporal values.                                  |
 | `overrides`    | `dict[str, dict[str, Any]]`  | `{}`    | Per-model overrides keyed by fully-qualified model name.                    |
 | `field_policies` | `dict[str, FieldPolicy]`   | `{}`    | Pattern-based overrides for specific fields.                                |
@@ -175,6 +176,10 @@ Identifier settings apply to `EmailStr`, `HttpUrl`/`AnyUrl`, secret strings/byte
 - Cycle metadata is emitted for both true recursion detection and depth-limit fallbacks, so even `max_depth` safeguards surface the exact policy (`reuse`, `stub`, or `null`) applied at each field.
 - CLI overrides: `--max-depth` adjusts the recursion budget per run, and `--on-cycle` selects the policy (`reuse`, `stub`, or `null`).
 
+### RNG mode
+
+Set `rng_mode = "legacy"` to temporarily keep CPython's Mersenne Twister RNG (matching pydantic-fixturegen 1.1 and earlier). The default `portable` mode uses a SplitMix64-based generator implemented in Python, so identical seeds produce byte-for-byte identical datasets on every supported OS and Python release. Override via `PFG_RNG_MODE`, `--rng-mode`, or configuration when migrating large snapshot suites.
+
 ### Heuristic settings
 
 | Key       | Type  | Default | Description                                                                 |
@@ -243,21 +248,22 @@ Add a `locales` mapping when you need region-specific Faker providers:
 - You can omit the trailing `.*` for model-wide overrides — `"app.models.User"` and `"app.models.User.*"` behave the same, as does using bare class names such as `"User"`.
 - Configuration loading validates locales by instantiating `Faker(locale)`, so typos raise descriptive errors.
 
-### Privacy profiles
+### Profiles
 
-Profiles bundle deterministic overrides focused on sensitive identifiers. Set `profile = "pii-safe"` under `[tool.pydantic_fixturegen]`, export `PFG_PROFILE`, or pass `--profile` to any generation/diff command.
+Profiles bundle deterministic overrides. Privacy-focused profiles harden identifiers, while adversarial profiles bias generation toward tricky boundary cases. Set `profile = "pii-safe"` under `[tool.pydantic_fixturegen]`, export `PFG_PROFILE`, or pass `--profile` to any generation/diff command. Profiles are applied before the rest of your configuration just like presets, so you can layer extra overrides on top.
 
-- `pii-safe` — masks identifier providers (example.com emails, example.invalid URLs, reserved IPs, test card numbers) and increases `p_none` for optional fields named `*.email`, `*.phone*`, `*.ssn`, `*.tax_id`, etc. Ideal when you need builds that are obviously synthetic.
-- `realistic` — disables masking, restores URL path emission, and dials probabilities toward filled-in contact fields for staging datasets.
-
-Profiles are applied before the rest of your configuration just like presets, so you can layer additional overrides on top.
+- `pii-safe` — masks identifier providers (example.com emails, example.invalid URLs, reserved IPs, test card numbers) and raises `p_none` for `*.email`, `*.phone*`, `*.ssn`, `*.tax_id`, etc.
+- `realistic` — disables masking, restores URL path emission, and keeps contact fields populated for staging/stress environments.
+- `edge` — toggles random enum/union selection, shifts numeric distributions to narrow spikes near min/max, and increases `p_none` on fields mentioning counts or limits.
+- `adversarial` — maximizes optional `None` return rates, constrains collection sizes to 0–2 elements, and narrows numeric spikes even further to exercise validators.
 
 ## Environment variable cheatsheet
 
 | Purpose             | Variable                           | Example                                  |
 | ------------------- | ---------------------------------- | ---------------------------------------- |
-| Privacy profile     | `PFG_PROFILE`                      | `export PFG_PROFILE=pii-safe`            |
+| Profile             | `PFG_PROFILE`                      | `export PFG_PROFILE=adversarial`         |
 | Numeric distribution | `PFG_NUMBERS__DISTRIBUTION`        | `export PFG_NUMBERS__DISTRIBUTION=normal` |
+| RNG mode            | `PFG_RNG_MODE`                     | `export PFG_RNG_MODE=legacy`             |
 | Seed override       | `PFG_SEED`                         | `export PFG_SEED=1234`                   |
 | JSON indent         | `PFG_JSON__INDENT`                 | `export PFG_JSON__INDENT=0`              |
 | Enable orjson       | `PFG_JSON__ORJSON`                 | `export PFG_JSON__ORJSON=true`           |

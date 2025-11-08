@@ -16,6 +16,7 @@ SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 UnionPolicyLiteral = Literal["first", "random", "weighted"]
 EnumPolicyLiteral = Literal["first", "random"]
 CyclePolicyLiteral = Literal["reuse", "stub", "null"]
+RngModeLiteral = Literal["portable", "legacy"]
 
 DEFAULT_PYTEST_STYLE = cast(
     Literal["functions", "factory", "class"],
@@ -28,6 +29,7 @@ DEFAULT_PYTEST_SCOPE = cast(
 DEFAULT_UNION_POLICY = cast(UnionPolicyLiteral, DEFAULT_CONFIG.union_policy)
 DEFAULT_ENUM_POLICY = cast(EnumPolicyLiteral, DEFAULT_CONFIG.enum_policy)
 DEFAULT_CYCLE_POLICY = cast(CyclePolicyLiteral, DEFAULT_CONFIG.cycle_policy)
+DEFAULT_RNG_MODE = DEFAULT_CONFIG.rng_mode
 DEFAULT_NUMBER_DISTRIBUTION = cast(
     Literal["uniform", "normal", "spike"],
     DEFAULT_CONFIG.numbers.distribution,
@@ -190,6 +192,13 @@ class ConfigSchemaModel(BaseModel):
     cycle_policy: CyclePolicyLiteral = Field(
         default=DEFAULT_CYCLE_POLICY,
         description="How recursive references are resolved (`reuse`, `stub`, or `null`).",
+    )
+    rng_mode: RngModeLiteral = Field(
+        default=DEFAULT_RNG_MODE,
+        description=(
+            "Random generator mode (`portable` for cross-platform determinism, "
+            "`legacy` to use CPython's RNG)."
+        ),
     )
     overrides: dict[str, dict[str, Any]] = Field(
         default_factory=dict,

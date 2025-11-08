@@ -29,6 +29,7 @@ from pydantic_fixturegen.logging import Logger
 __all__ = [
     "JSON_ERRORS_OPTION",
     "NOW_OPTION",
+    "RNG_MODE_OPTION",
     "clear_module_cache",
     "discover_models",
     "load_model_class",
@@ -53,6 +54,12 @@ NOW_OPTION = typer.Option(
     None,
     "--now",
     help="Anchor timestamp (ISO 8601) used for temporal value generation.",
+)
+
+RNG_MODE_OPTION = typer.Option(
+    None,
+    "--rng-mode",
+    help="Random generator mode: 'portable' (default) or 'legacy'.",
 )
 
 

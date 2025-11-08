@@ -7,7 +7,7 @@ import random
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from importlib import import_module
-from typing import Any, TypeVar, cast
+from typing import Any, Literal, TypeVar, cast
 
 from faker import Faker
 
@@ -51,8 +51,44 @@ def _seed_bytes(seed: int) -> bytes:
     return str(seed).encode("utf-8")
 
 
+class PortableRandom(random.Random):
+    """Random generator backed by SplitMix64 for cross-platform determinism."""
+
+    _MASK = (1 << 64) - 1
+
+    def __init__(self, seed: Any | None = None) -> None:
+        super().__init__()
+        self._state = 0
+        self.seed(seed)
+
+    def seed(self, a: Any | None = None, version: int = 2) -> None:  # noqa: ARG002
+        value = _normalize_seed(a)
+        if value == 0:
+            value = 0x9E3779B97F4A7C15
+        self._state = value & self._MASK
+
+    def getstate(self) -> tuple[int]:
+        return (self._state,)
+
+    def setstate(self, state: tuple[int, ...]) -> None:
+        (value,) = state
+        self._state = value & self._MASK
+
+    def _next_uint64(self) -> int:
+        self._state = (self._state + 0x9E3779B97F4A7C15) & self._MASK
+        z = self._state
+        z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9 & self._MASK
+        z = (z ^ (z >> 27)) * 0x94D049BB133111EB & self._MASK
+        z ^= z >> 31
+        return z & self._MASK
+
+    def random(self) -> float:
+        return (self._next_uint64() >> 11) / float(1 << 53)
+
+
 SeedKey = tuple[Any, ...]
 T = TypeVar("T")
+RNGModeLiteral = Literal["portable", "legacy"]
 
 
 @dataclass
@@ -61,12 +97,14 @@ class SeedManager:
 
     seed: Any | None = None
     locale: str = DEFAULT_LOCALE
+    rng_mode: RNGModeLiteral = "portable"
 
     _normalized_seed: int = field(init=False, repr=False)
     _seed_bytes: bytes = field(init=False, repr=False)
     _base_random: random.Random = field(init=False, repr=False)
     _faker: Faker = field(init=False, repr=False)
     _numpy_rng: Any | None = field(init=False, repr=False)
+    _random_ctor: type[random.Random] = field(init=False, repr=False)
     _random_cache: dict[SeedKey, random.Random] = field(
         default_factory=dict, init=False, repr=False
     )
@@ -76,7 +114,8 @@ class SeedManager:
     def __post_init__(self) -> None:
         self._normalized_seed = _normalize_seed(self.seed)
         self._seed_bytes = _seed_bytes(self._normalized_seed)
-        self._base_random = random.Random(self._normalized_seed)
+        self._random_ctor = PortableRandom if self.rng_mode == "portable" else random.Random
+        self._base_random = self._random_ctor(self._normalized_seed)
         self._faker = _create_faker(self.locale, self._normalized_seed)
         self._numpy_rng = _create_numpy_rng(self._normalized_seed)
 
@@ -124,7 +163,7 @@ class SeedManager:
         key = tuple(parts)
 
         def factory(_: SeedKey) -> random.Random:
-            return random.Random(self.derive_child_seed(*parts))
+            return self._random_ctor(self.derive_child_seed(*parts))
 
         return self._cache_get_or_create(self._random_cache, key, factory)
 
@@ -152,3 +191,6 @@ class SeedManager:
                 return _np.random.Generator(bit_gen)  # pragma: no cover
 
             return self._cache_get_or_create(self._numpy_cache, key, factory)
+
+
+__all__ = ["SeedManager", "PortableRandom", "DEFAULT_LOCALE", "RNGModeLiteral"]
