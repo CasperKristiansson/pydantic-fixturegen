@@ -41,6 +41,16 @@ class Sample(BaseModel):
     reading: float = Field(ge=0.0, le=1.0)
 """
 
+HEURISTIC_MODULE = """
+from pydantic import BaseModel
+
+
+class CatalogItem(BaseModel):
+    slug: str
+    support_email: str
+    data_dir: str
+"""
+
 
 def _write_module(tmp_path: Path, source: str, name: str = "models") -> Path:
     module_path = tmp_path / f"{name}.py"
@@ -213,3 +223,73 @@ def test_numeric_distribution_env_controls(tmp_path: Path, monkeypatch: pytest.M
     rows = json.loads(output.read_text(encoding="utf-8"))
     readings = [row["reading"] for row in rows]
     assert all(0.48 <= reading <= 0.52 for reading in readings)
+
+
+def test_explain_reports_heuristic_metadata(tmp_path: Path) -> None:
+    module_path = _write_module(tmp_path, HEURISTIC_MODULE, name="catalog")
+    runner = create_cli_runner()
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "explain",
+            "--json",
+            "--include",
+            "catalog.CatalogItem",
+            str(module_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["warnings"] == []
+    assert payload["models"], result.stdout
+    model = payload["models"][0]
+    fields = {field["name"]: field for field in model["fields"]}
+
+    email_strategy = fields["support_email"]["strategy"]
+    assert email_strategy["provider"].startswith("identifier.email")
+    heuristic = email_strategy.get("heuristic")
+    assert heuristic and heuristic["rule"] == "string-email"
+    assert heuristic["provider_type"] == "email"
+
+    slug_strategy = fields["slug"]["strategy"]
+    slug_heuristic = slug_strategy.get("heuristic")
+    assert slug_heuristic and slug_heuristic["rule"] == "string-slug"
+
+    path_strategy = fields["data_dir"]["strategy"]
+    path_heuristic = path_strategy.get("heuristic")
+    assert path_heuristic and path_heuristic["rule"] == "path-directory"
+
+
+def test_gen_json_generates_values_for_heuristic_fields(tmp_path: Path) -> None:
+    module_path = _write_module(tmp_path, HEURISTIC_MODULE, name="catalog")
+    runner = create_cli_runner()
+    output = tmp_path / "catalog.json"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(output),
+            "--include",
+            "catalog.CatalogItem",
+            "--n",
+            "1",
+            "--seed",
+            "123",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    rows = json.loads(output.read_text(encoding="utf-8"))
+    assert rows, output.read_text(encoding="utf-8")
+    sample = rows[0]
+    assert "@" in sample["support_email"]
+    assert sample["slug"] == sample["slug"].lower()
+    assert "-" in sample["slug"]
+    assert "/" in sample["data_dir"] or "\\" in sample["data_dir"]

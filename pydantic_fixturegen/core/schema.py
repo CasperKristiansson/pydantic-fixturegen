@@ -68,6 +68,7 @@ class FieldSummary:
     is_optional: bool = False
     annotation: Any | None = None
     item_annotation: Any | None = None
+    metadata: tuple[Any, ...] = ()
 
 
 def extract_constraints(field: FieldInfo) -> FieldConstraints:
@@ -96,7 +97,7 @@ def extract_model_constraints(model: type[BaseModel]) -> Mapping[str, FieldConst
 def summarize_field(field: FieldInfo) -> FieldSummary:
     constraints = extract_constraints(field)
     annotation = field.annotation
-    summary = _summarize_annotation(annotation, constraints)
+    summary = _summarize_annotation(annotation, constraints, metadata=tuple(field.metadata))
     return summary
 
 
@@ -222,6 +223,8 @@ def _extract_enum_values(annotation: Any) -> list[Any] | None:
 def _summarize_annotation(
     annotation: Any,
     constraints: FieldConstraints | None = None,
+    *,
+    metadata: tuple[Any, ...] | None = None,
 ) -> FieldSummary:
     inner_annotation, is_optional = _strip_optional(annotation)
     type_name, fmt, item_annotation = _infer_annotation_kind(inner_annotation)
@@ -241,6 +244,7 @@ def _summarize_annotation(
         is_optional=is_optional,
         annotation=inner_annotation,
         item_annotation=item_annotation_clean,
+        metadata=metadata or (),
     )
 
 

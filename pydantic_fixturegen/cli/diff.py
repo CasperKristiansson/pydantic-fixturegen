@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from pydantic_fixturegen.core.config import (
     ArrayConfig,
+    HeuristicConfig,
     IdentifierConfig,
     NumberDistributionConfig,
     PathConfig,
@@ -574,6 +575,7 @@ def _execute_diff(
                 app_config_locale_policies=app_config.locale_policies,
                 app_config_respect_validators=app_config.respect_validators,
                 app_config_validator_max_retries=app_config.validator_max_retries,
+                app_config_heuristics=app_config.heuristics,
                 options=json_options,
             )
         )
@@ -644,6 +646,7 @@ def _diff_json_artifact(
     app_config_locale_policies: tuple[FieldPolicy, ...],
     app_config_respect_validators: bool,
     app_config_validator_max_retries: int,
+    app_config_heuristics: HeuristicConfig,
     options: JsonDiffOptions,
 ) -> DiffReport:
     if not model_classes:
@@ -685,6 +688,7 @@ def _diff_json_artifact(
             validator_max_retries=app_config_validator_max_retries,
             relations=app_config_relations,
             relation_models=relation_lookup,
+            heuristics_enabled=app_config_heuristics.enabled,
         )
 
         def sample_factory() -> BaseModel:
@@ -1051,6 +1055,7 @@ def _build_instance_generator(
     validator_max_retries: int,
     relations: tuple[RelationLinkConfig, ...],
     relation_models: Mapping[str, type[Any]],
+    heuristics_enabled: bool,
 ) -> InstanceGenerator:
     normalized_seed: int | None = None
     if seed_value is not None:
@@ -1076,6 +1081,7 @@ def _build_instance_generator(
         validator_max_retries=validator_max_retries,
         relations=relations,
         relation_models=relation_models,
+        heuristics_enabled=heuristics_enabled,
     )
     return InstanceGenerator(config=gen_config)
 

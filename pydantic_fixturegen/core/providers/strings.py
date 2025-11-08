@@ -55,6 +55,12 @@ def register_string_providers(registry: ProviderRegistry) -> None:
         name="string.default",
         metadata={"description": "Faker-backed string provider"},
     )
+    registry.register(
+        "slug",
+        generate_slug,
+        name="string.slug",
+        metadata={"description": "Deterministic slug generator"},
+    )
 
 
 def _regex_string(summary: FieldSummary, *, faker: Faker) -> str:
@@ -82,6 +88,25 @@ def _random_string(rng: random.Random, summary: FieldSummary, *, faker: Faker) -
     min_chars, max_chars = _length_bounds(summary)
     # Faker's pystr respects min/max characters
     return _ensure_str(faker.pystr(min_chars=min_chars, max_chars=max_chars))
+
+
+def generate_slug(
+    summary: FieldSummary,
+    *,
+    faker: Faker | None = None,
+) -> str:
+    """Generate URL-friendly slugs respecting length constraints."""
+
+    faker = faker or Faker()
+    slug = _ensure_str(faker.slug()).replace("_", "-")
+    slug = slug.strip("- ") or "data"
+    min_chars, max_chars = _length_bounds(summary)
+    while len(slug) < min_chars:
+        extra = _ensure_str(faker.slug()).replace("_", "-")
+        slug = f"{slug}-{extra}" if slug else extra
+    if len(slug) > max_chars:
+        slug = slug[:max_chars].rstrip("-")
+    return slug or "data"
 
 
 def _apply_length(value: str, summary: FieldSummary, *, faker: Faker) -> str:
@@ -115,4 +140,4 @@ def _ensure_str(value: Any) -> str:
     raise TypeError("Faker returned a non-string value")
 
 
-__all__ = ["generate_string", "register_string_providers"]
+__all__ = ["generate_string", "generate_slug", "register_string_providers"]

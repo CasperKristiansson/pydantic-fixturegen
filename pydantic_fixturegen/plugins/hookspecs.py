@@ -11,6 +11,7 @@ import pluggy
 
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic import BaseModel
+    from pydantic_fixturegen.core.heuristics import HeuristicRegistry
     from pydantic_fixturegen.core.providers import ProviderRegistry
     from pydantic_fixturegen.core.strategies import Strategy
 
@@ -30,6 +31,12 @@ class EmitterContext:
 @hookspec
 def pfg_register_providers(registry: ProviderRegistry) -> None:  # pragma: no cover
     """Register additional providers with the given registry."""
+    raise NotImplementedError
+
+
+@hookspec
+def pfg_register_heuristics(registry: HeuristicRegistry) -> None:  # pragma: no cover
+    """Register heuristic rules that map fields onto providers."""
     raise NotImplementedError
 
 
@@ -54,6 +61,7 @@ __all__ = [
     "hookimpl",
     "hookspec",
     "pfg_emit_artifact",
+    "pfg_register_heuristics",
     "pfg_modify_strategy",
     "pfg_register_providers",
 ]

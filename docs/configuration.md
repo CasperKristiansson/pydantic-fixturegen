@@ -105,6 +105,7 @@ scope = "module"
 | `json`         | object                       | see below | Configure JSON emitters (shared by JSON/JSONL).                           |
 | `paths`        | object                       | see below | Configure filesystem path providers (OS-specific generation). |
 | `numbers`      | object                       | see below | Control numeric distributions for ints/floats/decimals. |
+| `heuristics`   | object                       | see below | Enable or disable heuristic provider mapping. |
 | `respect_validators` | `bool`                 | `false` | Retry instance generation when model/dataclass validators raise errors. |
 | `validator_max_retries` | `int`              | `2`     | Additional attempts made per instance when `respect_validators` is enabled. |
 
@@ -157,6 +158,14 @@ Identifier settings apply to `EmailStr`, `HttpUrl`/`AnyUrl`, secret strings/byte
 > **Note:** Email validation relies on the optional `email` extra. Install it with `pip install "pydantic-fixturegen[email]"` when you need `EmailStr` support.
 
 > **Note:** Payment card fields use the optional `payment` extra backed by `pydantic-extra-types`. Install it with `pip install "pydantic-fixturegen[payment]"` to enable typed `PaymentCardNumber` support.
+
+### Heuristic settings
+
+| Key       | Type  | Default | Description                                                                 |
+| --------- | ----- | ------- | --------------------------------------------------------------------------- |
+| `enabled` | `bool` | `true` | Turn the semantic rule engine on or off. Set to `false` (or `PFG_HEURISTICS__ENABLED=false`) to fall back to plain type-based providers. |
+
+When enabled, the engine inspects field names, aliases, constraints, and `Annotated` metadata to choose richer providers automatically (emails, slugs, ISO country/language codes, filesystem paths, etc.). The provenance for each decision shows up in `pfg gen explain` so you can see which rule fired and why. Disable heuristics if you prefer to manage overrides solely through `[field_policies]` or plugins.
 
 ### Number distribution settings
 

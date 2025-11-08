@@ -78,3 +78,32 @@ def test_enum_policy_random() -> None:
     shade_strategy = builder.build_model_strategies(EnumModel)["shade"]
     assert isinstance(shade_strategy, Strategy)
     assert shade_strategy.enum_policy == "random"
+
+
+def test_email_field_uses_identifier_provider() -> None:
+    registry = create_default_registry(load_plugins=False)
+    builder = StrategyBuilder(registry)
+
+    class EmailModel(BaseModel):
+        contact_email: str
+
+    email_strategy = builder.build_model_strategies(EmailModel)["contact_email"]
+    assert isinstance(email_strategy, Strategy)
+    assert email_strategy.provider_ref is not None
+    assert email_strategy.provider_ref.type_id == "email"
+    assert email_strategy.heuristic is not None
+    assert email_strategy.heuristic.rule == "string-email"
+
+
+def test_heuristics_can_be_disabled() -> None:
+    registry = create_default_registry(load_plugins=False)
+    builder = StrategyBuilder(registry, heuristics_enabled=False)
+
+    class EmailModel(BaseModel):
+        contact_email: str
+
+    email_strategy = builder.build_model_strategies(EmailModel)["contact_email"]
+    assert isinstance(email_strategy, Strategy)
+    assert email_strategy.provider_ref is not None
+    assert email_strategy.provider_ref.type_id == "string"
+    assert email_strategy.heuristic is None

@@ -89,6 +89,7 @@ class Profile(BaseModel):
 
 class User(BaseModel):
     name: str
+    email: str
     age: int
     profile: Profile
     role: Literal["admin", "user"]
@@ -133,6 +134,11 @@ def test_explain_json_mode(tmp_path: Path) -> None:
     assert payload["warnings"] == []
     user = next(model for model in payload["models"] if model["name"] == "User")
     fields = {field["name"]: field for field in user["fields"]}
+    email_strategy = fields["email"]["strategy"]
+    heuristic = email_strategy.get("heuristic")
+    assert heuristic is not None
+    assert heuristic["rule"] == "string-email"
+    assert heuristic["provider_type"] == "email"
     assert "profile" in fields
     assert fields["profile"]["strategy"]["kind"] == "provider"
     profile_nested = fields["profile"]["strategy"]["nested_model"]
@@ -154,6 +160,7 @@ def test_explain_tree_mode(tmp_path: Path) -> None:
     assert "Model models.User" in stdout
     assert "|-- field profile" in stdout
     assert "provider" in stdout
+    assert "heuristic string-email" in stdout
     assert "nested models.Address" in stdout
     assert "field country" in stdout
 
@@ -223,7 +230,15 @@ def test_execute_explain_union_and_failures(
         def __init__(self, *args, **kwargs) -> None:  # noqa: ANN002, D401
             pass
 
-        def build_field_strategy(self, model, field_name, annotation, summary):  # noqa: ANN001, ANN201
+        def build_field_strategy(  # noqa: ANN001, ANN201
+            self,
+            model,
+            field_name,
+            annotation,
+            summary,
+            *,
+            field_info=None,
+        ):
             base_summary = FieldSummary(type="string", constraints=FieldConstraints())
             if field_name == "fails":
                 raise ValueError("no provider")

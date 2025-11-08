@@ -65,6 +65,7 @@ class GenerationConfig:
     validator_max_retries: int = 2
     relations: tuple[RelationLinkConfig, ...] = ()
     relation_models: Mapping[str, type[Any]] = field(default_factory=dict)
+    heuristics_enabled: bool = True
 
 
 @dataclass(slots=True)
@@ -266,6 +267,7 @@ class InstanceGenerator:
             array_config=self.array_config,
             identifier_config=self.identifier_config,
             number_config=self.number_config,
+            heuristics_enabled=self.config.heuristics_enabled,
         )
         self._strategy_cache: dict[type[Any], dict[str, StrategyResult]] = {}
         self._constraint_reporter = ConstraintReporter()
@@ -768,16 +770,18 @@ class InstanceGenerator:
     def _build_dataclass_strategies(self, cls: type[Any]) -> dict[str, StrategyResult]:
         strategies: dict[str, StrategyResult] = {}
         type_hints = get_type_hints(cls)
-        for field_info in dataclass_fields(cls):
-            if not field_info.init:
+        for field_def in dataclass_fields(cls):
+            if not field_def.init:
                 continue
-            annotation = type_hints.get(field_info.name, field_info.type)
-            summary = self._summarize_dataclass_field(field_info, annotation)
-            strategies[field_info.name] = self.builder.build_field_strategy(
+            annotation = type_hints.get(field_def.name, field_def.type)
+            field_info_obj = self._extract_field_info(field_def)
+            summary = self._summarize_dataclass_field(field_def, annotation, field_info_obj)
+            strategies[field_def.name] = self.builder.build_field_strategy(
                 cls,
-                field_info.name,
+                field_def.name,
                 annotation,
                 summary,
+                field_info=field_info_obj,
             )
         return strategies
 
@@ -785,13 +789,25 @@ class InstanceGenerator:
         self,
         field: dataclasses.Field[Any],
         annotation: Any,
+        field_info: FieldInfo | None = None,
     ) -> FieldSummary:
-        field_info = self._extract_field_info(field)
+        if field_info is None:
+            field_info = self._extract_field_info(field)
         if field_info is not None:
             constraints = extract_constraints(field_info)
+            metadata_entries: list[Any] = list(field_info.metadata)
         else:
             constraints = FieldConstraints()
-        return schema_module._summarize_annotation(annotation, constraints)
+            metadata_entries = []
+
+        if field.metadata:
+            metadata_entries.extend(field.metadata.values())
+
+        return schema_module._summarize_annotation(
+            annotation,
+            constraints,
+            metadata=tuple(metadata_entries),
+        )
 
     def _record_validator_failure(
         self,

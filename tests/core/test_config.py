@@ -32,6 +32,7 @@ def test_default_configuration(tmp_path: Path) -> None:
     assert config.locale_policies == ()
     assert config.now is None
     assert config.paths == PathConfig()
+    assert config.heuristics.enabled is True
 
 
 def test_load_from_pyproject(tmp_path: Path) -> None:
@@ -83,6 +84,21 @@ def test_load_from_pyproject(tmp_path: Path) -> None:
     assert config.locale_policies == ()
     assert config.paths.default_os == "windows"
     assert config.paths.model_targets == (("app.models.*", "mac"),)
+    assert config.heuristics.enabled is True
+
+
+def test_disable_heuristics_via_config(tmp_path: Path) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """
+        [tool.pydantic_fixturegen.heuristics]
+        enabled = false
+        """,
+        encoding="utf-8",
+    )
+
+    config = load_config(root=tmp_path)
+    assert config.heuristics.enabled is False
 
 
 @pytest.mark.skipif(not HAS_YAML, reason="PyYAML not installed")

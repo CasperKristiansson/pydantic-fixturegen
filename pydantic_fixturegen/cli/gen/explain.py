@@ -214,6 +214,7 @@ def _collect_model_report(
                 field_name,
                 field.annotation,
                 summary,
+                field_info=field,
             )
         except ValueError as exc:
             field_report["error"] = str(exc)
@@ -279,6 +280,15 @@ def _strategy_to_payload(
         provider_payload["enum_policy"] = strategy.enum_policy
     if strategy.provider_kwargs:
         provider_payload["provider_kwargs"] = _safe_json(strategy.provider_kwargs)
+    heuristic = getattr(strategy, "heuristic", None)
+    if heuristic is not None:
+        provider_payload["heuristic"] = {
+            "rule": heuristic.rule,
+            "description": heuristic.description,
+            "confidence": heuristic.confidence,
+            "signals": list(heuristic.signals),
+            "provider_type": heuristic.provider_type,
+        }
 
     if remaining_depth is not None and remaining_depth <= 0:
         provider_payload["truncated"] = True
@@ -580,6 +590,14 @@ def _render_strategy_text(strategy: dict[str, Any], *, indent: str) -> None:
         typer.echo(f"{indent}Enum policy: {strategy['enum_policy']}")
     if strategy.get("provider_kwargs"):
         typer.echo(f"{indent}Provider kwargs: {strategy['provider_kwargs']}")
+    heuristic = strategy.get("heuristic")
+    if heuristic:
+        confidence = heuristic.get("confidence")
+        conf_text = f" (confidence={confidence:.2f})" if isinstance(confidence, float) else ""
+        typer.echo(f"{indent}Heuristic: {heuristic.get('rule')}{conf_text}")
+        signals = heuristic.get("signals")
+        if signals:
+            typer.echo(f"{indent}Signals: {', '.join(signals)}")
     if strategy.get("truncated"):
         typer.echo(f"{indent}... (max depth reached)")
         return
@@ -670,6 +688,20 @@ def _strategy_to_tree_node(strategy: dict[str, Any]) -> TreeNode:
         children.append(TreeNode(f"enum_policy={strategy['enum_policy']}", []))
     if strategy.get("provider_kwargs"):
         children.append(TreeNode(f"provider_kwargs={strategy['provider_kwargs']}", []))
+    heuristic = strategy.get("heuristic")
+    if heuristic:
+        confidence = heuristic.get("confidence")
+        conf_text = f" (conf={confidence:.2f})" if isinstance(confidence, float) else ""
+        heuristic_children: list[TreeNode] = []
+        signals = heuristic.get("signals") or []
+        if signals:
+            heuristic_children.append(TreeNode(f"signals={', '.join(signals)}", []))
+        children.append(
+            TreeNode(
+                f"heuristic {heuristic.get('rule')}{conf_text}",
+                heuristic_children,
+            )
+        )
     if strategy.get("truncated"):
         children.append(TreeNode("... (max depth reached)", []))
     else:

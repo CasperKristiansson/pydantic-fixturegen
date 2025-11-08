@@ -595,6 +595,23 @@ def test_string_provider_regex_padding(monkeypatch: pytest.MonkeyPatch) -> None:
     assert len(adjusted_value) == 5
 
 
+def test_slug_provider_respects_length_constraints() -> None:
+    registry = ProviderRegistry()
+    register_string_providers(registry)
+    provider = registry.get("slug")
+    assert provider is not None
+
+    summary = FieldSummary(
+        type="slug",
+        constraints=FieldConstraints(min_length=4, max_length=12),
+        format=None,
+    )
+    value = provider.func(summary=summary, faker=Faker(seed=12))
+    assert 4 <= len(value) <= 12
+    assert value == value.lower()
+    assert " " not in value
+
+
 def test_temporal_provider_uses_anchor() -> None:
     registry = ProviderRegistry()
     register_temporal_providers(registry)

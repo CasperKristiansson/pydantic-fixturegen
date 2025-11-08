@@ -61,6 +61,7 @@ _ENTRIES: tuple[ExtraTypeEntry, ...] = (
     ExtraTypeEntry("semantic-version", "semver", "Version"),
     ExtraTypeEntry("timezone-name", "pydantic_extra_types.timezone_name", "TimeZoneName"),
     ExtraTypeEntry("ulid", "pydantic_extra_types.ulid", "ULID"),
+    ExtraTypeEntry("slug", "pydantic_extra_types.slug", "SlugStr"),
 )
 
 _MODULE_CACHE: dict[str, Any | None] = {}

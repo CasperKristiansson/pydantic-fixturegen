@@ -10,6 +10,7 @@ import pytest
 from pydantic import BaseModel
 from pydantic_fixturegen.core.config import (
     ArrayConfig,
+    HeuristicConfig,
     IdentifierConfig,
     NumberDistributionConfig,
     PathConfig,
@@ -22,6 +23,7 @@ DEFAULT_ARRAY_CONFIG = ArrayConfig()
 DEFAULT_IDENTIFIER_CONFIG = IdentifierConfig()
 DEFAULT_PATH_CONFIG = PathConfig()
 DEFAULT_NUMBER_CONFIG = NumberDistributionConfig()
+DEFAULT_HEURISTICS_CONFIG = HeuristicConfig()
 
 
 def _write_simple_module(path: Path) -> None:
@@ -260,6 +262,7 @@ def test_diff_json_requires_models() -> None:
             app_config_locale_policies=(),
             app_config_respect_validators=False,
             app_config_validator_max_retries=2,
+            app_config_heuristics=DEFAULT_HEURISTICS_CONFIG,
             options=_json_options(Path("unused.json")),
         )
 
@@ -285,6 +288,7 @@ def test_diff_json_rejects_multiple_models(tmp_path: Path) -> None:
             app_config_locale_policies=(),
             app_config_respect_validators=False,
             app_config_validator_max_retries=2,
+            app_config_heuristics=DEFAULT_HEURISTICS_CONFIG,
             options=_json_options(tmp_path / "artifact.json"),
         )
 
@@ -321,6 +325,7 @@ def test_diff_json_requires_output(tmp_path: Path) -> None:
             app_config_locale_policies=(),
             app_config_respect_validators=False,
             app_config_validator_max_retries=2,
+            app_config_heuristics=DEFAULT_HEURISTICS_CONFIG,
             options=options,
         )
 
@@ -360,6 +365,7 @@ def test_diff_json_handles_mapping_failure(tmp_path: Path, monkeypatch: pytest.M
             app_config_locale_policies=(),
             app_config_respect_validators=False,
             app_config_validator_max_retries=2,
+            app_config_heuristics=DEFAULT_HEURISTICS_CONFIG,
             options=_json_options(output_path),
         )
 
@@ -403,6 +409,7 @@ def test_diff_json_detects_directory_targets(
         app_config_locale_policies=(),
         app_config_respect_validators=False,
         app_config_validator_max_retries=2,
+        app_config_heuristics=DEFAULT_HEURISTICS_CONFIG,
         options=_json_options(output_path),
     )
 
@@ -451,6 +458,7 @@ def test_diff_json_ignores_extra_directories(
         app_config_locale_policies=(),
         app_config_respect_validators=False,
         app_config_validator_max_retries=2,
+        app_config_heuristics=DEFAULT_HEURISTICS_CONFIG,
         options=_json_options(output_path),
     )
 

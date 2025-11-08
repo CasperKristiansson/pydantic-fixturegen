@@ -107,6 +107,20 @@
       "title": "FieldPolicyOptionsSchema",
       "type": "object"
     },
+    "HeuristicsSchema": {
+      "additionalProperties": false,
+      "description": "Schema describing heuristic mapping configuration.",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "description": "Toggle automatic heuristic provider mapping on or off.",
+          "title": "Enabled",
+          "type": "boolean"
+        }
+      },
+      "title": "HeuristicsSchema",
+      "type": "object"
+    },
     "IdentifierSettingsSchema": {
       "additionalProperties": false,
       "description": "Schema describing identifier provider settings.",
@@ -316,6 +330,10 @@
       "description": "Field policy definitions keyed by glob or regex patterns that may target model names or dotted field paths.",
       "title": "Field Policies",
       "type": "object"
+    },
+    "heuristics": {
+      "$ref": "#/$defs/HeuristicsSchema",
+      "description": "Controls the heuristic provider mapping engine."
     },
     "identifiers": {
       "$ref": "#/$defs/IdentifierSettingsSchema",

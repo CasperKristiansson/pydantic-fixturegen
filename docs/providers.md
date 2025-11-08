@@ -7,6 +7,7 @@
 - Core providers cover numbers, strings (with optional regex support), collections, temporal values, and identifiers.
 - Providers live in `pydantic_fixturegen.core.providers` and are loaded through a `ProviderRegistry`.
 - Plugins register new providers via Pluggy and can override defaults selectively.
+- A heuristic rule engine inspects field names, aliases, constraints, and metadata to map common shapes (emails, slugs, country/language codes, filesystem paths, etc.) onto richer providers automatically; see [heuristic settings](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md#heuristic-settings) for opt-out controls.
 
 ## Scaffold plugin projects
 
@@ -77,6 +78,12 @@ Typed identifier fields now have dedicated providers that keep seeded runs repro
 Tweak behaviour through the `[tool.pydantic_fixturegen.identifiers]` section documented in [configuration](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md#identifier-settings). Strategies automatically pass the resolved config to providers, so CLI, API, and emitter workflows all honour the same settings.
 
 > **Extras**: `EmailStr` support requires the optional `email` extra, while `PaymentCardNumber` relies on the `payment` extra that pulls in `pydantic-extra-types`.
+
+## Slug provider
+
+- String fields typed as `SlugStr` (from `pydantic-extra-types`) or heuristically flagged as slugs now use a dedicated provider that emits lowercase, hyphenated tokens respecting `min_length`/`max_length` constraints.
+- The provider reuses Faker's `slug()` method under deterministic seeding, so fixture diffs remain stable across runs.
+- Heuristic rules cover plain `str` annotations named `slug`, `slug_text`, etc. and can be disabled via `[heuristics]` if you prefer to wire policies manually.
 
 ## `pydantic-extra-types` support
 

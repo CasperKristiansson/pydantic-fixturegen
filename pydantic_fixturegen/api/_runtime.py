@@ -151,6 +151,7 @@ def _build_instance_generator(
         validator_max_retries=app_config.validator_max_retries,
         relations=app_config.relations,
         relation_models=relation_models or {},
+        heuristics_enabled=app_config.heuristics.enabled,
     )
     return InstanceGenerator(config=gen_config)
 

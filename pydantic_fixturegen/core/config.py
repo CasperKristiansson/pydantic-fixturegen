@@ -121,6 +121,11 @@ class RelationLinkConfig:
 
 
 @dataclass(frozen=True)
+class HeuristicConfig:
+    enabled: bool = True
+
+
+@dataclass(frozen=True)
 class AppConfig:
     preset: str | None = None
     profile: str | None = None
@@ -144,6 +149,7 @@ class AppConfig:
     respect_validators: bool = False
     validator_max_retries: int = 2
     relations: tuple[RelationLinkConfig, ...] = ()
+    heuristics: HeuristicConfig = field(default_factory=HeuristicConfig)
 
 
 DEFAULT_CONFIG = AppConfig()
@@ -231,6 +237,9 @@ def _config_defaults_dict() -> dict[str, Any]:
         "respect_validators": DEFAULT_CONFIG.respect_validators,
         "validator_max_retries": DEFAULT_CONFIG.validator_max_retries,
         "relations": {},
+        "heuristics": {
+            "enabled": DEFAULT_CONFIG.heuristics.enabled,
+        },
     }
 
 
@@ -371,6 +380,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
     numbers_value = _normalize_number_config(data.get("numbers"))
     paths_value = _normalize_path_config(data.get("paths"))
     relations_value = _normalize_relations(data.get("relations"))
+    heuristics_value = _normalize_heuristics(data.get("heuristics"))
     now_value = _coerce_datetime(data.get("now"), "now")
 
     seed_value: int | str | None
@@ -413,6 +423,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         respect_validators=respect_validators_value,
         validator_max_retries=validator_max_retries_value,
         relations=relations_value,
+        heuristics=heuristics_value,
     )
 
     return config
@@ -864,6 +875,21 @@ def _normalize_relations(value: Any) -> tuple[RelationLinkConfig, ...]:
             )
         return tuple(string_links)
     raise ConfigError("relations must be provided as a mapping or list of strings.")
+
+
+def _normalize_heuristics(value: Any) -> HeuristicConfig:
+    if value is None:
+        return HeuristicConfig()
+    if isinstance(value, HeuristicConfig):
+        return value
+    if not isinstance(value, Mapping):
+        raise ConfigError("heuristics must be a mapping.")
+    enabled = _coerce_bool_value(
+        value.get("enabled"),
+        field_name="heuristics.enabled",
+        default=DEFAULT_CONFIG.heuristics.enabled,
+    )
+    return HeuristicConfig(enabled=enabled)
 
 
 def _coerce_path_target(value: Any, field_name: str) -> str:

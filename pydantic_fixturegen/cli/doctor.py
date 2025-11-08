@@ -241,6 +241,7 @@ def _analyse_model(model: type[BaseModel], builder: StrategyBuilder) -> ModelRep
                 field_name,
                 model_field.annotation,
                 summary,
+                field_info=model_field,
             )
         except ValueError as exc:
             message = str(exc)

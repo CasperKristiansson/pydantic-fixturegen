@@ -122,6 +122,17 @@ class ArraySettingsSchema(BaseModel):
     )
 
 
+class HeuristicsSchema(BaseModel):
+    """Schema describing heuristic mapping configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(
+        default=DEFAULT_CONFIG.heuristics.enabled,
+        description="Toggle automatic heuristic provider mapping on or off.",
+    )
+
+
 class ConfigSchemaModel(BaseModel):
     """Authoritative schema for `[tool.pydantic_fixturegen]` configuration."""
 
@@ -200,6 +211,10 @@ class ConfigSchemaModel(BaseModel):
         description=(
             "Configuration for NumPy array generation: max_ndim, max_side, max_elements, dtypes."
         ),
+    )
+    heuristics: HeuristicsSchema = Field(
+        default_factory=HeuristicsSchema,
+        description="Controls the heuristic provider mapping engine.",
     )
     identifiers: IdentifierSettingsSchema = Field(
         default_factory=lambda: IdentifierSettingsSchema(),
