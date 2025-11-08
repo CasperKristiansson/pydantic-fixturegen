@@ -156,6 +156,19 @@ WITH_RELATED_OPTION = typer.Option(
     ),
 )
 
+MAX_DEPTH_OPTION = typer.Option(
+    None,
+    "--max-depth",
+    min=1,
+    help="Override the maximum recursion depth for nested models.",
+)
+
+CYCLE_POLICY_OPTION = typer.Option(
+    None,
+    "--on-cycle",
+    help="Cycle handling policy when recursion occurs (reuse, stub, or null).",
+)
+
 
 def register(app: typer.Typer) -> None:
     @app.command("fixtures")
@@ -182,6 +195,8 @@ def register(app: typer.Typer) -> None:
         validator_max_retries: int | None = VALIDATOR_MAX_RETRIES_OPTION,
         links: list[str] | None = LINK_OPTION,
         with_related: list[str] | None = WITH_RELATED_OPTION,
+        max_depth: int | None = MAX_DEPTH_OPTION,
+        cycle_policy: str | None = CYCLE_POLICY_OPTION,
     ) -> None:
         logger = get_logger()
 
@@ -220,6 +235,8 @@ def register(app: typer.Typer) -> None:
                     validator_max_retries=validator_max_retries,
                     links=links,
                     with_related=with_related,
+                    max_depth=max_depth,
+                    cycle_policy=cycle_policy,
                 )
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors, exit_app=exit_app)
@@ -278,6 +295,8 @@ def _execute_fixtures_command(
     validator_max_retries: int | None = None,
     links: list[str] | None = None,
     with_related: list[str] | None = None,
+    max_depth: int | None = None,
+    cycle_policy: str | None = None,
 ) -> None:
     logger = get_logger()
 
@@ -327,6 +346,8 @@ def _execute_fixtures_command(
             relations=cli_common.parse_relation_links(links),
             with_related=related_identifiers or None,
             logger=logger,
+            max_depth=max_depth,
+            cycle_policy=cycle_policy,
         )
     except PFGError as exc:
         _handle_fixtures_error(logger, exc)

@@ -97,6 +97,8 @@ scope = "module"
 | `p_none`       | `float \| null`              | `null`  | Baseline probability of returning `None` for optional fields.               |
 | `union_policy` | `first \| random \| weighted` | `first` | Strategy for selecting branches of `typing.Union`.                          |
 | `enum_policy`  | `first \| random`            | `first` | Strategy for selecting enum members.                                        |
+| `max_depth`    | `int`                        | `5`     | Maximum recursion depth before the cycle policy takes effect.              |
+| `cycle_policy` | `reuse \| stub \| null`     | `reuse` | How recursive references are resolved once depth or cycles are detected.   |
 | `now`          | `datetime \| null`           | `null`  | Anchor timestamp used for temporal values.                                  |
 | `overrides`    | `dict[str, dict[str, Any]]`  | `{}`    | Per-model overrides keyed by fully-qualified model name.                    |
 | `field_policies` | `dict[str, FieldPolicy]`   | `{}`    | Pattern-based overrides for specific fields.                                |
@@ -158,6 +160,20 @@ Identifier settings apply to `EmailStr`, `HttpUrl`/`AnyUrl`, secret strings/byte
 > **Note:** Email validation relies on the optional `email` extra. Install it with `pip install "pydantic-fixturegen[email]"` when you need `EmailStr` support.
 
 > **Note:** Payment card fields use the optional `payment` extra backed by `pydantic-extra-types`. Install it with `pip install "pydantic-fixturegen[payment]"` to enable typed `PaymentCardNumber` support.
+
+### Cycle handling
+
+| Key            | Type                    | Default | Description                                                                 |
+| -------------- | ----------------------- | ------- | --------------------------------------------------------------------------- |
+| `max_depth`    | `int`                   | `5`     | Maximum recursion depth before the cycle policy is applied.                 |
+| `cycle_policy` | `reuse \| stub \| null` | `reuse` | Controls how recursive or cyclic references are resolved.                   |
+
+- `reuse` clones an existing instance of the same model (deterministically) so downstream consumers still receive populated data. If no exemplar exists yet, fixturegen falls back to a stub.
+- `stub` emits a minimal instance produced via `model_construct()` / dataclass defaults so schemas remain intact without pretending real data exists.
+- `null` returns `None`, which matches the previous behaviour but now must be explicitly requested.
+- JSON and fixture outputs now include a reserved `__cycles__` array per model entry whenever a recursive policy fires. Each entry lists the field path, policy, and reference path (when known), so reviewers can tell which parts reused data without diffing entire payloads.
+- Cycle metadata is emitted for both true recursion detection and depth-limit fallbacks, so even `max_depth` safeguards surface the exact policy (`reuse`, `stub`, or `null`) applied at each field.
+- CLI overrides: `--max-depth` adjusts the recursion budget per run, and `--on-cycle` selects the policy (`reuse`, `stub`, or `null`).
 
 ### Heuristic settings
 

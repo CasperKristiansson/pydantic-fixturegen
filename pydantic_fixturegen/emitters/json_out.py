@@ -13,6 +13,7 @@ from typing import Any, cast
 
 from pydantic import BaseModel
 
+from pydantic_fixturegen.core.cycle_report import consume_cycle_events
 from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
 
 orjson: ModuleType | None
@@ -366,7 +367,11 @@ def _normalise_record(record: Any) -> Any:
             return record
         return asdict(record)
     if isinstance(record, BaseModel):
-        return record.model_dump()
+        data = record.model_dump()
+        events = consume_cycle_events(record)
+        if events:
+            data["__cycles__"] = [event.to_payload() for event in events]
+        return data
     model_dump = getattr(record, "model_dump", None)
     if callable(model_dump):
         dump_call = cast(Callable[[], Any], model_dump)

@@ -301,6 +301,17 @@
       "$ref": "#/$defs/ArraySettingsSchema",
       "description": "Configuration for NumPy array generation: max_ndim, max_side, max_elements, dtypes."
     },
+    "cycle_policy": {
+      "default": "reuse",
+      "description": "How recursive references are resolved (`reuse`, `stub`, or `null`).",
+      "enum": [
+        "reuse",
+        "stub",
+        "null"
+      ],
+      "title": "Cycle Policy",
+      "type": "string"
+    },
     "emitters": {
       "$ref": "#/$defs/EmittersSchema",
       "description": "Emitter-specific configuration sections."
@@ -364,6 +375,13 @@
       "description": "Mapping of glob or regex patterns (models or fields) to Faker locale identifiers.",
       "title": "Locales",
       "type": "object"
+    },
+    "max_depth": {
+      "default": 5,
+      "description": "Maximum recursion depth before cycle handling policy is applied.",
+      "minimum": 1,
+      "title": "Max Depth",
+      "type": "integer"
     },
     "numbers": {
       "$ref": "#/$defs/NumbersSettingsSchema",

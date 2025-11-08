@@ -29,6 +29,7 @@ User
 - Arrows identify the provider or strategy selected for each field.
 - Inline annotations show policy tweaks such as `p_none`, presets, or union handling.
 - Nested models appear under their parent field so you can trace recursion.
+- Recursive fields now show a `Cycle policy` line (matching `--on-cycle` / `[cycle_policy]`), so you can see whether fixturegen will reuse existing data, emit stubs, or drop to null when a cycle is detected.
 - When a heuristic rule fires, the provider line is followed by the rule name and confidence score so you can see why a string field was treated as an email, slug, ISO country code, etc.
 
 ## JSON output

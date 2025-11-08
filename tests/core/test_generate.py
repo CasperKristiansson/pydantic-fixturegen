@@ -72,6 +72,14 @@ class User(BaseModel):
     contacts: dict[str, Address]
 
 
+class RecursiveModel(BaseModel):
+    name: str
+    self_ref: RecursiveModel | None = None
+
+
+RecursiveModel.model_rebuild()
+
+
 class PathExample(BaseModel):
     artifact: Path
     backup: Path
@@ -131,7 +139,37 @@ def test_recursion_guard_depth() -> None:
     generator = InstanceGenerator(config=config)
     node = generator.generate_one(Node)
     assert isinstance(node, Node)
-    assert node.child is None
+    assert node.child is not None
+    assert node.child.model_dump() == {}
+
+
+def test_cycle_policy_null_returns_none() -> None:
+    config = GenerationConfig(seed=8, cycle_policy="null")
+    generator = InstanceGenerator(config=config)
+    node = generator.generate_one(RecursiveModel)
+    assert isinstance(node, RecursiveModel)
+    assert node.self_ref is None
+
+
+def test_cycle_policy_stub_returns_placeholder() -> None:
+    config = GenerationConfig(seed=9, cycle_policy="stub")
+    generator = InstanceGenerator(config=config)
+    node = generator.generate_one(RecursiveModel)
+    assert isinstance(node, RecursiveModel)
+    assert node.self_ref is not None
+    data = node.self_ref.model_dump()
+    assert data.get("name") in (None, "")
+
+
+def test_cycle_policy_reuse_clones_previous_instance() -> None:
+    config = GenerationConfig(seed=10, cycle_policy="reuse")
+    generator = InstanceGenerator(config=config)
+    first = generator.generate_one(RecursiveModel)
+    assert isinstance(first, RecursiveModel)
+    second = generator.generate_one(RecursiveModel)
+    assert isinstance(second, RecursiveModel)
+    assert second.self_ref is not None
+    assert first.model_dump()["name"] == second.self_ref.model_dump()["name"]
 
 
 def test_object_budget_limits() -> None:
@@ -299,7 +337,7 @@ def test_field_policy_updates_union_strategy() -> None:
 
     path_stack = getattr(generator, "_path_stack")  # noqa: B009
     make_path_entry = getattr(generator, "_make_path_entry")  # noqa: B009
-    path_stack.append(make_path_entry(User, None))
+    path_stack.append(make_path_entry(User, None, path=generator._describe_model(User)))
     try:
         apply_field_policies = getattr(generator, "_apply_field_policies")  # noqa: B009
         apply_field_policies("preference", union_strategy)

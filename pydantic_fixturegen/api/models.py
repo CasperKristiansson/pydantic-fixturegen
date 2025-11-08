@@ -19,6 +19,8 @@ class ConfigSnapshot:
     include: tuple[str, ...]
     exclude: tuple[str, ...]
     time_anchor: _dt.datetime | None
+    max_depth: int = 5
+    cycle_policy: str = "reuse"
 
 
 @dataclass(slots=True)

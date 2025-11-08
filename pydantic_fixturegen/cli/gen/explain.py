@@ -280,6 +280,8 @@ def _strategy_to_payload(
         provider_payload["enum_policy"] = strategy.enum_policy
     if strategy.provider_kwargs:
         provider_payload["provider_kwargs"] = _safe_json(strategy.provider_kwargs)
+    if getattr(strategy, "cycle_policy", None):
+        provider_payload["cycle_policy"] = strategy.cycle_policy
     heuristic = getattr(strategy, "heuristic", None)
     if heuristic is not None:
         provider_payload["heuristic"] = {
@@ -590,6 +592,8 @@ def _render_strategy_text(strategy: dict[str, Any], *, indent: str) -> None:
         typer.echo(f"{indent}Enum policy: {strategy['enum_policy']}")
     if strategy.get("provider_kwargs"):
         typer.echo(f"{indent}Provider kwargs: {strategy['provider_kwargs']}")
+    if strategy.get("cycle_policy"):
+        typer.echo(f"{indent}Cycle policy: {strategy['cycle_policy']}")
     heuristic = strategy.get("heuristic")
     if heuristic:
         confidence = heuristic.get("confidence")
@@ -688,6 +692,8 @@ def _strategy_to_tree_node(strategy: dict[str, Any]) -> TreeNode:
         children.append(TreeNode(f"enum_policy={strategy['enum_policy']}", []))
     if strategy.get("provider_kwargs"):
         children.append(TreeNode(f"provider_kwargs={strategy['provider_kwargs']}", []))
+    if strategy.get("cycle_policy"):
+        children.append(TreeNode(f"cycle_policy={strategy['cycle_policy']}", []))
     heuristic = strategy.get("heuristic")
     if heuristic:
         confidence = heuristic.get("confidence")

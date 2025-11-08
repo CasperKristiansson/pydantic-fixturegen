@@ -23,6 +23,7 @@ from pydantic_fixturegen.core.config import (
     RelationLinkConfig,
 )
 from pydantic_fixturegen.core.constraint_report import ConstraintReporter
+from pydantic_fixturegen.core.cycle_report import consume_cycle_events
 from pydantic_fixturegen.core.errors import EmitError
 from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
@@ -62,6 +63,8 @@ class PytestEmitConfig:
     validator_max_retries: int = 2
     relations: tuple[RelationLinkConfig, ...] = ()
     relation_models: Mapping[str, type[Any]] = field(default_factory=dict)
+    max_depth: int = 5
+    cycle_policy: str = "reuse"
 
 
 def emit_pytest_fixtures(
@@ -102,6 +105,8 @@ def emit_pytest_fixtures(
             validator_max_retries=cfg.validator_max_retries,
             relations=cfg.relations,
             relation_models=cfg.relation_models,
+            max_depth=cfg.max_depth,
+            cycle_policy=cfg.cycle_policy,
         )
         if cfg.optional_p_none is not None:
             generation_config.optional_p_none = cfg.optional_p_none
@@ -431,6 +436,9 @@ def _to_snake_case(name: str) -> str:
 
 def _model_to_literal(instance: BaseModel) -> dict[str, Any]:
     raw = instance.model_dump(mode="json")
+    events = consume_cycle_events(instance)
+    if events:
+        raw["__cycles__"] = [event.to_payload() for event in events]
     serialized = json.dumps(raw, sort_keys=True, ensure_ascii=False)
     return cast(dict[str, Any], json.loads(serialized))
 

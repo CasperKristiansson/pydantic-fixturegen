@@ -52,6 +52,19 @@ class CatalogItem(BaseModel):
 """
 
 
+RECURSIVE_MODULE = """
+from pydantic import BaseModel, Field
+
+
+class RecursiveNode(BaseModel):
+    name: str = Field(pattern="^Node", min_length=4)
+    child: "RecursiveNode"
+
+
+RecursiveNode.model_rebuild()
+"""
+
+
 def _write_module(tmp_path: Path, source: str, name: str = "models") -> Path:
     module_path = tmp_path / f"{name}.py"
     module_path.write_text(source, encoding="utf-8")
@@ -293,3 +306,35 @@ def test_gen_json_generates_values_for_heuristic_fields(tmp_path: Path) -> None:
     assert sample["slug"] == sample["slug"].lower()
     assert "-" in sample["slug"]
     assert "/" in sample["data_dir"] or "\\" in sample["data_dir"]
+
+
+def test_json_generation_includes_cycle_metadata(tmp_path: Path) -> None:
+    module_path = _write_module(tmp_path, RECURSIVE_MODULE, name="recursive")
+    runner = create_cli_runner()
+    output = tmp_path / "recursive.json"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(output),
+            "--include",
+            "recursive.RecursiveNode",
+            "--n",
+            "1",
+            "--on-cycle",
+            "reuse",
+            "--max-depth",
+            "1",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert isinstance(payload, list)
+    record = payload[0]
+    assert "__cycles__" in record
+    assert record["__cycles__"][0]["policy"] == "reuse"

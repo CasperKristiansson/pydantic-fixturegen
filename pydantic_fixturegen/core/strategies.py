@@ -35,6 +35,7 @@ class Strategy:
     p_none: float = 0.0
     enum_values: list[Any] | None = None
     enum_policy: str | None = None
+    cycle_policy: str | None = None
     heuristic: HeuristicMatch | None = None
 
 
@@ -67,6 +68,7 @@ class StrategyBuilder:
         number_config: Any | None = None,
         heuristic_registry: HeuristicRegistry | None = None,
         heuristics_enabled: bool = True,
+        cycle_policy: str = "reuse",
     ) -> None:
         self.registry = registry
         self.enum_policy = enum_policy
@@ -81,6 +83,7 @@ class StrategyBuilder:
         self._heuristics: HeuristicRegistry | None = None
         if heuristics_enabled:
             self._heuristics = heuristic_registry or create_default_heuristic_registry()
+        self._cycle_policy = cycle_policy
 
     def build_model_strategies(self, model: type[BaseModel]) -> Mapping[str, StrategyResult]:
         summaries = summarize_model_fields(model)
@@ -177,6 +180,7 @@ class StrategyBuilder:
                 provider_name=summary.type,
                 provider_kwargs={},
                 p_none=p_none,
+                cycle_policy=self._cycle_policy,
             )
 
         provider: ProviderRef | None = None

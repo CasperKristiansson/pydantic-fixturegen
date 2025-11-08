@@ -41,6 +41,7 @@ _DEFAULT_YAML_NAMES = (
 
 UNION_POLICIES = {"first", "random", "weighted"}
 ENUM_POLICIES = {"first", "random"}
+CYCLE_POLICIES = {"reuse", "stub", "null"}
 
 TRUTHY = {"1", "true", "yes", "on"}
 FALSY = {"0", "false", "no", "off"}
@@ -136,6 +137,8 @@ class AppConfig:
     p_none: float | None = None
     union_policy: str = "first"
     enum_policy: str = "first"
+    max_depth: int = 5
+    cycle_policy: str = "reuse"
     now: datetime.datetime | None = None
     overrides: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     field_policies: tuple[FieldPolicy, ...] = ()
@@ -196,6 +199,8 @@ def _config_defaults_dict() -> dict[str, Any]:
         "p_none": DEFAULT_CONFIG.p_none,
         "union_policy": DEFAULT_CONFIG.union_policy,
         "enum_policy": DEFAULT_CONFIG.enum_policy,
+        "max_depth": DEFAULT_CONFIG.max_depth,
+        "cycle_policy": DEFAULT_CONFIG.cycle_policy,
         "now": DEFAULT_CONFIG.now,
         "locales": {},
         "field_policies": {},
@@ -368,6 +373,15 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
 
     union_policy = _coerce_policy(data.get("union_policy"), UNION_POLICIES, "union_policy")
     enum_policy = _coerce_policy(data.get("enum_policy"), ENUM_POLICIES, "enum_policy")
+    max_depth_value = _coerce_positive_int(
+        data.get("max_depth"),
+        field_name="max_depth",
+        default=DEFAULT_CONFIG.max_depth,
+    )
+    cycle_policy_value = _coerce_cycle_policy(
+        data.get("cycle_policy"),
+        field_name="cycle_policy",
+    )
 
     overrides_value = _normalize_overrides(data.get("overrides"))
 
@@ -423,6 +437,8 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         respect_validators=respect_validators_value,
         validator_max_retries=validator_max_retries_value,
         relations=relations_value,
+        max_depth=max_depth_value,
+        cycle_policy=cycle_policy_value,
         heuristics=heuristics_value,
     )
 
@@ -465,6 +481,32 @@ def _coerce_non_negative_int(value: Any, *, field_name: str, default: int) -> in
     if coerced < 0:
         raise ConfigError(f"{field_name} must be >= 0.")
     return coerced
+
+
+def _coerce_positive_int(value: Any, *, field_name: str, default: int) -> int:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        raise ConfigError(f"{field_name} must be a positive integer.")
+    try:
+        coerced = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(f"{field_name} must be a positive integer.") from exc
+    if coerced <= 0:
+        raise ConfigError(f"{field_name} must be > 0.")
+    return coerced
+
+
+def _coerce_cycle_policy(value: Any, *, field_name: str) -> str:
+    default = DEFAULT_CONFIG.cycle_policy
+    if value is None:
+        return default
+    if not isinstance(value, str):
+        raise ConfigError(f"{field_name} must be a string.")
+    lowered = value.strip().lower()
+    if lowered not in CYCLE_POLICIES:
+        raise ConfigError(f"{field_name} must be one of {sorted(CYCLE_POLICIES)}.")
+    return lowered
 
 
 def _normalize_sequence(value: Any) -> tuple[str, ...]:

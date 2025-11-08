@@ -27,6 +27,7 @@ from pydantic_fixturegen.core.config import (
     RelationLinkConfig,
 )
 from pydantic_fixturegen.core.constraint_report import ConstraintReporter
+from pydantic_fixturegen.core.cycle_report import CycleEvent, attach_cycle_events
 from pydantic_fixturegen.core.field_policies import (
     FieldPolicy,
     FieldPolicyConflictError,
@@ -65,6 +66,7 @@ class GenerationConfig:
     validator_max_retries: int = 2
     relations: tuple[RelationLinkConfig, ...] = ()
     relation_models: Mapping[str, type[Any]] = field(default_factory=dict)
+    cycle_policy: str = "reuse"
     heuristics_enabled: bool = True
 
 
@@ -72,10 +74,15 @@ class GenerationConfig:
 class _PathEntry:
     module: str
     qualname: str
+    model_type: type[Any]
     via_field: str | None = None
+    path: str | None = None
+    partial_values: dict[str, Any] = field(default_factory=dict)
 
     @property
     def full(self) -> str:
+        if self.path:
+            return self.path
         return f"{self.module}.{self.qualname}"
 
 
@@ -268,6 +275,7 @@ class InstanceGenerator:
             identifier_config=self.identifier_config,
             number_config=self.number_config,
             heuristics_enabled=self.config.heuristics_enabled,
+            cycle_policy=self.config.cycle_policy,
         )
         self._strategy_cache: dict[type[Any], dict[str, StrategyResult]] = {}
         self._constraint_reporter = ConstraintReporter()
@@ -278,6 +286,9 @@ class InstanceGenerator:
             FieldPolicySet(self.config.locale_policies) if self.config.locale_policies else None
         )
         self._path_stack: list[_PathEntry] = []
+        self._cycle_policy = self.config.cycle_policy
+        self._cycle_events: list[CycleEvent] = []
+        self._reuse_pool: dict[type[Any], list[tuple[str, BaseModel]]] = {}
 
     @property
     def constraint_report(self) -> ConstraintReporter:
@@ -286,7 +297,15 @@ class InstanceGenerator:
     # ------------------------------------------------------------------ public API
     def generate_one(self, model: type[BaseModel]) -> BaseModel | None:
         self._objects_remaining = self.config.max_objects
-        return self._generate_with_retries(model, depth=0)
+        self._cycle_events = []
+        instance = self._generate_with_retries(
+            model,
+            depth=0,
+        )
+        if instance is not None:
+            attach_cycle_events(instance, self._cycle_events)
+            self._cycle_events = []
+        return instance
 
     def generate(self, model: type[BaseModel], count: int = 1) -> list[BaseModel]:
         results: list[BaseModel] = []
@@ -335,6 +354,7 @@ class InstanceGenerator:
             result = self._build_model_instance(
                 model,
                 depth=depth,
+                current_path=self._describe_model(model),
             )
             if self._validator_retry_enabled:
                 self._restore_validator_retry()
@@ -369,13 +389,30 @@ class InstanceGenerator:
         *,
         depth: int,
         via_field: str | None = None,
+        current_path: str | None = None,
     ) -> Any | None:
+        path_label = current_path or self._describe_model(model_type)
         if depth >= self.config.max_depth:
-            return None
+            return self._handle_cycle_resolution(
+                model_type,
+                path_label,
+                reason="max_depth",
+                ref_entry=None,
+            )
+
+        cycle_entry = self._detect_cycle_entry(model_type)
+        if cycle_entry is not None:
+            return self._handle_cycle_resolution(
+                model_type,
+                path_label,
+                reason="cycle",
+                ref_entry=cycle_entry,
+            )
+
         if not self._consume_object():
             return None
 
-        entry = self._make_path_entry(model_type, via_field)
+        entry = self._make_path_entry(model_type, via_field, path=path_label)
         self._path_stack.append(entry)
         try:
             strategies = self._get_model_strategies(model_type)
@@ -398,6 +435,7 @@ class InstanceGenerator:
                     field_name,
                     report_model,
                 )
+                entry.partial_values[field_name] = values[field_name]
         finally:
             self._path_stack.pop()
 
@@ -445,6 +483,7 @@ class InstanceGenerator:
 
         if report_model is not None:
             self._constraint_reporter.finish_model(report_model, success=True)
+        self._register_reusable_instance(model_type, path_label, instance)
         if (
             instance is not None
             and self._relation_manager is not None
@@ -465,14 +504,26 @@ class InstanceGenerator:
             return self._evaluate_union(strategy, depth, model_type, field_name, report_model)
         return self._evaluate_single(strategy, depth, model_type, field_name, report_model)
 
-    def _make_path_entry(self, model_type: type[Any], via_field: str | None) -> _PathEntry:
+    def _make_path_entry(
+        self,
+        model_type: type[Any],
+        via_field: str | None,
+        *,
+        path: str | None,
+    ) -> _PathEntry:
         module = getattr(model_type, "__module__", "<unknown>")
         qualname = getattr(
             model_type,
             "__qualname__",
             getattr(model_type, "__name__", str(model_type)),
         )
-        return _PathEntry(module=module, qualname=qualname, via_field=via_field)
+        return _PathEntry(
+            module=module,
+            qualname=qualname,
+            model_type=model_type,
+            via_field=via_field,
+            path=path,
+        )
 
     @staticmethod
     def _describe_model(model_type: type[Any]) -> str:
@@ -610,6 +661,108 @@ class InstanceGenerator:
         if "enum_policy" in policy_values and policy_values["enum_policy"] is not None:
             strategy.enum_policy = policy_values["enum_policy"]
 
+    def _detect_cycle_entry(self, model_type: type[Any]) -> _PathEntry | None:
+        for entry in reversed(self._path_stack):
+            if entry.model_type is model_type:
+                return entry
+        return None
+
+    def _handle_cycle_resolution(
+        self,
+        model_type: type[Any],
+        path: str,
+        *,
+        reason: str,
+        ref_entry: _PathEntry | None,
+    ) -> Any | None:
+        policy = self._cycle_policy
+        fallback: str | None = None
+        ref_path = ref_entry.full if ref_entry is not None else None
+
+        if policy == "null":
+            value: Any | None = None
+        elif policy == "stub":
+            value = self._build_stub_instance(model_type)
+        else:  # reuse
+            value = self._clone_reusable_instance(model_type)
+            if value is None:
+                if ref_entry is not None:
+                    value = self._build_partial_instance(model_type, ref_entry)
+                    fallback = "partial"
+                if value is None:
+                    fallback = "stub"
+                    value = self._build_stub_instance(model_type)
+
+        self._cycle_events.append(
+            CycleEvent(
+                path=path,
+                policy=policy,
+                reason=reason,
+                ref_path=ref_path,
+                fallback=fallback,
+            )
+        )
+        return value
+
+    def _clone_reusable_instance(self, model_type: type[Any]) -> BaseModel | None:
+        bucket = self._reuse_pool.get(model_type)
+        if not bucket:
+            return None
+        _, instance = bucket[0]
+        try:
+            return instance.model_copy(deep=True)
+        except Exception:  # pragma: no cover - defensive fallback
+            import copy
+
+            return copy.deepcopy(instance)
+
+    def _build_stub_instance(self, model_type: type[Any]) -> Any | None:
+        if isinstance(model_type, type) and issubclass(model_type, BaseModel):
+            return model_type.model_construct()
+        if dataclasses.is_dataclass(model_type):
+            values: dict[str, Any] = {}
+            for field in dataclasses.fields(model_type):
+                values[field.name] = None
+            try:
+                return model_type(**values)
+            except Exception:  # pragma: no cover - defensive fallback
+                return None
+        return None
+
+    def _build_partial_instance(
+        self,
+        model_type: type[Any],
+        entry: _PathEntry,
+    ) -> Any | None:
+        if not entry.partial_values:
+            return None
+        if isinstance(model_type, type) and issubclass(model_type, BaseModel):
+            try:
+                return model_type.model_construct(**entry.partial_values)
+            except Exception:  # pragma: no cover - defensive fallback
+                return None
+        if dataclasses.is_dataclass(model_type):
+            try:
+                return model_type(**entry.partial_values)
+            except Exception:  # pragma: no cover - defensive fallback
+                return None
+        return None
+
+    def _register_reusable_instance(
+        self,
+        model_type: type[Any],
+        path: str,
+        instance: Any,
+    ) -> None:
+        if not isinstance(model_type, type) or not issubclass(model_type, BaseModel):
+            return
+        if not isinstance(instance, BaseModel):
+            return
+        bucket = self._reuse_pool.setdefault(model_type, [])
+        if bucket:
+            return
+        bucket.append((path, instance))
+
     def _evaluate_union(
         self,
         strategy: UnionStrategy,
@@ -638,8 +791,8 @@ class InstanceGenerator:
             self._constraint_reporter.record_field_attempt(report_model, field_name, summary)
 
         relation_value: Any = _RELATION_SKIP
+        full_path, aliases = self._current_field_paths(field_name)
         if self._relation_manager is not None:
-            full_path, aliases = self._current_field_paths(field_name)
             keys = (full_path, *aliases)
             relation_value = self._relation_manager.resolve_value(
                 model_keys=keys,
@@ -664,9 +817,16 @@ class InstanceGenerator:
                         annotation,
                         depth=depth + 1,
                         via_field=field_name,
+                        current_path=full_path,
                     )
                 elif summary.type in {"list", "set", "tuple", "mapping"}:
-                    value = self._evaluate_collection(model_type, field_name, strategy, depth)
+                    value = self._evaluate_collection(
+                        model_type,
+                        field_name,
+                        strategy,
+                        depth,
+                        parent_path=full_path,
+                    )
                 else:
                     if strategy.provider_ref is None:
                         value = None
@@ -682,6 +842,7 @@ class InstanceGenerator:
         field_name: str,
         strategy: Strategy,
         depth: int,
+        parent_path: str,
     ) -> Any:
         summary = strategy.summary
         base_value = self._call_strategy_provider(model_type, field_name, strategy)
@@ -696,16 +857,18 @@ class InstanceGenerator:
                 item_annotation,
                 depth,
                 strategy.field_name,
+                parent_path,
             )
 
         length = self._collection_length_from_value(base_value)
         count = max(1, length)
         items: list[Any] = []
-        for _ in range(count):
+        for index in range(count):
             nested = self._build_model_instance(
                 item_annotation,
                 depth=depth + 1,
                 via_field=strategy.field_name,
+                current_path=f"{parent_path}[{index}]",
             )
             if nested is not None:
                 items.append(nested)
@@ -727,6 +890,7 @@ class InstanceGenerator:
         annotation: Any,
         depth: int,
         field_name: str,
+        parent_path: str,
     ) -> dict[str, Any]:
         if isinstance(base_value, dict) and base_value:
             keys: Iterable[str] = base_value.keys()
@@ -736,11 +900,12 @@ class InstanceGenerator:
             keys = (self.faker.pystr(min_chars=3, max_chars=6) for _ in range(count))
 
         result: dict[str, Any] = {}
-        for key in keys:
+        for index, key in enumerate(keys):
             nested = self._build_model_instance(
                 annotation,
                 depth=depth + 1,
                 via_field=field_name,
+                current_path=f"{parent_path}[{index}]",
             )
             if nested is not None:
                 result[str(key)] = nested

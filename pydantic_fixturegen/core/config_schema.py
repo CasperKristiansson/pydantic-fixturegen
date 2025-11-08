@@ -15,6 +15,7 @@ SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 
 UnionPolicyLiteral = Literal["first", "random", "weighted"]
 EnumPolicyLiteral = Literal["first", "random"]
+CyclePolicyLiteral = Literal["reuse", "stub", "null"]
 
 DEFAULT_PYTEST_STYLE = cast(
     Literal["functions", "factory", "class"],
@@ -26,6 +27,7 @@ DEFAULT_PYTEST_SCOPE = cast(
 )
 DEFAULT_UNION_POLICY = cast(UnionPolicyLiteral, DEFAULT_CONFIG.union_policy)
 DEFAULT_ENUM_POLICY = cast(EnumPolicyLiteral, DEFAULT_CONFIG.enum_policy)
+DEFAULT_CYCLE_POLICY = cast(CyclePolicyLiteral, DEFAULT_CONFIG.cycle_policy)
 DEFAULT_NUMBER_DISTRIBUTION = cast(
     Literal["uniform", "normal", "spike"],
     DEFAULT_CONFIG.numbers.distribution,
@@ -179,6 +181,15 @@ class ConfigSchemaModel(BaseModel):
     enum_policy: EnumPolicyLiteral = Field(
         default=DEFAULT_ENUM_POLICY,
         description="Strategy for selecting enum members.",
+    )
+    max_depth: int = Field(
+        default=DEFAULT_CONFIG.max_depth,
+        ge=1,
+        description="Maximum recursion depth before cycle handling policy is applied.",
+    )
+    cycle_policy: CyclePolicyLiteral = Field(
+        default=DEFAULT_CYCLE_POLICY,
+        description="How recursive references are resolved (`reuse`, `stub`, or `null`).",
     )
     overrides: dict[str, dict[str, Any]] = Field(
         default_factory=dict,

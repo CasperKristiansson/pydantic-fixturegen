@@ -10,6 +10,7 @@ from typing import Any, Literal, cast
 from pydantic import BaseModel, TypeAdapter, ValidationError, create_model
 
 from pydantic_fixturegen.core.config import AppConfig, load_config
+from pydantic_fixturegen.core.cycle_report import consume_cycle_events
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError, PFGError
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.introspect import IntrospectedModel
@@ -45,6 +46,8 @@ def _snapshot_config(app_config: AppConfig) -> ConfigSnapshot:
         include=tuple(app_config.include),
         exclude=tuple(app_config.exclude),
         time_anchor=app_config.now,
+        max_depth=app_config.max_depth,
+        cycle_policy=app_config.cycle_policy,
     )
 
 
@@ -54,7 +57,17 @@ def _config_details(snapshot: ConfigSnapshot) -> dict[str, Any]:
         "include": list(snapshot.include),
         "exclude": list(snapshot.exclude),
         "time_anchor": snapshot.time_anchor.isoformat() if snapshot.time_anchor else None,
+        "max_depth": snapshot.max_depth,
+        "cycle_policy": snapshot.cycle_policy,
     }
+
+
+def _instance_payload(instance: BaseModel) -> dict[str, Any]:
+    data = instance.model_dump()
+    events = consume_cycle_events(instance)
+    if events:
+        data["__cycles__"] = [event.to_payload() for event in events]
+    return data
 
 
 def _split_patterns(raw: str | None) -> list[str]:
@@ -152,6 +165,8 @@ def _build_instance_generator(
         relations=app_config.relations,
         relation_models=relation_models or {},
         heuristics_enabled=app_config.heuristics.enabled,
+        max_depth=app_config.max_depth,
+        cycle_policy=app_config.cycle_policy,
     )
     return InstanceGenerator(config=gen_config)
 
@@ -180,6 +195,8 @@ def generate_json_artifacts(
     type_annotation: Any | None = None,
     type_label: str | None = None,
     logger: Logger | None = None,
+    max_depth: int | None = None,
+    cycle_policy: str | None = None,
 ) -> JsonGenerationResult:
     from ..cli.gen import _common as cli_common
 
@@ -249,6 +266,14 @@ def generate_json_artifacts(
         cli_overrides["respect_validators"] = respect_validators
     if validator_max_retries is not None:
         cli_overrides["validator_max_retries"] = validator_max_retries
+    if max_depth is not None:
+        cli_overrides["max_depth"] = max_depth
+    if cycle_policy is not None:
+        cli_overrides["cycle_policy"] = cycle_policy
+    if max_depth is not None:
+        cli_overrides["max_depth"] = max_depth
+    if cycle_policy is not None:
+        cli_overrides["cycle_policy"] = cycle_policy
     json_overrides: dict[str, Any] = {}
     if indent is not None:
         json_overrides["indent"] = indent
@@ -377,7 +402,7 @@ def generate_json_artifacts(
     related_class_tuple = tuple(related_model_classes)
 
     def sample_factory() -> BaseModel | dict[str, Any]:
-        related_instances: list[tuple[type[BaseModel], BaseModel]] = []
+        related_instances: list[tuple[type[BaseModel], dict[str, Any]]] = []
         for related_cls in related_class_tuple:
             related_instance = generator.generate_one(related_cls)
             if related_instance is None:
@@ -385,7 +410,7 @@ def generate_json_artifacts(
                     f"Failed to generate instance for {related_cls.__qualname__}.",
                     details={"model": related_cls.__qualname__},
                 )
-            related_instances.append((related_cls, related_instance))
+            related_instances.append((related_cls, _instance_payload(related_instance)))
 
         instance = generator.generate_one(model_cls)
         if instance is None:
@@ -400,12 +425,13 @@ def generate_json_artifacts(
                 f"Failed to generate instance for {target_model.qualname}.",
                 details=details,
             )
+        payload = _instance_payload(instance)
         if related_instances:
-            bundle: dict[str, Any] = {model_cls.__name__: instance.model_dump()}
-            for related_cls, related_instance in related_instances:
-                bundle[related_cls.__name__] = related_instance.model_dump()
+            bundle: dict[str, Any] = {model_cls.__name__: payload}
+            for related_cls, related_payload in related_instances:
+                bundle[related_cls.__name__] = related_payload
             return bundle
-        return instance
+        return payload
 
     indent_value = indent if indent is not None else app_config.json.indent
     use_orjson_value = use_orjson if use_orjson is not None else app_config.json.orjson
@@ -657,6 +683,8 @@ def generate_fixtures_artifacts(
     relations: Mapping[str, str] | None = None,
     with_related: Sequence[str] | None = None,
     logger: Logger | None = None,
+    max_depth: int | None = None,
+    cycle_policy: str | None = None,
 ) -> FixturesGenerationResult:
     from ..cli.gen import _common as cli_common
 
@@ -824,6 +852,8 @@ def generate_fixtures_artifacts(
         validator_max_retries=app_config.validator_max_retries,
         relations=app_config.relations,
         relation_models=relation_model_map,
+        max_depth=app_config.max_depth,
+        cycle_policy=app_config.cycle_policy,
     )
 
     timestamp = _dt.datetime.now(_dt.timezone.utc)
