@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .seeders import SQLModelSeedRunner
 from .snapshot import (
     FixturesSnapshotConfig,
     JsonSnapshotConfig,
@@ -18,4 +19,5 @@ __all__ = [
     "SnapshotAssertionError",
     "SnapshotRunner",
     "SnapshotUpdateMode",
+    "SQLModelSeedRunner",
 ]

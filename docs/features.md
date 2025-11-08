@@ -58,6 +58,12 @@
 - Pytest fixtures with deterministic parametrisation, configurable style/scope, and atomic writes.
 - JSON Schema emission with sorted keys and trailing newline stability.
 
+## Database seeding
+
+- `pfg gen seed sqlmodel` connects to SQLite/Postgres URLs, batches fixturegen payloads into SQLModel/SQLAlchemy sessions, and supports schema creation, truncation, rollback-only runs, and dry-run logging. The allowlist guard ensures you explicitly opt into non-sqlite hosts with `--allow-url`.
+- `pfg gen seed beanie` uses Motor to stream documents into MongoDB (or `mongomock_motor` for local tests); pass `--cleanup` to delete inserted documents at the end of each run so integration tests can re-use the same collections.
+- Shared helpers in `pydantic_fixturegen.testing.seeders.SQLModelSeedRunner` turn any SQLModel engine and `ModelArtifactPlan` into a pytest fixture that seeds inside a transaction before every test.
+
 ## Plugins and extensibility
 
 - Pluggy hooks: `pfg_register_providers`, `pfg_modify_strategy`, `pfg_emit_artifact`.

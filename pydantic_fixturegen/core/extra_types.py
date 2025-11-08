@@ -48,6 +48,7 @@ _ENTRIES: tuple[ExtraTypeEntry, ...] = (
     ExtraTypeEntry("language-iso639-5", "pydantic_extra_types.language_code", "ISO639_5"),
     ExtraTypeEntry("mac-address", "pydantic_extra_types.mac_address", "MacAddress"),
     ExtraTypeEntry("mongo-object-id", "pydantic_extra_types.mongo_object_id", "MongoObjectId"),
+    ExtraTypeEntry("mongo-object-id", "beanie.odm.fields", "PydanticObjectId"),
     ExtraTypeEntry("payment-card", "pydantic_extra_types.payment", "PaymentCardNumber"),
     ExtraTypeEntry("pendulum-datetime", "pydantic_extra_types.pendulum_dt", "DateTime"),
     ExtraTypeEntry("pendulum-time", "pydantic_extra_types.pendulum_dt", "Time"),

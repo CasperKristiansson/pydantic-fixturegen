@@ -83,6 +83,16 @@ def clear_module_cache() -> None:
             sys.path.remove(entry)
     _sys_path_injections.clear()
 
+    with suppress(ModuleNotFoundError):
+        from sqlmodel import SQLModel
+
+        metadata = getattr(SQLModel, "metadata", None)
+        if metadata is not None:
+            metadata.clear()
+        registry = getattr(SQLModel, "_sa_registry", None)
+        if registry is not None:
+            registry._class_registry.clear()
+
 
 def split_patterns(raw: str | None) -> list[str]:
     if not raw:

@@ -12,6 +12,7 @@ from .json import register as register_json
 from .openapi import register as register_openapi
 from .polyfactory import register as register_polyfactory
 from .schema import register as register_schema
+from .seed import seed_app
 from .strategies import register as register_strategies
 
 app = typer.Typer(help="Generate data artifacts from Pydantic models.")
@@ -24,6 +25,11 @@ register_examples(app)
 register_fixtures(app)
 register_strategies(app)
 register_polyfactory(app)
+app.add_typer(
+    seed_app,
+    name="seed",
+    help="Seed databases via supported ORM integrations.",
+)
 app.add_typer(
     explain_app,
     name="explain",

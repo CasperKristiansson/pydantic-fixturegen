@@ -91,7 +91,25 @@ pfg gen dataset ./models.py \
 - The column order derives from your Pydantic model and includes a `__cycles__` column whenever recursion policies fire, making QA investigations trivial.
 - Seeds, presets, validator retries, relation links, and cycle policies mirror the `gen json` options, so you can share a single configuration block across emitters.
 
-## Step 4 — Emit pytest fixtures
+## Step 4 — Seed integration databases
+
+Install the `[seed]` extra and populate an actual database when running integration tests:
+
+```bash
+pfg gen seed sqlmodel ./models.py \
+  --database sqlite:///seed.db \
+  --include models.User \
+  --n 25 \
+  --create-schema \
+  --batch-size 10 \
+  --truncate
+```
+
+- The SQLModel seeder wraps inserts in a transaction; add `--rollback` when you want to keep the database pristine between tests or `--truncate` when you want a clean slate before writing.
+- For MongoDB-backed stacks, swap `sqlmodel` for `beanie` and point `--database` at `mongodb://...`; adding `--cleanup` deletes inserted documents at the end.
+- Deterministic flags (`--seed`, `--profile`, `--link`, `--with-related`, etc.) behave exactly like JSON/dataset emitters, so your fixtures and databases stay in sync.
+
+## Step 5 — Emit pytest fixtures
 
 ### No models yet? Start from schema or OpenAPI
 
@@ -166,7 +184,7 @@ def user(request) -> User:
 Tune `--style` (`functions`, `factory`, `class`), `--scope` (`function`, `module`, `session`), and `--return-type` (`model`, `dict`) to match your test style.
 Add `--p-none` to bias optional fields.
 
-## Step 5 — Export JSON Schema
+## Step 6 — Export JSON Schema
 
 ```bash
 pfg gen schema ./models.py --out ./schema
@@ -175,7 +193,7 @@ pfg gen schema ./models.py --out ./schema
 Schema files write atomically to avoid partial artifacts.
 Combine with `--watch` to rebuild on file changes.
 
-## Step 6 — Explain generation strategies
+## Step 7 — Explain generation strategies
 
 ```bash
 pfg gen explain ./models.py --tree
@@ -193,7 +211,7 @@ User
 
 Use this view to confirm plugin overrides or preset tweaks.
 
-## Step 7 — Property-based tests with Hypothesis
+## Step 8 — Property-based tests with Hypothesis
 
 Install the `hypothesis` extra and import `strategy_for` whenever you need shrinkable strategies:
 

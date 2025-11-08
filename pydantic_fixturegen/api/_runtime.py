@@ -376,6 +376,7 @@ def _build_model_artifact_plan(
         app_config=app_config,
         config_snapshot=config_snapshot,
         model_cls=model_cls,
+        related_models=related_class_tuple,
         sample_factory=sample_factory,
         template_context=template_context,
         base_output=base_output,
@@ -395,6 +396,7 @@ class ModelArtifactPlan:
     app_config: AppConfig
     config_snapshot: ConfigSnapshot
     model_cls: type[BaseModel]
+    related_models: tuple[type[BaseModel], ...]
     sample_factory: Callable[[], Mapping[str, Any]]
     template_context: OutputTemplateContext
     base_output: Path

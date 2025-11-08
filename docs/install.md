@@ -24,6 +24,9 @@ pip install 'pydantic-fixturegen[watch]'
 pip install 'pydantic-fixturegen[fastapi]'
 pip install 'pydantic-fixturegen[polyfactory]'
 pip install 'pydantic-fixturegen[openapi]'
+pip install 'pydantic-fixturegen[sqlmodel]'
+pip install 'pydantic-fixturegen[beanie]'
+pip install 'pydantic-fixturegen[seed]'
 pip install 'pydantic-fixturegen[all]'
 pip install 'pydantic-fixturegen[all-dev]'
 ```
@@ -34,6 +37,9 @@ pip install 'pydantic-fixturegen[all-dev]'
 - `watch` adds filesystem watching via `watchfiles`.
 - `fastapi` pulls in FastAPI + Uvicorn so you can use `pfg fastapi smoke` and `pfg fastapi serve`.
 - `polyfactory` installs Polyfactory so model discovery can delegate to existing factories and `pfg gen polyfactory` runs immediately.
+- `sqlmodel` installs SQLModel + SQLAlchemy for database seeding.
+- `beanie` installs Beanie + Motor for MongoDB seeding.
+- `seed` bundles both stacks so `pfg gen seed` works out of the box.
 - `dataset` installs PyArrow so `pfg gen dataset --format parquet|arrow` works without additional steps.
 - `openapi` bundles `datamodel-code-generator` + `PyYAML` so you can ingest JSON Schema/OpenAPI documents directly in `pfg`.
 - `all` bundles runtime extras; `all-dev` adds Ruff, mypy, pytest, and pytest-cov.
@@ -74,6 +80,9 @@ hatch run pfg --help
 | `numpy`          | Deterministic NumPy array providers           | Models embedding `numpy.ndarray` fields    |
 | `fastapi`        | FastAPI + Uvicorn                             | Smoke tests and mock servers               |
 | `polyfactory`    | Polyfactory                                   | Delegating to existing `ModelFactory` classes |
+| `sqlmodel`       | SQLModel + SQLAlchemy                         | SQL database seeding via CLI/fixtures       |
+| `beanie`         | Beanie + Motor                                | MongoDB seeding                             |
+| `seed`           | SQLModel + SQLAlchemy + Beanie + Motor        | Enable all seeding workflows                |
 | `dataset`        | PyArrow                                       | CSV/Parquet/Arrow dataset emission         |
 | `openapi`        | `datamodel-code-generator` + PyYAML           | JSON Schema / OpenAPI ingestion workflows  |
 | `all`            | Every runtime extra                           | One-shot enablement                        |

@@ -73,6 +73,28 @@ pfg gen dataset ./models.py \
 - Determinism helpers mirror `gen json`: `--seed`, `--freeze-seeds`, `--preset`, `--profile`, `--now`, `--respect-validators`, `--validator-max-retries`, `--max-depth`, `--on-cycle`, `--rng-mode`.
 - Observability: `--json-errors`, `--watch`, `--watch-debounce`, and relation links via `--link source.field=target.field` stay consistent with other emitters.
 
+### `pfg gen seed`
+
+```bash
+pfg gen seed sqlmodel ./models.py \
+  --database sqlite:///seed.db \
+  --include app.User \
+  --n 100 \
+  --create-schema \
+  --batch-size 25 \
+  --truncate
+
+pfg gen seed beanie ./models.py \
+  --database mongodb://localhost:27017/app \
+  --include app.Account \
+  --cleanup
+```
+
+- `sqlmodel` seeds SQLModel/SQLAlchemy tables via transactional sessions. Use `--database` for the engine URL, `--create-schema` to run `SQLModel.metadata.create_all()`, `--batch-size` to control flush size, `--truncate` to clear existing rows, `--rollback` to run rollback-only transactions, and `--dry-run` to log payloads without touching the database.
+- `beanie` streams deterministic documents into MongoDB; `--cleanup` deletes inserted docs at the end so fixtures can reuse the same collections. Both commands honour `--seed`, `--freeze-seeds`, `--preset`, `--profile`, `--link`, `--with-related`, `--respect-validators`, `--validator-max-retries`, `--max-depth`, `--on-cycle`, and `--rng-mode`.
+- Database URLs are allowlisted by prefix (`sqlite://` and `mongodb://` by default). Pass `--allow-url prefix` (repeatable) when you really want to point at another environment.
+- Install the `[seed]` extra or the narrower `[sqlmodel]` / `[beanie]` extras to pull in SQLModel/SQLAlchemy, Beanie, Motor, and mongomock for local testing.
+
 ### `pfg gen fixtures`
 
 ```bash
