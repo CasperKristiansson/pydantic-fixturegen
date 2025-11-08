@@ -624,5 +624,6 @@ def test_path_generation_supports_model_overrides() -> None:
 
     instance = generator.generate_one(PathExample)
     assert instance is not None
-    rendered = str(instance.artifact)
+    rendered = instance.artifact.as_posix()
+    rendered = "/" + rendered.lstrip("/")  # normalize for Windows UNC paths
     assert rendered.startswith(("/Users", "/Applications", "/Volumes"))

@@ -12,7 +12,7 @@ class DummyModel(BaseModel):
 
 
 def test_config_snapshot_roundtrip() -> None:
-    now = dt.datetime(2024, 7, 4, 12, 30, tzinfo=dt.UTC)
+    now = dt.datetime(2024, 7, 4, 12, 30, tzinfo=dt.timezone.utc)
     snapshot = models.ConfigSnapshot(
         seed=42,
         include=("pkg.ModelA",),
