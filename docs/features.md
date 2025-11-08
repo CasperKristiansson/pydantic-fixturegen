@@ -49,7 +49,7 @@
 
 ## Tooling quality
 
-- Works on Linux, macOS, Windows for Python 3.10–3.13.
+- Works on Linux, macOS, Windows for Python 3.10–3.14.
 - Atomic IO for all emitters to prevent partial artifacts.
 - Ruff, mypy, pytest coverage ≥90% enforced in CI.
 - Optional watch mode (`[watch]` extra), JSON logging, and structured diagnostics for CI integration.

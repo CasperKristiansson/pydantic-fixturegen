@@ -4,7 +4,7 @@
 
 ## You need
 
-- Python 3.10–3.13.
+- Python 3.10–3.14.
 - `pip install pydantic-fixturegen` (add extras like `orjson`, `regex`, `hypothesis`, or `watch` as needed).
 - A small Pydantic v2 model module.
 
@@ -62,13 +62,13 @@ The command writes `out/User.json` with deterministic content:
     "id": 1,
     "name": "Alice",
     "nickname": null,
-    "address": {"street": "42 Main St"}
+    "address": { "street": "42 Main St" }
   },
   {
     "id": 2,
     "name": "Bob",
     "nickname": "b",
-    "address": {"street": "1 Side Rd"}
+    "address": { "street": "1 Side Rd" }
   }
 ]
 ```

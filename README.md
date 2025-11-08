@@ -3,7 +3,7 @@
 > Pydantic v2 deterministic fixtures, pytest fixtures, JSON generator, secure sandboxed CLI with Pluggy providers.
 
 [![PyPI version](https://img.shields.io/pypi/v/pydantic-fixturegen.svg "PyPI")](https://pypi.org/project/pydantic-fixturegen/)
-![Python versions](https://img.shields.io/pypi/pyversions/pydantic-fixturegen.svg "Python 3.10–3.13")
+![Python versions](https://img.shields.io/pypi/pyversions/pydantic-fixturegen.svg "Python 3.10–3.14")
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg "MIT License")
 
 Generate deterministic Pydantic v2 data, pytest fixtures, and JSON quickly with a safe, task-focused CLI built for modern testing workflows.
@@ -68,16 +68,16 @@ All commands → [docs/cli.md](https://github.com/CasperKristiansson/pydantic-fi
 
 <a id="configuration-precedence"></a>
 
-| key                   | type               | default | purpose       |
-| --------------------- | ------------------ | ------- | ------------- |
-| seed                  | int \| str \| null | null    | Global seed   |
-| locale                | str                | en_US   | Faker locale  |
-| union_policy          | enum               | first   | Union branch  |
-| enum_policy           | enum               | first   | Enum choice   |
-| json.indent           | int                | 2       | Pretty JSON   |
-| json.orjson           | bool               | false   | Fast JSON     |
+| key                   | type               | default   | purpose       |
+| --------------------- | ------------------ | --------- | ------------- |
+| seed                  | int \| str \| null | null      | Global seed   |
+| locale                | str                | en_US     | Faker locale  |
+| union_policy          | enum               | first     | Union branch  |
+| enum_policy           | enum               | first     | Enum choice   |
+| json.indent           | int                | 2         | Pretty JSON   |
+| json.orjson           | bool               | false     | Fast JSON     |
 | emitters.pytest.style | enum               | functions | Fixture style |
-| emitters.pytest.scope | enum               | function | Fixture scope |
+| emitters.pytest.scope | enum               | function  | Fixture scope |
 
 ```toml
 [tool.pydantic_fixturegen]
