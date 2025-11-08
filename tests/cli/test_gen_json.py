@@ -1077,3 +1077,39 @@ def test_handle_generation_error_logs_details(monkeypatch: pytest.MonkeyPatch) -
     assert logger.debug_calls and logger.debug_calls[0][1]["event"] == "config_loaded"
     assert logger.warn_calls[0][0] == "warn1"
     assert captured == [{"fields": 3}]
+
+
+def test_gen_json_from_schema(tmp_path: Path) -> None:
+    schema_path = tmp_path / "user.schema.json"
+    schema_path.write_text(
+        json.dumps(
+            {
+                "title": "User",
+                "type": "object",
+                "properties": {
+                    "id": {"type": "integer"},
+                    "email": {"type": "string"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    output_path = tmp_path / "user.json"
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            "--schema",
+            str(schema_path),
+            "--out",
+            str(output_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert isinstance(payload, list)
+    assert payload, "expected at least one emitted sample"
+    assert set(payload[0].keys()) >= {"id", "email"}

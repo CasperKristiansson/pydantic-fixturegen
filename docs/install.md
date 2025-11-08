@@ -21,6 +21,7 @@ pip install 'pydantic-fixturegen[orjson]'
 pip install 'pydantic-fixturegen[regex]'
 pip install 'pydantic-fixturegen[hypothesis]'
 pip install 'pydantic-fixturegen[watch]'
+pip install 'pydantic-fixturegen[openapi]'
 pip install 'pydantic-fixturegen[all]'
 pip install 'pydantic-fixturegen[all-dev]'
 ```
@@ -29,6 +30,7 @@ pip install 'pydantic-fixturegen[all-dev]'
 - `regex` installs `rstr` for regex-constrained strings.
 - `hypothesis` enables property-based extras in the cookbook.
 - `watch` adds filesystem watching via `watchfiles`.
+- `openapi` bundles `datamodel-code-generator` + `PyYAML` so you can ingest JSON Schema/OpenAPI documents directly in `pfg`.
 - `all` bundles runtime extras; `all-dev` adds Ruff, mypy, pytest, and pytest-cov.
 
 ## Poetry
@@ -65,6 +67,7 @@ hatch run pfg --help
 | `hypothesis`     | Property-based strategy exporter (`strategy_for`, `pfg gen strategies`) | Generative testing combos                  |
 | `watch`          | Live regeneration via `watchfiles`            | Watch mode in CI or local loops            |
 | `numpy`          | Deterministic NumPy array providers           | Models embedding `numpy.ndarray` fields    |
+| `openapi`        | `datamodel-code-generator` + PyYAML           | JSON Schema / OpenAPI ingestion workflows  |
 | `all`            | Every runtime extra                           | One-shot enablement                        |
 | `all-dev`        | Runtime extras + mypy, Ruff, pytest, pytest-cov | Local development stacks                  |
 

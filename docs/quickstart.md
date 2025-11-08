@@ -5,7 +5,7 @@
 ## You need
 
 - Python 3.10–3.14.
-- `pip install pydantic-fixturegen` (add extras like `orjson`, `regex`, `hypothesis`, or `watch` as needed).
+- `pip install pydantic-fixturegen` (add extras like `orjson`, `regex`, `hypothesis`, `openapi`, or `watch` as needed).
 - A small Pydantic v2 model module.
 
 ## Step 1 — Create a model file
@@ -74,6 +74,24 @@ The command writes `out/User.json` with deterministic content:
 ```
 
 ## Step 4 — Emit pytest fixtures
+
+### No models yet? Start from schema or OpenAPI
+
+Install the `openapi` extra (`pip install 'pydantic-fixturegen[openapi]'`) and let the CLI scaffold temporary models under the hood:
+
+```bash
+# Standalone JSON Schema
+pfg gen json --schema contracts/user.schema.json --out out/{model}.json
+
+# OpenAPI components per route
+pfg gen openapi api.yaml --route "GET /users" --route "POST /orders" --out openapi/{model}.json
+```
+
+- `--schema` feeds the document through `datamodel-code-generator`, caches the generated module under `.pfg-cache/schemas`, and immediately reuses it for `gen json`, `diff`, or `doctor` runs.
+- `pfg gen openapi` isolates the schemas referenced by the selected HTTP methods and writes one artifact per component—use `{model}` in your template to isolate each response/request body.
+- `pfg doctor --schema ...` / `--openapi ...` surface coverage gaps without writing Python models first.
+
+Schema-derived modules are cached and invalidated automatically when the underlying document (or selected routes) change.
 
 ```bash
 pfg gen fixtures ./models.py \

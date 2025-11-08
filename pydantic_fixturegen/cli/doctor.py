@@ -15,8 +15,15 @@ from pydantic_fixturegen.core.extra_types import describe_extra_annotation
 from pydantic_fixturegen.core.extra_types import (
     resolve_type_id as resolve_extra_type_id,
 )
+from pydantic_fixturegen.core.openapi import (
+    dump_document,
+    load_openapi_document,
+    parse_route_value,
+    select_openapi_schemas,
+)
 from pydantic_fixturegen.core.providers import create_default_registry
 from pydantic_fixturegen.core.schema import FieldSummary, summarize_model_fields
+from pydantic_fixturegen.core.schema_ingest import SchemaIngester
 from pydantic_fixturegen.core.seed_freeze import canonical_module_name
 from pydantic_fixturegen.core.strategies import StrategyBuilder, StrategyResult, UnionStrategy
 from pydantic_fixturegen.plugins.loader import get_plugin_manager
@@ -31,7 +38,11 @@ from .gen._common import (
     split_patterns,
 )
 
-PATH_ARGUMENT = typer.Argument(..., help="Path to a Python module containing Pydantic models.")
+PATH_ARGUMENT = typer.Argument(
+    None,
+    help="Path to a Python module containing Pydantic models.",
+    show_default=False,
+)
 
 INCLUDE_OPTION = typer.Option(
     None,
@@ -45,6 +56,24 @@ EXCLUDE_OPTION = typer.Option(
     "--exclude",
     "-e",
     help="Comma-separated pattern(s) of fully-qualified model names to exclude.",
+)
+
+SCHEMA_OPTION = typer.Option(
+    None,
+    "--schema",
+    help="Path to a JSON Schema document to analyse instead of a Python module.",
+)
+
+OPENAPI_OPTION = typer.Option(
+    None,
+    "--openapi",
+    help="Path to an OpenAPI document to analyse.",
+)
+
+ROUTES_OPTION = typer.Option(
+    None,
+    "--route",
+    help="Limit --openapi analysis to a specific HTTP method and path (e.g. 'GET /users').",
 )
 
 AST_OPTION = typer.Option(False, "--ast", help="Use AST discovery only (no imports executed).")
@@ -122,9 +151,12 @@ class GapSummary:
 
 def doctor(  # noqa: D401 - Typer callback
     ctx: typer.Context,
-    path: str = PATH_ARGUMENT,
+    path: str | None = PATH_ARGUMENT,
     include: str | None = INCLUDE_OPTION,
     exclude: str | None = EXCLUDE_OPTION,
+    schema: Path | None = SCHEMA_OPTION,
+    openapi: Path | None = OPENAPI_OPTION,
+    routes: list[str] | None = ROUTES_OPTION,
     ast_mode: bool = AST_OPTION,
     hybrid_mode: bool = HYBRID_OPTION,
     timeout: float = TIMEOUT_OPTION,
@@ -134,9 +166,22 @@ def doctor(  # noqa: D401 - Typer callback
 ) -> None:
     _ = ctx  # unused
     try:
+        target_path, auto_include = _prepare_doctor_target(
+            path_arg=path,
+            schema=schema,
+            openapi=openapi,
+            routes=routes,
+        )
+
+        include_segments: list[str] = []
+        if include:
+            include_segments.append(include)
+        include_segments.extend(auto_include)
+        include_value = ",".join(filter(None, include_segments)) if include_segments else None
+
         gap_summary = _execute_doctor(
-            target=path,
-            include=include,
+            target=str(target_path),
+            include=include_value,
             exclude=exclude,
             ast_mode=ast_mode,
             hybrid_mode=hybrid_mode,
@@ -162,6 +207,59 @@ def _resolve_method(ast_mode: bool, hybrid_mode: bool) -> DiscoveryMethod:
     if ast_mode:
         return "ast"
     return "import"
+
+
+def _prepare_doctor_target(
+    *,
+    path_arg: str | None,
+    schema: Path | None,
+    openapi: Path | None,
+    routes: list[str] | None,
+) -> tuple[Path, list[str]]:
+    if routes and openapi is None:
+        raise DiscoveryError("--route can only be used together with --openapi.")
+
+    provided = sum(
+        1 for value in (path_arg, schema, openapi) if value is not None
+    )
+    if provided == 0:
+        raise DiscoveryError("Provide a module path, --schema, or --openapi.")
+    if provided > 1:
+        raise DiscoveryError("Choose only one of a module path, --schema, or --openapi.")
+
+    if schema is not None:
+        schema_path = schema.resolve()
+        if not schema_path.exists():
+            raise DiscoveryError(
+                f"Schema file '{schema_path}' does not exist.",
+                details={"path": str(schema_path)},
+            )
+        ingestion = SchemaIngester().ingest_json_schema(schema_path)
+        return ingestion.path, []
+
+    if openapi is not None:
+        spec_path = openapi.resolve()
+        if not spec_path.exists():
+            raise DiscoveryError(
+                f"OpenAPI document '{spec_path}' does not exist.",
+                details={"path": str(spec_path)},
+            )
+        try:
+            parsed_routes = [parse_route_value(value) for value in routes] if routes else None
+        except ValueError as exc:
+            raise DiscoveryError(str(exc)) from exc
+        document = load_openapi_document(spec_path)
+        selection = select_openapi_schemas(document, parsed_routes)
+        ingestion = SchemaIngester().ingest_openapi(
+            spec_path,
+            document_bytes=dump_document(selection.document),
+            fingerprint=selection.fingerprint(),
+        )
+        includes = [f"*.{name}" for name in selection.schemas]
+        return ingestion.path, includes
+
+    assert path_arg is not None
+    return Path(path_arg), []
 
 
 def _execute_doctor(

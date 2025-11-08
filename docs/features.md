@@ -9,6 +9,13 @@
 - Structured error payloads (`--json-errors`) with taxonomy code `20`.
 - Sandbox controls for timeout and memory limits.
 
+## Schema ingestion
+
+- `pfg gen json --schema schema.json` ingests standalone JSON Schema documents (via `datamodel-code-generator`) and immediately reuses the cached module for generation, explain, and diff workflows.
+- `pfg gen openapi spec.yaml --route "GET /users"` materialises OpenAPI 3.x components, isolates the schemas referenced by the selected routes, and emits a per-schema JSON sample (using `{model}` in your output template to fan out across operations).
+- `pfg doctor --schema` / `--openapi` surface coverage gaps for schema-driven models, so you can spot unsupported field shapes before writing a single Python class.
+- Generated modules are cached under `.pfg-cache/schemas` keyed by the document fingerprint and selected routes, which keeps reruns instant while still regenerating when the source spec changes.
+
 ## Generation engine
 
 - Depth-first instance builder with recursion limits and constraint awareness.

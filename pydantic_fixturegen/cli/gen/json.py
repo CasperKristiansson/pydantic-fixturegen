@@ -13,6 +13,7 @@ from pydantic_fixturegen.api.models import JsonGenerationResult
 from pydantic_fixturegen.core.config import ConfigError
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, PFGError
 from pydantic_fixturegen.core.path_template import OutputTemplate
+from pydantic_fixturegen.core.schema_ingest import SchemaIngester
 
 from ...logging import Logger, get_logger
 from ..watch import gather_default_watch_paths, run_with_watch
@@ -134,6 +135,12 @@ TYPE_OPTION = typer.Option(
     help=("Python type expression to generate via TypeAdapter (e.g. 'list[EmailStr]')."),
 )
 
+SCHEMA_OPTION = typer.Option(
+    None,
+    "--schema",
+    help="Path to a JSON Schema document to ingest before generation.",
+)
+
 RESPECT_VALIDATORS_OPTION = typer.Option(
     None,
     "--respect-validators/--no-respect-validators",
@@ -204,8 +211,16 @@ def register(app: typer.Typer) -> None:
         max_depth: int | None = MAX_DEPTH_OPTION,
         cycle_policy: str | None = CYCLE_POLICY_OPTION,
         rng_mode: str | None = RNG_MODE_OPTION,
+        schema: Path | None = SCHEMA_OPTION,
     ) -> None:
         logger = get_logger()
+
+        if schema is not None and type_expr is not None:
+            render_cli_error(
+                DiscoveryError("--schema cannot be combined with --type targets."),
+                json_errors=json_errors,
+            )
+            return
 
         try:
             output_template = OutputTemplate(str(out))
@@ -213,12 +228,40 @@ def register(app: typer.Typer) -> None:
             render_cli_error(exc, json_errors=json_errors)
             return
 
+        schema_source_path: Path | None = None
+        if schema is not None:
+            schema_source_path = schema.resolve()
+            if target is not None:
+                render_cli_error(
+                    DiscoveryError("Provide either a module path or --schema (not both)."),
+                    json_errors=json_errors,
+                )
+                return
+            if not schema_source_path.exists():
+                render_cli_error(
+                    DiscoveryError(
+                        f"Schema file '{schema_source_path}' does not exist.",
+                        details={"path": str(schema_source_path)},
+                    ),
+                    json_errors=json_errors,
+                )
+                return
+            try:
+                ingestion = SchemaIngester().ingest_json_schema(schema_source_path)
+            except PFGError as exc:
+                render_cli_error(exc, json_errors=json_errors)
+                return
+            target = str(ingestion.path)
+
         watch_output: Path | None = None
-        watch_extra: list[Path] | None = None
+        watch_extra_paths: list[Path] = []
         if output_template.has_dynamic_directories():
-            watch_extra = [output_template.watch_parent()]
+            watch_extra_paths.append(output_template.watch_parent())
         else:
             watch_output = output_template.preview_path()
+        if schema_source_path is not None:
+            watch_extra_paths.append(schema_source_path)
+        watch_extra = watch_extra_paths or None
 
         module_path = Path(target) if target else None
         type_annotation: Any | None = None

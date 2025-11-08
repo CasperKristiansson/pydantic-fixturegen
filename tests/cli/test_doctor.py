@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -497,6 +498,9 @@ def test_doctor_handles_pfg_error_return(monkeypatch: pytest.MonkeyPatch) -> Non
         path="ignored",
         include=None,
         exclude=None,
+        schema=None,
+        openapi=None,
+        routes=None,
         ast_mode=False,
         hybrid_mode=False,
         timeout=1.0,
@@ -506,3 +510,32 @@ def test_doctor_handles_pfg_error_return(monkeypatch: pytest.MonkeyPatch) -> Non
     )
 
     assert captured == ["boom"]
+
+
+def test_doctor_handles_schema_input(tmp_path: Path) -> None:
+    schema_path = tmp_path / "user.schema.json"
+    schema_path.write_text(
+        json.dumps(
+            {
+                "title": "User",
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "age": {"type": "integer"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "doctor",
+            "--schema",
+            str(schema_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "User" in result.stdout

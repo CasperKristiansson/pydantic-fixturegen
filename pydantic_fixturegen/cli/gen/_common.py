@@ -174,6 +174,10 @@ def load_model_class(model_info: IntrospectedModel) -> type[BaseModel]:
             f"Attribute {model_info.name!r} in module "
             f"{module.__name__} is not a Pydantic BaseModel."
         )
+    rebuild = getattr(attr, "model_rebuild", None)
+    if callable(rebuild):  # pragma: no branch - harmless when absent
+        namespace = getattr(module, "__dict__", {})
+        rebuild(force=True, _types_namespace=namespace)
     return attr
 
 

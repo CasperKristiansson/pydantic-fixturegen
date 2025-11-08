@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Added
 
+- Added schema ingestion workflows: `pfg gen json --schema` ingests standalone JSON Schema files, `pfg gen openapi` fans out OpenAPI 3.x routes into per-schema JSON samples, and `pfg doctor --schema/--openapi` surfaces coverage gaps without writing Python models; documents are cached under `.pfg-cache/schemas`, and the new `openapi` extra bundles `datamodel-code-generator` + PyYAML for these commands (addresses issue #36).
 - Added cross-platform filesystem path providers for `pathlib.Path`, `pydantic.DirectoryPath`, and `pydantic.FilePath` fields, including a new `[paths]` configuration section for default OS targets and per-model overrides that flow through the CLI, Python API, and emitters.
 - Added configurable deterministic identifier providers for emails, URLs, UUIDs, secrets, and payment cards; provider behaviour is governed by new `[identifiers]` settings in project config.
 - Added a heuristic provider mapping engine that inspects field names, aliases, constraints, and `Annotated` metadata to automatically route common shapes (emails, slugs, currency codes, ISO country/language identifiers, filesystem paths, etc.) onto richer providers, complete with explain provenance in `pfg gen explain`, a `[heuristics]` opt-out switch, and a new `pfg_register_heuristics` pluggy hook for custom rules.

@@ -7,12 +7,14 @@ import typer
 from .explain import app as explain_app
 from .fixtures import register as register_fixtures
 from .json import register as register_json
+from .openapi import register as register_openapi
 from .schema import register as register_schema
 from .strategies import register as register_strategies
 
 app = typer.Typer(help="Generate data artifacts from Pydantic models.")
 
 register_json(app)
+register_openapi(app)
 register_schema(app)
 register_fixtures(app)
 register_strategies(app)

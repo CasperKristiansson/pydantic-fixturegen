@@ -34,6 +34,10 @@ dependencies = [
 regex = [
   "rstr>=3.2.2",
 ]
+openapi = [
+  "datamodel-code-generator>=0.35.0,<0.36.0",
+  "pyyaml>=6.0.1",
+]
 email = [
   "email-validator>=2.0.0",
 ]
@@ -66,6 +70,8 @@ watch = [
 ]
 docs = []
 all = [
+  "datamodel-code-generator>=0.35.0,<0.36.0",
+  "pyyaml>=6.0.1",
   "email-validator>=2.0.0",
   "pydantic-extra-types>=2.6.0",
   "python-ulid>=2.2.0",
@@ -81,6 +87,8 @@ all-dev = [
   "ruff>=0.6.5",
   "pytest>=8.3",
   "pytest-cov>=5.0",
+  "datamodel-code-generator>=0.35.0,<0.36.0",
+  "pyyaml>=6.0.1",
   "email-validator>=2.0.0",
   "pydantic-extra-types>=2.6.0",
   "python-ulid>=2.2.0",
@@ -178,6 +186,18 @@ module = "pydantic_extra_types.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = "datamodel_code_generator"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "datamodel_code_generator.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "yaml"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = ["tests", "tests.*"]
 ignore_errors = true
 
@@ -185,6 +205,7 @@ ignore_errors = true
 target-version = "py310"
 line-length = 100
 src = ["pydantic_fixturegen", "tests"]
+exclude = [".pfg-cache"]
 
 [tool.ruff.lint]
 select = [
