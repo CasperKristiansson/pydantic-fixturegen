@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, get_origin
+from typing import Any, get_args, get_origin
 
 __all__ = [
     "ExtraTypeEntry",
@@ -119,18 +119,28 @@ def resolve_type_id(annotation: Any) -> str | None:
 def describe_extra_annotation(annotation: Any) -> str | None:
     """Return a human-readable label when the annotation originates from extra types."""
 
-    target = annotation
-    while True:
-        origin = get_origin(target)
-        if origin is None:
-            break
-        target = origin
+    stack = [annotation]
+    seen: set[int] = set()
 
-    module = getattr(target, "__module__", "")
-    if not module.startswith("pydantic_extra_types"):
-        return None
-    name = getattr(target, "__qualname__", getattr(target, "__name__", str(target)))
-    return f"{module}.{name}"
+    while stack:
+        target = stack.pop()
+        target_id = id(target)
+        if target_id in seen:
+            continue
+        seen.add(target_id)
+
+        module = getattr(target, "__module__", "")
+        if module.startswith("pydantic_extra_types"):
+            name = getattr(target, "__qualname__", getattr(target, "__name__", str(target)))
+            return f"{module}.{name}"
+
+        origin = get_origin(target)
+        if origin is not None:
+            stack.append(origin)
+        for arg in get_args(target):
+            stack.append(arg)
+
+    return None
 
 
 def is_extra_annotation(annotation: Any) -> bool:

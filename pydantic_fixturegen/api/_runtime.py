@@ -255,8 +255,13 @@ def generate_json_artifacts(
         json_overrides["orjson"] = use_orjson
     if json_overrides:
         cli_overrides["json"] = json_overrides
-    include_values = list(clear_include) if clear_include else []
-    if related_include_patterns:
+    include_values: list[str] | None = None
+    if clear_include is not None:
+        include_values = list(clear_include)
+        if related_include_patterns:
+            include_values.extend(related_include_patterns)
+    elif related_include_patterns:
+        include_values = ["*"]
         include_values.extend(related_include_patterns)
     if include_values:
         cli_overrides["include"] = include_values
@@ -709,8 +714,13 @@ def generate_fixtures_artifacts(
         emitter_overrides["scope"] = scope
     if emitter_overrides:
         cli_overrides["emitters"] = {"pytest": emitter_overrides}
-    include_values = list(clear_include) if clear_include else []
-    if related_include_patterns:
+    include_values: list[str] | None = None
+    if clear_include is not None:
+        include_values = list(clear_include)
+        if related_include_patterns:
+            include_values.extend(related_include_patterns)
+    elif related_include_patterns:
+        include_values = ["*"]
         include_values.extend(related_include_patterns)
     if include_values:
         cli_overrides["include"] = include_values

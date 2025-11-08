@@ -833,7 +833,7 @@ def test_generate_fixtures_artifacts_delegates_to_plugin(
 from pydantic import BaseModel
 
 
-class Item(BaseModel):
+class Sample(BaseModel):
     name: str
 """,
     )
@@ -873,7 +873,7 @@ def test_generate_fixtures_artifacts_attach_error_details(
 from pydantic import BaseModel
 
 
-class Item(BaseModel):
+class Sample(BaseModel):
     name: str
 """,
     )
