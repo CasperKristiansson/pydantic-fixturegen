@@ -64,6 +64,14 @@
 - `pfg gen seed beanie` uses Motor to stream documents into MongoDB (or `mongomock_motor` for local tests); pass `--cleanup` to delete inserted documents at the end of each run so integration tests can re-use the same collections.
 - Shared helpers in `pydantic_fixturegen.testing.seeders.SQLModelSeedRunner` turn any SQLModel engine and `ModelArtifactPlan` into a pytest fixture that seeds inside a transaction before every test.
 
+## Deterministic anonymizer
+
+- `pfg anonymize` ingests JSON/JSONL payloads (files or directory trees), applies rule-driven scrubbing (faker/hash/mask strategies), and mirrors the original layout when writing sanitized artifacts.
+- Rule bundles live in TOML/YAML/JSON files and support glob/regex patterns, required flags, Faker providers, hash algorithm selection, and mask templates. Profiles such as `pii-safe` or `adversarial` pre-seed sensible rule sets and privacy budgets, and you can layer overrides with `--salt`, `--entity-field`, or `[anonymize.budget]` entries.
+- Privacy budgets enforce deterministic redaction quality: if required rules never match or a strategy fails more than allowed, the CLI exits with a structured `EmitError`. `--report` writes a JSON summary containing before/after diff samples, per-strategy counts, and active thresholds so CI can archive evidence of each run.
+- Doctor integration: pass `--doctor-target models.py` to pipeline sanitized data straight into `pfg doctor` gap detection; the resulting coverage snapshot is embedded in the report for auditing.
+- Python API helpers (`anonymize_payloads`, `anonymize_from_rules`) expose the exact pipeline inside applications or bespoke scripts without shelling out to the CLI.
+
 ## Plugins and extensibility
 
 - Pluggy hooks: `pfg_register_providers`, `pfg_modify_strategy`, `pfg_emit_artifact`.

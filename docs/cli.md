@@ -146,6 +146,26 @@ pfg gen polyfactory ./models.py --out tests/polyfactory_factories.py --seed 11 -
 - Supports `--include`/`--exclude`, `--seed`, `--max-depth`, `--on-cycle`, `--rng-mode`, and `--watch` just like other `gen` subcommands. Pass `--stdout` to stream the scaffold elsewhere.
 - Pair with the `[polyfactory]` config block: the CLI respects `prefer_delegation` and automatically registers any factories it exported the next time you run `gen json`, `gen fixtures`, or the FastAPI commands.
 
+## `pfg anonymize`
+
+```bash
+pfg anonymize \
+  --rules anonymize.toml \
+  --profile pii-safe \
+  --entity-field account.id \
+  --salt rotate-2025-11 \
+  --report reports/anonymize.json \
+  --doctor-target app/models.py \
+  ./data/users.json ./sanitized/users.json
+```
+
+- `--rules` points to a TOML/YAML/JSON file describing field patterns and strategies (faker/hash/mask). Rules are evaluated in order, can be marked `required`, and inherit presets when you pass `--profile`.
+- Supply the destination as a positional argument (shown above) or via `--out/--output` if you prefer an explicit flag; directory inputs mirror their structure under the output directory. Because `pfg` proxies commands through the root Typer app, place options before the positional arguments to keep Click happy.
+- Determinism helpers: `--salt` controls the hash/key derivation, `--entity-field` picks a dotted column used to derive stable pseudonyms, and `--profile` layers in the same privacy bundles available to generation commands.
+- Observability: `--report` writes a JSON summary containing before/after diff samples, per-strategy counts, and privacy budget metrics. Add `--doctor-target` to reuse `pfg doctor` gap detection after data is anonymized.
+- Budgets: `--max-required-misses` and `--max-rule-failures` override the thresholds defined in the rules file/profile so CI can fail fast when sensitive fields slip through unchanged.
+- Input/output flexibility: accept JSON arrays, standalone objects, JSONL/NDJSON streams, or directory trees (mirrored to the output directory). Every writer preserves determinism, so running the command twice with the same salt/entity key yields identical sanitized payloads.
+
 ## `pfg diff`
 
 ```bash

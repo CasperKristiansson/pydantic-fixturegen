@@ -271,6 +271,7 @@ def _execute_doctor(
     hybrid_mode: bool,
     timeout: float,
     memory_limit_mb: int,
+    render: bool = True,
 ) -> GapSummary:
     path = Path(target)
     if not path.exists():
@@ -317,7 +318,8 @@ def _execute_doctor(
         all_gaps.extend(model_report.gaps)
 
     gap_summary = _summarize_gaps(all_gaps)
-    _render_report(reports, gap_summary)
+    if render:
+        _render_report(reports, gap_summary)
     return gap_summary
 
 

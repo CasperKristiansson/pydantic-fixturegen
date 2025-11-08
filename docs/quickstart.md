@@ -230,6 +230,48 @@ def test_user_round_trips_through_api(instance: User) -> None:
 
 Prefer repeatable fixtures? Generate a python module with `pfg gen strategies models.py --out tests/strategies.py --strategy-profile edge` and import the exported `user_strategy` in multiple tests without writing boilerplate.
 
+## Step 9 — Deterministic anonymization
+
+Start by declaring rule sets in TOML/YAML/JSON:
+
+```toml
+[anonymize]
+salt = "rotation-nov-2025"
+entity_field = "account.id"
+
+  [[anonymize.rules]]
+  pattern = "*.email"
+  strategy = "faker"
+  provider = "email"
+  required = true
+
+  [[anonymize.rules]]
+  pattern = "*.ssn"
+  strategy = "hash"
+  hash_algorithm = "sha1"
+  required = true
+
+  [[anonymize.budget]]
+  max_required_rule_misses = 0
+  max_rule_failures = 0
+```
+
+Then run:
+
+```bash
+pfg anonymize \
+  --rules anonymize.toml \
+  --profile pii-safe \
+  --report reports/anonymize.json \
+  --doctor-target app/models.py \
+  ./data/users.json ./sanitized/users.json
+```
+
+- Rule patterns are glob-friendly dotted paths (`users.*.email`, `orders[*].card.last4`) and strategies include `faker`, `hash`, and `mask`.
+- Determinism comes from the salt, entity key, and optional privacy profile. Change the salt to rotate pseudonyms without editing rules. When invoking via `pfg`, place options before the positional arguments so the proxy forwards them correctly.
+- Privacy budgets fail the run when required rules never match or a strategy throws; the JSON report logs every replacement count, diff sample, and coverage summary from `pfg doctor` when you pass `--doctor-target`.
+- Need the functionality inside Python? `from pydantic_fixturegen.api import anonymize_from_rules` returns the sanitized payload plus the same report structure.
+
 ## Watch mode
 
 <a id="watch-mode"></a>

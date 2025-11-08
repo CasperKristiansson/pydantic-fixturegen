@@ -1,5 +1,3 @@
-"""Public Python API for pydantic-fixturegen."""
-
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -14,6 +12,7 @@ from ._runtime import (
     generate_json_artifacts,
     generate_schema_artifacts,
 )
+from .anonymize import anonymize_from_rules, anonymize_payloads
 from .models import (
     DatasetGenerationResult,
     FixturesGenerationResult,
@@ -30,6 +29,8 @@ __all__ = [
     "generate_fixtures",
     "generate_json",
     "generate_schema",
+    "anonymize_payloads",
+    "anonymize_from_rules",
 ]
 
 
