@@ -107,6 +107,18 @@ pfg fastapi serve app.main:app --port 8050 --seed 7
 - The smoke command generates a pytest module (one test per route) using fixture data, asserts responses stay 2xx, and validates response models. Pass `--dependency-override original=stub` to bypass auth dependencies.
 - The mock server mirrors your FastAPI routes but returns deterministic JSON payloads, making it easy to share a contract-first API without deploying the real backend.
 
+### Bridge existing Polyfactory factories
+
+```bash
+pip install 'pydantic-fixturegen[polyfactory]'
+
+pfg gen polyfactory ./models.py --out tests/factories.py --include app.models.User
+```
+
+- With the extra installed, fixturegen automatically discovers `ModelFactory` subclasses in your project (including `app.factories`-style modules) and delegates matching models to them for `gen json`, `gen fixtures`, and FastAPI/mock workflows—no double maintenance when migrating.
+- Set `[polyfactory] prefer_delegation = false` if you only want detection logs; you can still export wrapper factories via `pfg gen polyfactory` so teams that rely on Polyfactory APIs can call your new fixturegen-powered implementations.
+- The generated module includes `seed_factories(seed)` so test suites can reseed the shared `InstanceGenerator`, and every exported factory still honors keyword overrides by falling back to Polyfactory’s native `build()` implementation when explicit kwargs are provided.
+
 ### OpenAPI examples via fixtures
 
 ```bash

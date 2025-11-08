@@ -9,6 +9,7 @@ from .explain import app as explain_app
 from .fixtures import register as register_fixtures
 from .json import register as register_json
 from .openapi import register as register_openapi
+from .polyfactory import register as register_polyfactory
 from .schema import register as register_schema
 from .strategies import register as register_strategies
 
@@ -20,6 +21,7 @@ register_schema(app)
 register_examples(app)
 register_fixtures(app)
 register_strategies(app)
+register_polyfactory(app)
 app.add_typer(
     explain_app,
     name="explain",

@@ -129,6 +129,13 @@ class HeuristicConfig:
 
 
 @dataclass(frozen=True)
+class PolyfactoryConfig:
+    enabled: bool = True
+    prefer_delegation: bool = True
+    modules: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class AppConfig:
     preset: str | None = None
     profile: str | None = None
@@ -156,6 +163,7 @@ class AppConfig:
     validator_max_retries: int = 2
     relations: tuple[RelationLinkConfig, ...] = ()
     heuristics: HeuristicConfig = field(default_factory=HeuristicConfig)
+    polyfactory: PolyfactoryConfig = field(default_factory=PolyfactoryConfig)
 
 
 DEFAULT_CONFIG = AppConfig()
@@ -242,6 +250,11 @@ def _config_defaults_dict() -> dict[str, Any]:
         "paths": {
             "default_os": DEFAULT_CONFIG.paths.default_os,
             "models": {pattern: target for pattern, target in DEFAULT_CONFIG.paths.model_targets},
+        },
+        "polyfactory": {
+            "enabled": DEFAULT_CONFIG.polyfactory.enabled,
+            "prefer_delegation": DEFAULT_CONFIG.polyfactory.prefer_delegation,
+            "modules": list(DEFAULT_CONFIG.polyfactory.modules),
         },
         "respect_validators": DEFAULT_CONFIG.respect_validators,
         "validator_max_retries": DEFAULT_CONFIG.validator_max_retries,
@@ -400,6 +413,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
     paths_value = _normalize_path_config(data.get("paths"))
     relations_value = _normalize_relations(data.get("relations"))
     heuristics_value = _normalize_heuristics(data.get("heuristics"))
+    polyfactory_value = _normalize_polyfactory_config(data.get("polyfactory"))
     now_value = _coerce_datetime(data.get("now"), "now")
 
     seed_value: int | str | None
@@ -446,6 +460,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         cycle_policy=cycle_policy_value,
         rng_mode=rng_mode_value,
         heuristics=heuristics_value,
+        polyfactory=polyfactory_value,
     )
 
     return config
@@ -908,6 +923,31 @@ def _normalize_path_config(value: Any) -> PathConfig:
             raise ConfigError("paths.models must be a mapping of pattern to target OS.")
 
     return PathConfig(default_os=default_os, model_targets=tuple(model_targets))
+
+
+def _normalize_polyfactory_config(value: Any) -> PolyfactoryConfig:
+    if value is None:
+        return PolyfactoryConfig()
+    if not isinstance(value, Mapping):
+        raise ConfigError("polyfactory must be a mapping.")
+
+    enabled = _coerce_bool_value(
+        value.get("enabled"),
+        field_name="polyfactory.enabled",
+        default=DEFAULT_CONFIG.polyfactory.enabled,
+    )
+    prefer_delegation = _coerce_bool_value(
+        value.get("prefer_delegation"),
+        field_name="polyfactory.prefer_delegation",
+        default=DEFAULT_CONFIG.polyfactory.prefer_delegation,
+    )
+    modules_raw = value.get("modules")
+    modules = _normalize_sequence(modules_raw)
+    return PolyfactoryConfig(
+        enabled=enabled,
+        prefer_delegation=prefer_delegation,
+        modules=modules,
+    )
 
 
 def _normalize_relations(value: Any) -> tuple[RelationLinkConfig, ...]:

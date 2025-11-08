@@ -8,6 +8,7 @@
 - Providers live in `pydantic_fixturegen.core.providers` and are loaded through a `ProviderRegistry`.
 - Plugins register new providers via Pluggy and can override defaults selectively.
 - A heuristic rule engine inspects field names, aliases, constraints, and metadata to map common shapes (emails, slugs, country/language codes, filesystem paths, etc.) onto richer providers automatically; see [heuristic settings](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md#heuristic-settings) for opt-out controls.
+- When the [`polyfactory`](https://pypi.org/project/polyfactory/) extra is installed and `[polyfactory]` keeps `prefer_delegation = true`, fixturegen auto-registers any `ModelFactory` subclasses it finds as model-level delegates so you can keep bespoke Polyfactory logic without touching providers manually.
 
 ## Scaffold plugin projects
 

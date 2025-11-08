@@ -32,6 +32,10 @@ from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplat
 from pydantic_fixturegen.core.seed import DEFAULT_LOCALE, RNGModeLiteral
 from pydantic_fixturegen.core.seed_freeze import canonical_module_name, model_identifier
 from pydantic_fixturegen.core.version import build_artifact_header
+from pydantic_fixturegen.polyfactory_support import (
+    PolyfactoryBinding,
+    attach_polyfactory_bindings,
+)
 
 DEFAULT_SCOPE = "function"
 ALLOWED_SCOPES: set[str] = {"function", "module", "session"}
@@ -67,6 +71,7 @@ class PytestEmitConfig:
     max_depth: int = 5
     cycle_policy: str = "reuse"
     rng_mode: RNGModeLiteral = "portable"
+    polyfactory_bindings: tuple[PolyfactoryBinding, ...] = ()
 
 
 def emit_pytest_fixtures(
@@ -113,7 +118,10 @@ def emit_pytest_fixtures(
         )
         if cfg.optional_p_none is not None:
             generation_config.optional_p_none = cfg.optional_p_none
-        return InstanceGenerator(config=generation_config)
+        generator = InstanceGenerator(config=generation_config)
+        if cfg.polyfactory_bindings:
+            attach_polyfactory_bindings(generator, cfg.polyfactory_bindings)
+        return generator
 
     shared_generator: InstanceGenerator | None = None
 

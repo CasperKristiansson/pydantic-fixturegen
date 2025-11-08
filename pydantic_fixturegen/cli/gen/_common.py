@@ -11,6 +11,7 @@ import sys
 import typing
 import uuid as _uuid
 from collections.abc import Mapping, Sequence
+from contextlib import suppress
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Literal
@@ -42,6 +43,7 @@ __all__ = [
 
 
 _module_cache: dict[str, ModuleType] = {}
+_sys_path_injections: set[str] = set()
 _CANONICAL_ATTR = "__pfg_canonical_name__"
 _MODEL_CANONICAL_ATTR = "__pfg_canonical_module__"
 
@@ -69,6 +71,17 @@ def clear_module_cache() -> None:
     """Clear cached module imports used during CLI execution."""
 
     _module_cache.clear()
+    stale_modules = [
+        name
+        for name, module in list(sys.modules.items())
+        if getattr(module, _CANONICAL_ATTR, None)
+    ]
+    for name in stale_modules:
+        sys.modules.pop(name, None)
+    for entry in list(_sys_path_injections):
+        with suppress(ValueError):
+            sys.path.remove(entry)
+    _sys_path_injections.clear()
 
 
 def split_patterns(raw: str | None) -> list[str]:
@@ -289,6 +302,7 @@ def _import_module_by_path(module_name: str, path: Path) -> ModuleType:
     for entry in reversed(sys_path_entries):
         if entry not in sys.path:
             sys.path.insert(0, entry)
+            _sys_path_injections.add(entry)
 
     unique_name = module_name
     if module_name in sys.modules:

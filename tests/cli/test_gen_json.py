@@ -119,6 +119,61 @@ def _write_relative_import_package(tmp_path: Path) -> Path:
     return target_module
 
 
+def test_gen_json_prefers_polyfactory_factories(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pytest.importorskip("polyfactory")
+    monkeypatch.setenv("PFG_POLYFACTORY__ENABLED", "true")
+    monkeypatch.setenv("PFG_POLYFACTORY__PREFER_DELEGATION", "true")
+    module_path = tmp_path / "models.py"
+    module_path.write_text(
+        textwrap.dedent(
+            """
+            from pydantic import BaseModel
+            from polyfactory.factories.pydantic_factory import ModelFactory
+
+
+            class User(BaseModel):
+                name: str = "fixturegen"
+
+
+            class UserFactory(ModelFactory[User]):
+                __model__ = User
+                __check_model__ = False
+
+                @classmethod
+                def build(cls, factory_use_construct: bool = False, **kwargs):  # noqa: ARG002
+                    return User(name="delegated")
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    output = tmp_path / "delegated.json"
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(output),
+            "--include",
+            "models.User",
+            "--n",
+            "1",
+        ],
+        env={
+            "PFG_POLYFACTORY__ENABLED": "true",
+            "PFG_POLYFACTORY__PREFER_DELEGATION": "true",
+        },
+    )
+    assert result.exit_code == 0, result.stdout
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload[0]["name"] == "delegated"
+
+
 def test_gen_json_basic(tmp_path: Path) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "users.json"

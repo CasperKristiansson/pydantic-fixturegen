@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from ..core.generate import GenerationConfig, InstanceGenerator
 from ..core.seed import SeedManager
-from .loader import import_fastapi_app, iter_route_specs
+from .loader import PayloadShape, import_fastapi_app, iter_route_specs
 
 
 def _require_fastapi_objects() -> Any:
@@ -38,7 +38,7 @@ def build_mock_app(
     generator = InstanceGenerator(config=GenerationConfig(seed=normalized_seed))
 
     for spec in iter_route_specs(source_app):
-        payload = _build_response_factory(generator, spec.response_model)
+        payload = _build_response_factory(generator, spec.response_model, spec.response_shape)
 
         async def handler(payload_fn: Callable[[], Any] = payload) -> Any:
             return payload_fn()
@@ -54,7 +54,9 @@ def build_mock_app(
 
 
 def _build_response_factory(
-    generator: InstanceGenerator, model: type[BaseModel] | None
+    generator: InstanceGenerator,
+    model: type[BaseModel] | None,
+    shape: PayloadShape,
 ) -> Callable[[], Any]:
     if model is None:
         return lambda: {"ok": True}
@@ -62,8 +64,17 @@ def _build_response_factory(
     def factory() -> Any:
         instance = generator.generate_one(model)
         if instance is None:
+            if shape == "list":
+                return []
+            if shape == "dict":
+                return {}
             return {}
-        return instance.model_dump(mode="json")
+        payload = instance.model_dump(mode="json")
+        if shape == "list":
+            return [payload]
+        if shape == "dict":
+            return {"item": payload}
+        return payload
 
     return factory
 

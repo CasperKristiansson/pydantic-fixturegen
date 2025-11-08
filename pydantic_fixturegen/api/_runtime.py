@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import datetime as _dt
 from collections.abc import Iterable, Mapping, Sequence
+from contextlib import suppress
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import BaseModel, TypeAdapter, ValidationError, create_model
 
@@ -38,6 +39,9 @@ from .models import (
     JsonGenerationResult,
     SchemaGenerationResult,
 )
+
+if TYPE_CHECKING:  # pragma: no cover
+    from pydantic_fixturegen.polyfactory_support import PolyfactoryBinding
 
 
 def _snapshot_config(app_config: AppConfig) -> ConfigSnapshot:
@@ -174,6 +178,97 @@ def _build_instance_generator(
         rng_mode=app_config.rng_mode,
     )
     return InstanceGenerator(config=gen_config)
+
+
+def _collect_polyfactory_bindings(
+    *,
+    app_config: AppConfig,
+    discovery: IntrospectedModel | Sequence[IntrospectedModel] | None,
+    model_class_lookup: Mapping[str, type[BaseModel]] | None,
+    logger: Logger,
+) -> tuple[PolyfactoryBinding, ...]:
+    from pydantic_fixturegen.polyfactory_support import discover_polyfactory_bindings
+
+    if not app_config.polyfactory.enabled:
+        return ()
+    if discovery is None or model_class_lookup is None:
+        return ()
+
+    models = discovery if isinstance(discovery, Sequence) else [discovery]
+    bindings = discover_polyfactory_bindings(
+        model_classes=model_class_lookup.values(),
+        discovery_modules=[model.module for model in models],
+        extra_modules=app_config.polyfactory.modules,
+        logger=logger,
+    )
+    return _rebase_polyfactory_bindings(bindings, model_class_lookup)
+
+
+def _maybe_enable_polyfactory_delegation(
+    *,
+    generator: InstanceGenerator,
+    app_config: AppConfig,
+    bindings: Sequence[PolyfactoryBinding],
+    logger: Logger,
+) -> None:
+    from pydantic_fixturegen.polyfactory_support import attach_polyfactory_bindings
+
+    if not bindings:
+        return
+    if not app_config.polyfactory.prefer_delegation:
+        logger.info(
+            "Polyfactory factories detected; delegation disabled by config",
+            event="polyfactory_delegation_disabled",
+            count=len(bindings),
+        )
+        return
+    attach_polyfactory_bindings(generator, bindings, logger=logger)
+
+
+def _rebase_polyfactory_bindings(
+    bindings: Sequence[PolyfactoryBinding],
+    model_class_lookup: Mapping[str, type[BaseModel]],
+) -> tuple[PolyfactoryBinding, ...]:
+    from pydantic_fixturegen.polyfactory_support import PolyfactoryBinding
+
+    def _labels(model: type[BaseModel]) -> set[str]:
+        module = getattr(model, "__module__", "")
+        qualname = getattr(model, "__qualname__", getattr(model, "__name__", ""))
+        labels = {qualname}
+        if module:
+            labels.add(f"{module}.{qualname}")
+        simple = getattr(model, "__name__", "")
+        if simple:
+            labels.add(simple)
+            if module:
+                labels.add(f"{module}.{simple}")
+        return labels
+
+    lookup: dict[str, type[BaseModel]] = {}
+    for cls in model_class_lookup.values():
+        for label in _labels(cls):
+            lookup.setdefault(label, cls)
+
+    rebased: list[PolyfactoryBinding] = []
+    for binding in bindings:
+        target = None
+        for label in _labels(binding.model):
+            target = lookup.get(label)
+            if target is not None:
+                break
+        if target is None or target is binding.model:
+            rebased.append(binding)
+            continue
+        with suppress(Exception):  # pragma: no cover - defensive
+            binding.factory.__model__ = target  # type: ignore[attr-defined]
+        rebased.append(
+            PolyfactoryBinding(
+                model=target,
+                factory=binding.factory,
+                source=binding.source,
+            )
+        )
+    return tuple(rebased)
 
 
 def generate_json_artifacts(
@@ -401,10 +496,23 @@ def generate_json_artifacts(
 
     relation_model_map = _build_relation_model_map(list(model_class_lookup.values()))
 
+    polyfactory_bindings = _collect_polyfactory_bindings(
+        app_config=app_config,
+        discovery=discovery.models,
+        model_class_lookup=model_class_lookup,
+        logger=logger,
+    )
+
     generator = _build_instance_generator(
         app_config,
         seed_override=selected_seed,
         relation_models=relation_model_map,
+    )
+    _maybe_enable_polyfactory_delegation(
+        generator=generator,
+        app_config=app_config,
+        bindings=polyfactory_bindings,
+        logger=logger,
     )
 
     related_class_tuple = tuple(related_model_classes)
@@ -798,6 +906,23 @@ def generate_fixtures_artifacts(
     except RuntimeError as exc:  # pragma: no cover - defensive
         raise DiscoveryError(str(exc)) from exc
 
+    model_class_lookup = {
+        model.qualname: cls for model, cls in zip(discovery.models, model_classes, strict=False)
+    }
+
+    polyfactory_bindings = _collect_polyfactory_bindings(
+        app_config=app_config,
+        discovery=discovery.models,
+        model_class_lookup=model_class_lookup,
+        logger=logger,
+    )
+    if polyfactory_bindings and not app_config.polyfactory.prefer_delegation:
+        logger.info(
+            "Polyfactory factories detected; delegation disabled by config",
+            event="polyfactory_delegation_disabled",
+            count=len(polyfactory_bindings),
+        )
+
     seed_value: int | None = None
     if app_config.seed is not None:
         seed_value = SeedManager(seed=app_config.seed, rng_mode=app_config.rng_mode).normalized_seed
@@ -866,6 +991,9 @@ def generate_fixtures_artifacts(
         max_depth=app_config.max_depth,
         cycle_policy=app_config.cycle_policy,
         rng_mode=app_config.rng_mode,
+        polyfactory_bindings=polyfactory_bindings
+        if app_config.polyfactory.prefer_delegation
+        else (),
     )
 
     timestamp = _dt.datetime.now(_dt.timezone.utc)

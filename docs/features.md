@@ -24,6 +24,13 @@
 - Dependency injection hooks can be bypassed via `--dependency-override original=stub`, so auth/session providers or rate-limiters don’t block smoke tests and mock responses.
 - Install the `fastapi` extra to pull in FastAPI + Uvicorn support for these commands.
 
+## Polyfactory interoperability
+
+- Automatic ModelFactory detection: when the `polyfactory` extra is installed, fixturegen scans discovered modules (and sibling `*.factories` packages) for `ModelFactory` subclasses and delegates matching models to them so nested relations, JSON samples, and pytest fixtures reuse the exact same logic without rewriting factories.
+- Config toggles under `[polyfactory]` let you opt out (`prefer_delegation = false`) or point discovery at custom modules; logs highlight every delegate that gets wired in so you can audit migrations.
+- `pfg gen polyfactory ./models.py --out factories.py` exports ready-to-import `ModelFactory` classes whose `.build()` methods call fixturegen under the hood, so teams can keep Polyfactory-centric APIs while benefiting from deterministic GenerationConfig settings.
+- Seeds/locales stay in sync via the shared `SeedManager`: delegations reseed Polyfactory’s Faker + Random objects per path, keeping data parity between existing factories and fixturegen runs.
+
 ## Generation engine
 
 - Depth-first instance builder with recursion limits and constraint awareness.

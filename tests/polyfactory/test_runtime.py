@@ -1,0 +1,61 @@
+from __future__ import annotations
+
+from typing import Any
+
+import pytest
+from pydantic import BaseModel
+from pydantic_fixturegen.core.generate import InstanceGenerator
+from pydantic_fixturegen.polyfactory_support import (
+    PolyfactoryBinding,
+    attach_polyfactory_bindings,
+    discover_polyfactory_bindings,
+)
+
+polyfactory = pytest.importorskip("polyfactory")
+polyfactory_factories = pytest.importorskip("polyfactory.factories.pydantic_factory")
+ModelFactory = polyfactory_factories.ModelFactory
+
+
+class _FakeLogger:
+    def __init__(self) -> None:
+        self.messages: list[tuple[str, dict[str, Any]]] = []
+
+    def info(self, message: str, **kwargs: Any) -> None:  # pragma: no cover - best-effort
+        self.messages.append((message, kwargs))
+
+    def warn(self, message: str, **kwargs: Any) -> None:  # pragma: no cover - best-effort
+        self.messages.append((message, kwargs))
+
+
+class Widget(BaseModel):
+    name: str = "fixturegen"
+
+
+class WidgetFactory(ModelFactory[Widget]):
+    __model__ = Widget
+    __check_model__ = False
+
+    @classmethod
+    def build(cls, factory_use_construct: bool = False, **kwargs: Any) -> Widget:  # noqa: ARG003
+        return Widget(name="polyfactory")
+
+
+def test_attach_polyfactory_bindings_delegates_generation() -> None:
+    generator = InstanceGenerator()
+    binding = PolyfactoryBinding(model=Widget, factory=WidgetFactory, source="test.WidgetFactory")
+    attach_polyfactory_bindings(generator, (binding,))
+
+    result = generator.generate_one(Widget)
+    assert isinstance(result, Widget)
+    assert result.name == "polyfactory"
+
+
+def test_discover_polyfactory_bindings_picks_up_factories() -> None:
+    bindings = discover_polyfactory_bindings(
+        model_classes=[Widget],
+        discovery_modules=[__name__],
+        extra_modules=(),
+        logger=_FakeLogger(),
+    )
+
+    assert any(binding.factory is WidgetFactory for binding in bindings)

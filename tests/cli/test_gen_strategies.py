@@ -58,6 +58,7 @@ def test_gen_strategies_writes_module(tmp_path: Path) -> None:
 
     import sys
 
+    sys.modules.pop("models", None)
     sys.path.insert(0, str(tmp_path))
     try:
         module_globals = runpy.run_path(output_path)

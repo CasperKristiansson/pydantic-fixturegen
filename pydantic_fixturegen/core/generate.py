@@ -8,7 +8,7 @@ import enum
 import importlib
 import inspect
 import random
-from collections.abc import Iterable, Mapping, Sized
+from collections.abc import Callable, Iterable, Mapping, Sized
 from dataclasses import dataclass, field, is_dataclass
 from dataclasses import fields as dataclass_fields
 from typing import Any, get_type_hints
@@ -98,6 +98,9 @@ class _RelationBinding:
     target_model: str
     target_simple: str
     target_field: str
+
+
+ModelDelegate = Callable[["InstanceGenerator", type[Any], str], Any | None]
 
 
 def _simple_name(identifier: str) -> str:
@@ -295,6 +298,7 @@ class InstanceGenerator:
         self._cycle_policy = self.config.cycle_policy
         self._cycle_events: list[CycleEvent] = []
         self._reuse_pool: dict[type[Any], list[tuple[str, BaseModel]]] = {}
+        self._delegated_models: dict[type[Any], ModelDelegate] = {}
 
     @property
     def constraint_report(self) -> ConstraintReporter:
@@ -430,6 +434,17 @@ class InstanceGenerator:
             report_model = model_type
             self._constraint_reporter.begin_model(report_model)
 
+        delegate = self._delegated_models.get(model_type)
+        if delegate is not None:
+            delegated_instance = self._run_delegate(
+                delegate,
+                model_type,
+                path_label,
+                report_model,
+            )
+            self._path_stack.pop()
+            return delegated_instance
+
         values: dict[str, Any] = {}
         try:
             for field_name, strategy in strategies.items():
@@ -473,6 +488,53 @@ class InstanceGenerator:
                 errors=(
                     {
                         "loc": ["__root__"],
+                        "msg": str(exc),
+                        "type": exc.__class__.__name__,
+                    },
+                ),
+            )
+            if report_model is not None:
+                self._constraint_reporter.finish_model(report_model, success=False)
+            return None
+
+        if instance is None:
+            if report_model is not None:
+                self._constraint_reporter.finish_model(report_model, success=False)
+            return None
+
+        if report_model is not None:
+            self._constraint_reporter.finish_model(report_model, success=True)
+        self._register_reusable_instance(model_type, path_label, instance)
+        if (
+            instance is not None
+            and self._relation_manager is not None
+            and isinstance(model_type, type)
+        ):
+            self._relation_manager.register_instance(model_type, instance)
+        return instance
+
+    def register_delegate(self, model_type: type[Any], delegate: ModelDelegate) -> None:
+        """Register a delegate that overrides generation for ``model_type``."""
+
+        self._delegated_models[model_type] = delegate
+
+    def _run_delegate(
+        self,
+        delegate: ModelDelegate,
+        model_type: type[Any],
+        path_label: str,
+        report_model: type[BaseModel] | None,
+    ) -> Any | None:
+        try:
+            instance = delegate(self, model_type, path_label)
+        except Exception as exc:  # pragma: no cover - defensive delegate failure
+            self._record_validator_failure(
+                model_type,
+                {},
+                message=f"Delegate for {path_label} failed: {exc}",
+                errors=(
+                    {
+                        "loc": [path_label],
                         "msg": str(exc),
                         "type": exc.__class__.__name__,
                     },

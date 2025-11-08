@@ -218,6 +218,25 @@ models = {"app.models.Reporting.*" = "mac", "legacy.schemas.*" = "posix"}
 
 The same structure works via YAML or environment variables (`PFG_PATHS__MODELS__legacy.schemas.*=posix`), letting you target specific models without changing the global default.
 
+### Polyfactory settings
+
+| Key                  | Type            | Default | Description |
+| -------------------- | --------------- | ------- | ----------- |
+| `enabled`            | `bool`          | `true`  | Toggle automatic detection of Polyfactory factories. |
+| `prefer_delegation`  | `bool`          | `true`  | When `false`, detection logs what it found but generation stays on the built-in engine. |
+| `modules`            | `list[str]`     | `[]`    | Additional modules to import when scanning for `ModelFactory` subclasses. |
+
+When enabled, the CLI/API inspects every discovered module (plus `<package>.factories` heuristics and any extra modules you list) for subclasses of `polyfactory.factories.pydantic_factory.ModelFactory`. Matching factories become delegates for their `__model__` so nested models, JSON output, and pytest fixtures reuse existing Polyfactory logic transparently. Set `prefer_delegation = false` if you only need the metadata surfaced in logs or plan to call the new `pfg gen polyfactory` exporter manually.
+
+Environment overrides follow the usual pattern:
+
+```bash
+export PFG_POLYFACTORY__ENABLED=false
+export PFG_POLYFACTORY__MODULES=app.factories,tests.factories
+```
+
+The CLI still respects per-command `--include`/`--exclude` filters; only factories whose models are actually in scope will be attached.
+
 ### Field policy schemas
 
 `field_policies` accepts nested options that map patterns to policy tweaks.

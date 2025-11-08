@@ -5,11 +5,13 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from importlib import import_module
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel
 
 from ..core.errors import DiscoveryError
+
+PayloadShape = Literal["single", "list", "dict"]
 
 
 def _require_fastapi() -> Any:
@@ -30,6 +32,8 @@ class FastAPIRouteSpec:
     name: str
     request_model: type[BaseModel] | None
     response_model: type[BaseModel] | None
+    request_shape: PayloadShape
+    response_shape: PayloadShape
 
 
 def import_fastapi_app(target: str) -> Any:
@@ -64,43 +68,47 @@ def iter_route_specs(app: Any) -> Iterable[FastAPIRouteSpec]:
         for method in sorted(methods):
             if method.upper() in {"HEAD", "OPTIONS"}:
                 continue
-            request_model = _extract_model(route.body_field)
-            response_model = _extract_model(route.secure_cloned_response_field)
+            request_model, request_shape = _extract_payload(route.body_field)
+            response_model, response_shape = _extract_payload(route.secure_cloned_response_field)
             yield FastAPIRouteSpec(
                 path=route.path,
                 method=method.upper(),
                 name=route.name or _slugify_route(method, route.path),
                 request_model=request_model,
                 response_model=response_model,
+                request_shape=request_shape,
+                response_shape=response_shape,
             )
 
 
-def _extract_model(field: Any) -> type[BaseModel] | None:
+def _extract_payload(field: Any) -> tuple[type[BaseModel] | None, PayloadShape]:
     if field is None:
-        return None
+        return None, "single"
     candidate = getattr(field, "type_", None) or getattr(field, "outer_type_", None)
-    model = _normalize_model(candidate)
-    return model
+    return _normalize_model(candidate)
 
 
-def _normalize_model(candidate: Any) -> type[BaseModel] | None:
+def _normalize_model(candidate: Any) -> tuple[type[BaseModel] | None, PayloadShape]:
     if candidate is None:
-        return None
+        return None, "single"
     if isinstance(candidate, type) and issubclass(candidate, BaseModel):
-        return candidate
+        return candidate, "single"
     origin = getattr(candidate, "__origin__", None)
-    if origin is list or origin is set:
+    if origin in {list, set, tuple}:
         args = getattr(candidate, "__args__", ())
-        return next(
+        model = next(
             (arg for arg in args if isinstance(arg, type) and issubclass(arg, BaseModel)),
             None,
         )
+        return model, "list"
     if origin is dict:
         args = getattr(candidate, "__args__", ())
         if len(args) == 2:
             value_type = cast(tuple[Any, Any], args)[1]
-            return _normalize_model(value_type)
-    return None
+            model, _ = _normalize_model(value_type)
+            return model, "dict"
+        return None, "dict"
+    return None, "single"
 
 
 def _slugify_route(method: str, path: str) -> str:
@@ -109,4 +117,4 @@ def _slugify_route(method: str, path: str) -> str:
     return f"{method.lower()}_{slug}"
 
 
-__all__ = ["FastAPIRouteSpec", "import_fastapi_app", "iter_route_specs"]
+__all__ = ["FastAPIRouteSpec", "PayloadShape", "import_fastapi_app", "iter_route_specs"]

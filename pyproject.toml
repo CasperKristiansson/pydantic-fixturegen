@@ -55,6 +55,9 @@ orjson = [
 hypothesis = [
   "hypothesis>=1.0.0",
 ]
+polyfactory = [
+  "polyfactory>=2.22.0",
+]
 dev = [
   "mypy>=1.11",
 ]
@@ -84,6 +87,7 @@ all = [
   "rstr>=3.2.2",
   "orjson>=3.11.1",
   "hypothesis>=1.0.0",
+  "polyfactory>=2.22.0",
   "numpy>=2.2.6; python_version < '3.11'",
   "numpy>=2.3.2; python_version >= '3.11'",
   "watchfiles>=0.20.0",
@@ -103,6 +107,7 @@ all-dev = [
   "rstr>=3.2.2",
   "orjson>=3.11.1",
   "hypothesis>=1.0.0",
+  "polyfactory>=2.22.0",
   "numpy>=2.2.6; python_version < '3.11'",
   "numpy>=2.3.2; python_version >= '3.11'",
   "watchfiles>=0.20.0",
@@ -199,6 +204,14 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "datamodel_code_generator.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "polyfactory"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "polyfactory.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

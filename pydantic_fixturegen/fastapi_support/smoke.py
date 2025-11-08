@@ -5,12 +5,13 @@ from __future__ import annotations
 import textwrap
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Any
 
 from pydantic import BaseModel
 
 from ..core.generate import GenerationConfig, InstanceGenerator
 from ..core.seed import SeedManager
-from .loader import FastAPIRouteSpec, import_fastapi_app, iter_route_specs
+from .loader import FastAPIRouteSpec, PayloadShape, import_fastapi_app, iter_route_specs
 
 
 def _slugify(path: str, method: str) -> str:
@@ -25,8 +26,8 @@ def _model_import_path(model: type[BaseModel]) -> tuple[str, str]:
 @dataclass(slots=True)
 class RouteTestCase:
     spec: FastAPIRouteSpec
-    request_payload: dict[str, object] | None
-    response_payload: dict[str, object] | None
+    request_payload: Any
+    response_payload: Any
 
     @property
     def test_name(self) -> str:
@@ -54,8 +55,8 @@ class FastAPISmokeSuite:
         test_cases: list[RouteTestCase] = []
         imports: set[tuple[str, str]] = set()
         for spec in iter_route_specs(app):
-            request_payload = self._sample_payload(spec.request_model)
-            response_payload = self._sample_payload(spec.response_model)
+            request_payload = self._sample_payload(spec.request_model, spec.request_shape)
+            response_payload = self._sample_payload(spec.response_model, spec.response_shape)
             if spec.request_model:
                 imports.add(_model_import_path(spec.request_model))
             if spec.response_model:
@@ -70,13 +71,18 @@ class FastAPISmokeSuite:
 
         return self._render_suite(test_cases, sorted(imports))
 
-    def _sample_payload(self, model: type[BaseModel] | None) -> dict[str, object] | None:
+    def _sample_payload(self, model: type[BaseModel] | None, shape: PayloadShape) -> Any:
         if model is None:
             return None
         instance = self._generator.generate_one(model)
         if instance is None:
             return None
-        return instance.model_dump(mode="json")
+        payload = instance.model_dump(mode="json")
+        if shape == "list":
+            return [payload]
+        if shape == "dict":
+            return {"item": payload}
+        return payload
 
     def _render_suite(
         self,
@@ -140,7 +146,16 @@ class FastAPISmokeSuite:
         if case.response_payload is not None and case.spec.response_model is not None:
             module, cls = _model_import_path(case.spec.response_model)
             lines.append("    data = response.json()")
-            lines.append(f"    {cls}.model_validate(data)")
+            if case.spec.response_shape == "list":
+                lines.append("    assert isinstance(data, list)")
+                lines.append("    for entry in data:")
+                lines.append(f"        {cls}.model_validate(entry)")
+            elif case.spec.response_shape == "dict":
+                lines.append("    assert isinstance(data, dict)")
+                lines.append("    for entry in data.values():")
+                lines.append(f"        {cls}.model_validate(entry)")
+            else:
+                lines.append(f"    {cls}.model_validate(data)")
         else:
             lines.append("    response.json()")
         lines.append("")

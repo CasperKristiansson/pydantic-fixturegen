@@ -22,6 +22,7 @@ pip install 'pydantic-fixturegen[regex]'
 pip install 'pydantic-fixturegen[hypothesis]'
 pip install 'pydantic-fixturegen[watch]'
 pip install 'pydantic-fixturegen[fastapi]'
+pip install 'pydantic-fixturegen[polyfactory]'
 pip install 'pydantic-fixturegen[openapi]'
 pip install 'pydantic-fixturegen[all]'
 pip install 'pydantic-fixturegen[all-dev]'
@@ -32,6 +33,7 @@ pip install 'pydantic-fixturegen[all-dev]'
 - `hypothesis` enables property-based extras in the cookbook.
 - `watch` adds filesystem watching via `watchfiles`.
 - `fastapi` pulls in FastAPI + Uvicorn so you can use `pfg fastapi smoke` and `pfg fastapi serve`.
+- `polyfactory` installs Polyfactory so model discovery can delegate to existing factories and `pfg gen polyfactory` runs immediately.
 - `openapi` bundles `datamodel-code-generator` + `PyYAML` so you can ingest JSON Schema/OpenAPI documents directly in `pfg`.
 - `all` bundles runtime extras; `all-dev` adds Ruff, mypy, pytest, and pytest-cov.
 
@@ -70,6 +72,7 @@ hatch run pfg --help
 | `watch`          | Live regeneration via `watchfiles`            | Watch mode in CI or local loops            |
 | `numpy`          | Deterministic NumPy array providers           | Models embedding `numpy.ndarray` fields    |
 | `fastapi`        | FastAPI + Uvicorn                             | Smoke tests and mock servers               |
+| `polyfactory`    | Polyfactory                                   | Delegating to existing `ModelFactory` classes |
 | `openapi`        | `datamodel-code-generator` + PyYAML           | JSON Schema / OpenAPI ingestion workflows  |
 | `all`            | Every runtime extra                           | One-shot enablement                        |
 | `all-dev`        | Runtime extras + mypy, Ruff, pytest, pytest-cov | Local development stacks                  |
