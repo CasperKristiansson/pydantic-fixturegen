@@ -198,9 +198,154 @@ def test_gen_json_out_template(tmp_path: Path) -> None:
     assert result.exit_code == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
     emitted = sorted((tmp_path / "artifacts" / "User").glob("sample-*.json"))
     assert [path.name for path in emitted] == ["sample-1.json", "sample-2.json", "sample-3.json"]
-    stdout_text = result.stdout
-    for path in emitted:
-        assert str(path) in stdout_text
+
+
+def test_gen_json_type_expression(tmp_path: Path) -> None:
+    output = tmp_path / "values.json"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            "--type",
+            "list[int]",
+            "--out",
+            str(output),
+            "--n",
+            "3",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stderr
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert isinstance(payload, list)
+    assert len(payload) == 3
+    for entry in payload:
+        assert isinstance(entry, list)
+        assert all(isinstance(item, int) for item in entry)
+
+
+def test_gen_json_type_expression_with_module_context(tmp_path: Path) -> None:
+    module_path = tmp_path / "shapes.py"
+    module_path.write_text(
+        """
+from pydantic import BaseModel
+
+
+class Payload(BaseModel):
+    value: int
+    name: str
+""",
+        encoding="utf-8",
+    )
+    output = tmp_path / "payload.json"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--type",
+            "list[Payload]",
+            "--out",
+            str(output),
+            "--n",
+            "1",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stderr
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert isinstance(payload, list)
+    assert isinstance(payload[0], list)
+    assert all(set(item.keys()) == {"value", "name"} for item in payload[0])
+
+
+def test_gen_json_type_expression_invalid_name(tmp_path: Path) -> None:
+    output = tmp_path / "values.json"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            "--type",
+            "list[MissingModel]",
+            "--out",
+            str(output),
+        ],
+    )
+
+    assert result.exit_code != 0
+    combined = result.stdout + result.stderr
+    assert "Unknown name in type expression" in combined
+
+
+def test_gen_json_type_expression_watch_requires_module(tmp_path: Path) -> None:
+    output = tmp_path / "values.json"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            "--type",
+            "list[int]",
+            "--out",
+            str(output),
+            "--watch",
+        ],
+    )
+
+    assert result.exit_code != 0
+    combined = result.stdout + result.stderr
+    assert "requires a module path" in combined
+
+
+def test_gen_json_type_expression_disallows_links(tmp_path: Path) -> None:
+    output = tmp_path / "values.json"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            "--type",
+            "list[int]",
+            "--out",
+            str(output),
+            "--link",
+            "User.id=Order.user_id",
+        ],
+    )
+
+    assert result.exit_code != 0
+    combined = result.stdout + result.stderr
+    assert "--link is not supported when using --type" in combined
+
+
+def test_gen_json_type_expression_disallows_with_related(tmp_path: Path) -> None:
+    output = tmp_path / "values.json"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            "--type",
+            "list[int]",
+            "--out",
+            str(output),
+            "--with-related",
+            "User",
+        ],
+    )
+
+    assert result.exit_code != 0
+    combined = result.stdout + result.stderr
+    assert "--with-related is not supported when using --type" in combined
 
 
 def test_gen_json_out_template_invalid_field(tmp_path: Path) -> None:

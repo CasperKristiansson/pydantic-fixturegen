@@ -18,13 +18,7 @@ import pydantic
 from pydantic import BaseModel, SecretBytes, SecretStr
 from pydantic.fields import FieldInfo
 
-ImportedPaymentCardNumber: type[Any] | None
-try:  # pragma: no cover - optional dependency is bundled at runtime
-    from pydantic_extra_types.payment import PaymentCardNumber as ImportedPaymentCardNumber
-except ImportError:  # pragma: no cover - optional dependency missing during docs builds
-    ImportedPaymentCardNumber = None
-
-ExtraPaymentCardNumber = ImportedPaymentCardNumber
+from pydantic_fixturegen.core.extra_types import resolve_type_id
 
 _np: types.ModuleType | None
 try:  # Optional dependency
@@ -298,6 +292,9 @@ def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None
         return "any", None, None
 
     if isinstance(annotation, type):
+        extra_type_id = resolve_type_id(annotation)
+        if extra_type_id is not None:
+            return extra_type_id, None, None
         if dataclasses_module.is_dataclass(annotation):
             return "dataclass", None, None
         email_type = getattr(pydantic, "EmailStr", None)
@@ -315,8 +312,6 @@ def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None
         ip_network_type = getattr(pydantic, "IPvAnyNetwork", None)
         if ip_network_type is not None and issubclass(annotation, ip_network_type):
             return "ip-network", None, None
-        if ExtraPaymentCardNumber is not None and issubclass(annotation, ExtraPaymentCardNumber):
-            return "payment-card", None, None
         path_match = _match_path_annotation(annotation)
         if path_match is not None:
             return path_match

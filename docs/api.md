@@ -37,6 +37,7 @@ result: JsonGenerationResult = generate_json(
 - Parameters mirror `pfg gen json`.
 - `out` accepts the same templated placeholders as the CLI.
 - `freeze_seeds` and `freeze_seeds_file` manage deterministic per-model seeds.
+- Supply `type_annotation=list[EmailStr]` (and optionally `type_label`) when you want to generate raw TypeAdapter outputs without pointing at a module. This mode mirrors the CLI `--type` option and cannot be mixed with relation helpers or seed freezing.
 - The result exposes `paths`, `base_output`, the selected `model`, a `ConfigSnapshot`, and any warnings.
 
 ## `generate_fixtures`

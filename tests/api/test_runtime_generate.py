@@ -202,6 +202,91 @@ class Second(BaseModel):
         )
 
 
+def test_generate_json_artifacts_requires_target_without_type(tmp_path: Path) -> None:
+    with pytest.raises(DiscoveryError, match="Target path must be provided"):
+        runtime_mod.generate_json_artifacts(
+            target=None,
+            output_template=OutputTemplate(str(tmp_path / "values.json")),
+            count=1,
+            jsonl=False,
+            indent=None,
+            use_orjson=None,
+            shard_size=None,
+            include=None,
+            exclude=None,
+            seed=None,
+            now=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+        )
+
+
+def test_generate_json_artifacts_type_adapter_rejects_freeze(tmp_path: Path) -> None:
+    with pytest.raises(DiscoveryError, match="Seed freezing is not supported"):
+        runtime_mod.generate_json_artifacts(
+            target=None,
+            output_template=OutputTemplate(str(tmp_path / "values.json")),
+            count=1,
+            jsonl=False,
+            indent=None,
+            use_orjson=None,
+            shard_size=None,
+            include=None,
+            exclude=None,
+            seed=None,
+            now=None,
+            freeze_seeds=True,
+            freeze_seeds_file=None,
+            preset=None,
+            type_annotation=list[int],
+        )
+
+
+def test_generate_json_artifacts_type_adapter_rejects_relations(tmp_path: Path) -> None:
+    with pytest.raises(DiscoveryError, match="Relation links cannot be combined"):
+        runtime_mod.generate_json_artifacts(
+            target=None,
+            output_template=OutputTemplate(str(tmp_path / "values.json")),
+            count=1,
+            jsonl=False,
+            indent=None,
+            use_orjson=None,
+            shard_size=None,
+            include=None,
+            exclude=None,
+            seed=None,
+            now=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+            type_annotation=list[int],
+            relations={"User.id": "Order.user_id"},
+        )
+
+
+def test_generate_json_artifacts_type_adapter_rejects_related(tmp_path: Path) -> None:
+    with pytest.raises(DiscoveryError, match="Related model generation is unavailable"):
+        runtime_mod.generate_json_artifacts(
+            target=None,
+            output_template=OutputTemplate(str(tmp_path / "values.json")),
+            count=1,
+            jsonl=False,
+            indent=None,
+            use_orjson=None,
+            shard_size=None,
+            include=None,
+            exclude=None,
+            seed=None,
+            now=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+            type_annotation=list[int],
+            with_related=["models.User"],
+        )
+
+
 def test_generate_json_artifacts_attaches_error_details(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -309,7 +394,7 @@ def test_generate_json_artifacts_with_related_bundle(tmp_path: Path) -> None:
         freeze_seeds_file=None,
         preset=None,
         relations={"models.Order.user_id": "models.User.id"},
-        with_related=["models.User"],
+        with_related=["models.User", "models.User"],
         respect_validators=True,
         validator_max_retries=1,
     )
@@ -318,6 +403,38 @@ def test_generate_json_artifacts_with_related_bundle(tmp_path: Path) -> None:
     payload = json.loads(result.paths[0].read_text(encoding="utf-8"))
     assert payload and "Order" in payload[0] and "User" in payload[0]
     assert payload[0]["Order"]["user_id"] == payload[0]["User"]["id"]
+
+
+def test_generate_json_artifacts_all_related_consumes_primary(tmp_path: Path) -> None:
+    module_path = _write_module(
+        tmp_path,
+        """
+from pydantic import BaseModel
+
+
+class User(BaseModel):
+    name: str
+""",
+    )
+    with pytest.raises(DiscoveryError, match="No primary model discovered"):
+        runtime_mod.generate_json_artifacts(
+            target=module_path,
+            output_template=OutputTemplate(str(tmp_path / "bundle.json")),
+            count=1,
+            jsonl=False,
+            indent=None,
+            use_orjson=None,
+            shard_size=None,
+            include=["models.User"],
+            exclude=None,
+            seed=None,
+            now=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+            relations=None,
+            with_related=["models.User"],
+        )
 
 
 def test_generate_json_artifacts_related_model_missing(tmp_path: Path) -> None:
@@ -366,6 +483,344 @@ def test_generate_json_artifacts_multiple_models_without_include(tmp_path: Path)
             freeze_seeds_file=None,
             preset=None,
         )
+
+
+def test_generate_json_artifacts_with_type_adapter(tmp_path: Path) -> None:
+    output_template = OutputTemplate(str(tmp_path / "adapter.json"))
+
+    result = runtime_mod.generate_json_artifacts(
+        target=None,
+        output_template=output_template,
+        count=2,
+        jsonl=False,
+        indent=None,
+        use_orjson=None,
+        shard_size=None,
+        include=None,
+        exclude=None,
+        seed=99,
+        now=None,
+        freeze_seeds=False,
+        freeze_seeds_file=None,
+        preset=None,
+        type_annotation=list[int],
+        type_label="list[int]",
+    )
+
+    assert isinstance(result, JsonGenerationResult)
+    assert result.model is None
+    assert result.paths
+    data = json.loads(result.paths[0].read_text(encoding="utf-8"))
+    assert isinstance(data, list)
+    assert len(data) == 2
+    for entry in data:
+        assert isinstance(entry, list)
+        assert all(isinstance(item, int) for item in entry)
+
+
+def test_generate_json_artifacts_related_generation_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module_path = _write_linked_module(tmp_path)
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    class FailingRelated:
+        constraint_report = None
+        validator_failure_details = None
+
+        def generate_one(self, model_cls):
+            if model_cls.__name__ == "User":
+                return None
+            return type("Fake", (), {"model_dump": lambda self: {"order_id": 1, "user_id": 1}})()
+
+    monkeypatch.setattr(runtime_mod, "_build_instance_generator", lambda *_, **__: FailingRelated())
+
+    def fake_emit_json_samples(sample_factory, **kwargs):  # type: ignore[no-untyped-def]
+        sample_factory()
+        return []
+
+    monkeypatch.setattr(runtime_mod, "emit_json_samples", fake_emit_json_samples)
+
+    with pytest.raises(MappingError) as excinfo:
+        runtime_mod.generate_json_artifacts(
+            target=module_path,
+            output_template=OutputTemplate(str(tmp_path / "bundle.json")),
+            count=1,
+            jsonl=False,
+            indent=None,
+            use_orjson=None,
+            shard_size=None,
+            include=["models.Order"],
+            exclude=None,
+            seed=None,
+            now=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+            relations={"models.Order.user_id": "models.User.id"},
+            with_related=["models.User"],
+        )
+
+    assert "User" in str(excinfo.value)
+
+
+def test_generate_json_artifacts_main_generation_failure_details(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module_path = _write_module(
+        tmp_path,
+        """
+from pydantic import BaseModel
+
+
+class Only(BaseModel):
+    value: int
+""",
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    class Report:
+        def summary(self) -> dict[str, object]:
+            return {"models": [{"model": "Only", "fields": []}]}
+
+    class MainFailureGenerator:
+        def __init__(self) -> None:
+            self.constraint_report = Report()
+            self.validator_failure_details = {"message": "boom"}
+
+        def generate_one(self, model_cls):
+            return None
+
+    monkeypatch.setattr(
+        runtime_mod,
+        "_build_instance_generator",
+        lambda *_, **__: MainFailureGenerator(),
+    )
+
+    def fake_emit_json_samples(sample_factory, **kwargs):  # type: ignore[no-untyped-def]
+        sample_factory()
+        return []
+
+    monkeypatch.setattr(runtime_mod, "emit_json_samples", fake_emit_json_samples)
+
+    with pytest.raises(MappingError) as excinfo:
+        runtime_mod.generate_json_artifacts(
+            target=module_path,
+            output_template=OutputTemplate(str(tmp_path / "only.json")),
+            count=1,
+            jsonl=False,
+            indent=None,
+            use_orjson=None,
+            shard_size=None,
+            include=["models.Only"],
+            exclude=None,
+            seed=None,
+            now=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+            relations=None,
+            with_related=None,
+        )
+
+    assert excinfo.value.details["validator_failure"]["message"] == "boom"
+    assert "constraint_summary" in excinfo.value.details
+
+
+def test_generate_json_artifacts_type_adapter_plugin_delegate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(runtime_mod, "emit_artifact", lambda name, ctx: name == "json")
+    result = runtime_mod.generate_json_artifacts(
+        target=None,
+        output_template=OutputTemplate(str(tmp_path / "values.json")),
+        count=1,
+        jsonl=False,
+        indent=None,
+        use_orjson=None,
+        shard_size=None,
+        include=None,
+        exclude=None,
+        seed=None,
+        now=None,
+        freeze_seeds=False,
+        freeze_seeds_file=None,
+        preset=None,
+        type_annotation=list[int],
+        type_label="numbers",
+    )
+    assert result.delegated is True
+    assert result.type_label == "numbers"
+
+
+def test_generate_json_artifacts_type_adapter_generator_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class AdapterFailure:
+        constraint_report = None
+        validator_failure_details = None
+
+        def generate_one(self, model_cls):
+            return None
+
+    monkeypatch.setattr(runtime_mod, "_build_instance_generator", lambda *_, **__: AdapterFailure())
+
+    def fake_emit_json_samples(sample_factory, **kwargs):  # type: ignore[no-untyped-def]
+        sample_factory()
+        return []
+
+    monkeypatch.setattr(runtime_mod, "emit_json_samples", fake_emit_json_samples)
+
+    with pytest.raises(MappingError) as excinfo:
+        runtime_mod.generate_json_artifacts(
+            target=None,
+            output_template=OutputTemplate(str(tmp_path / "values.json")),
+            count=1,
+            jsonl=False,
+            indent=None,
+            use_orjson=None,
+            shard_size=None,
+            include=None,
+            exclude=None,
+            seed=None,
+            now=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+            type_annotation=list[int],
+        )
+
+    assert "type_adapter" in excinfo.value.details
+
+
+def test_generate_json_artifacts_type_adapter_validation_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class BadValueGenerator:
+        constraint_report = None
+        validator_failure_details = None
+
+        def generate_one(self, model_cls):
+            return type("Fake", (), {"value": "bad"})()
+
+    monkeypatch.setattr(
+        runtime_mod,
+        "_build_instance_generator",
+        lambda *_, **__: BadValueGenerator(),
+    )
+
+    def fake_emit_json_samples(sample_factory, **kwargs):  # type: ignore[no-untyped-def]
+        sample_factory()
+        return []
+
+    monkeypatch.setattr(runtime_mod, "emit_json_samples", fake_emit_json_samples)
+
+    with pytest.raises(MappingError) as excinfo:
+        runtime_mod.generate_json_artifacts(
+            target=None,
+            output_template=OutputTemplate(str(tmp_path / "values.json")),
+            count=1,
+            jsonl=False,
+            indent=None,
+            use_orjson=None,
+            shard_size=None,
+            include=None,
+            exclude=None,
+            seed=None,
+            now=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+            type_annotation=list[int],
+        )
+
+    assert "TypeAdapter validation failed" in str(excinfo.value)
+
+
+def test_generate_json_artifacts_type_adapter_emit_runtime_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class SimpleGenerator:
+        constraint_report = None
+        validator_failure_details = None
+
+        def generate_one(self, model_cls):
+            return type("Fake", (), {"value": [1]})()
+
+    monkeypatch.setattr(
+        runtime_mod,
+        "_build_instance_generator",
+        lambda *_, **__: SimpleGenerator(),
+    )
+
+    def raise_runtime(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(runtime_mod, "emit_json_samples", raise_runtime)
+
+    with pytest.raises(EmitError) as excinfo:
+        runtime_mod.generate_json_artifacts(
+            target=None,
+            output_template=OutputTemplate(str(tmp_path / "values.json")),
+            count=1,
+            jsonl=False,
+            indent=None,
+            use_orjson=None,
+            shard_size=None,
+            include=None,
+            exclude=None,
+            seed=None,
+            now=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+            type_annotation=list[int],
+        )
+
+    assert "config" in excinfo.value.details
+
+
+def test_generate_json_artifacts_type_adapter_emit_mapping_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class SimpleGenerator:
+        constraint_report = None
+        validator_failure_details = None
+
+        def generate_one(self, model_cls):
+            return type("Fake", (), {"value": [1]})()
+
+    monkeypatch.setattr(
+        runtime_mod,
+        "_build_instance_generator",
+        lambda *_, **__: SimpleGenerator(),
+    )
+
+    def raise_mapping(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise MappingError("failed")
+
+    monkeypatch.setattr(runtime_mod, "emit_json_samples", raise_mapping)
+
+    with pytest.raises(MappingError) as excinfo:
+        runtime_mod.generate_json_artifacts(
+            target=None,
+            output_template=OutputTemplate(str(tmp_path / "values.json")),
+            count=1,
+            jsonl=False,
+            indent=None,
+            use_orjson=None,
+            shard_size=None,
+            include=None,
+            exclude=None,
+            seed=None,
+            now=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+            type_annotation=list[int],
+        )
+
+    assert "config" in excinfo.value.details
 
 
 def test_generate_fixtures_artifacts_delegates_to_plugin(
@@ -442,7 +897,7 @@ class Item(BaseModel):
             seed=None,
             now=None,
             p_none=None,
-            include=None,
+            include=("models.Sample",),
             exclude=None,
             freeze_seeds=False,
             freeze_seeds_file=None,
@@ -592,6 +1047,83 @@ class Sample(BaseModel):
     )
 
     assert result.constraint_summary == {"models": 1}
+
+
+def test_generate_fixtures_artifacts_with_related_overrides(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module_path = _write_linked_module(tmp_path)
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    def fake_emit_pytest_fixtures(*args, **kwargs):  # type: ignore[no-untyped-def]
+        target = Path(kwargs["output_path"])
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("# fixtures", encoding="utf-8")
+        return WriteResult(path=target, wrote=True, skipped=False, reason=None, metadata=None)
+
+    monkeypatch.setattr(runtime_mod, "emit_pytest_fixtures", fake_emit_pytest_fixtures)
+
+    result = runtime_mod.generate_fixtures_artifacts(
+        target=module_path,
+        output_template=OutputTemplate(str(tmp_path / "conftest.py")),
+        style="functions",
+        scope="function",
+        cases=1,
+        return_type="model",
+        seed=None,
+        now=None,
+        p_none=None,
+        include=("models.Order",),
+        exclude=None,
+        freeze_seeds=False,
+        freeze_seeds_file=None,
+        preset=None,
+        profile=None,
+        respect_validators=None,
+        validator_max_retries=2,
+        relations={"models.Order.user_id": "models.User.id"},
+        with_related=("User", "models.User"),
+    )
+
+    assert any(entry.endswith(".User") for entry in result.config.include)
+
+
+def test_generate_fixtures_artifacts_unknown_related(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module_path = _write_module(
+        tmp_path,
+        """
+from pydantic import BaseModel
+
+
+class Sample(BaseModel):
+    value: int
+""",
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    with pytest.raises(DiscoveryError, match="Related model 'Missing' not found"):
+        runtime_mod.generate_fixtures_artifacts(
+            target=module_path,
+            output_template=OutputTemplate(str(tmp_path / "conftest.py")),
+            style="functions",
+            scope="function",
+            cases=1,
+            return_type="model",
+            seed=None,
+            now=None,
+            p_none=None,
+            include=None,
+            exclude=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+            profile=None,
+            with_related=("Missing",),
+        )
 
 
 def test_generate_fixtures_artifacts_discovery_errors(

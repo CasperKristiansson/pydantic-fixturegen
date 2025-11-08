@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import typer
 
@@ -18,8 +20,8 @@ from . import _common as cli_common
 from ._common import JSON_ERRORS_OPTION, NOW_OPTION, emit_constraint_summary, render_cli_error
 
 TARGET_ARGUMENT = typer.Argument(
-    ...,
-    help="Path to a Python module containing Pydantic models.",
+    None,
+    help="Path to a Python module containing Pydantic models (optional when using --type).",
 )
 
 OUT_OPTION = typer.Option(
@@ -120,6 +122,12 @@ PROFILE_OPTION = typer.Option(
     help="Apply a privacy profile (e.g. 'pii-safe', 'realistic').",
 )
 
+TYPE_OPTION = typer.Option(
+    None,
+    "--type",
+    help=("Python type expression to generate via TypeAdapter (e.g. 'list[EmailStr]')."),
+)
+
 RESPECT_VALIDATORS_OPTION = typer.Option(
     None,
     "--respect-validators/--no-respect-validators",
@@ -151,7 +159,7 @@ WITH_RELATED_OPTION = typer.Option(
 def register(app: typer.Typer) -> None:
     @app.command("json")
     def gen_json(  # noqa: PLR0913 - CLI surface mirrors documented parameters
-        target: str = TARGET_ARGUMENT,
+        target: str | None = TARGET_ARGUMENT,
         out: Path = OUT_OPTION,
         count: int = COUNT_OPTION,
         jsonl: bool = JSONL_OPTION,
@@ -169,6 +177,7 @@ def register(app: typer.Typer) -> None:
         freeze_seeds_file: Path | None = FREEZE_FILE_OPTION,
         preset: str | None = PRESET_OPTION,
         profile: str | None = PROFILE_OPTION,
+        type_expr: str | None = TYPE_OPTION,
         respect_validators: bool | None = RESPECT_VALIDATORS_OPTION,
         validator_max_retries: int | None = VALIDATOR_MAX_RETRIES_OPTION,
         links: list[str] | None = LINK_OPTION,
@@ -188,6 +197,21 @@ def register(app: typer.Typer) -> None:
             watch_extra = [output_template.watch_parent()]
         else:
             watch_output = output_template.preview_path()
+
+        module_path = Path(target) if target else None
+        type_annotation: Any | None = None
+        if type_expr:
+            try:
+                type_annotation = cli_common.evaluate_type_expression(
+                    type_expr,
+                    module_path=module_path,
+                )
+            except ValueError as exc:
+                render_cli_error(
+                    DiscoveryError(str(exc)),
+                    json_errors=json_errors,
+                )
+                return
 
         def invoke(exit_app: bool) -> None:
             try:
@@ -211,6 +235,8 @@ def register(app: typer.Typer) -> None:
                     validator_max_retries=validator_max_retries,
                     links=links,
                     with_related=with_related,
+                    type_annotation=type_annotation,
+                    type_label=type_expr,
                 )
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors, exit_app=exit_app)
@@ -228,8 +254,14 @@ def register(app: typer.Typer) -> None:
                 )
 
         if watch:
+            if module_path is None:
+                render_cli_error(
+                    DiscoveryError("Watch mode requires a module path when using --type."),
+                    json_errors=json_errors,
+                )
+                return
             watch_paths = gather_default_watch_paths(
-                Path(target),
+                module_path,
                 output=watch_output,
                 extra=watch_extra,
             )
@@ -237,7 +269,7 @@ def register(app: typer.Typer) -> None:
                 logger.debug(
                     "Entering watch loop",
                     event="watch_loop_enter",
-                    target=str(target),
+                    target=str(target) if target else "<type-adapter>",
                     output=str(watch_output or output_template.preview_path()),
                     debounce=watch_debounce,
                 )
@@ -250,7 +282,7 @@ def register(app: typer.Typer) -> None:
 
 def _execute_json_command(
     *,
-    target: str,
+    target: str | None,
     output_template: OutputTemplate,
     count: int,
     jsonl: bool,
@@ -269,28 +301,43 @@ def _execute_json_command(
     validator_max_retries: int | None = None,
     links: list[str] | None = None,
     with_related: list[str] | None = None,
+    type_annotation: Any | None = None,
+    type_label: str | None = None,
 ) -> None:
     logger = get_logger()
 
-    include_patterns = cli_common.split_patterns(include)
-    exclude_patterns = cli_common.split_patterns(exclude)
+    include_values: list[str] | None
+    exclude_values: list[str] | None
     related_identifiers: list[str] = []
-    related_include_patterns: list[str] = []
-    if with_related:
-        for entry in with_related:
-            for token in cli_common.split_patterns(entry):
-                related_identifiers.append(token)
-                if any(marker in token for marker in ("*", "?", ".")):
-                    related_include_patterns.append(token)
-                else:
-                    related_include_patterns.append(f"*.{token}")
+    relation_overrides: Mapping[str, str] | None = None
 
-    discovery_includes = list(include_patterns)
-    if related_include_patterns:
-        discovery_includes.extend(related_include_patterns)
+    if type_annotation is None:
+        include_patterns = cli_common.split_patterns(include)
+        exclude_patterns = cli_common.split_patterns(exclude)
+        related_include_patterns: list[str] = []
+        if with_related:
+            for entry in with_related:
+                for token in cli_common.split_patterns(entry):
+                    related_identifiers.append(token)
+                    if any(marker in token for marker in ("*", "?", ".")):
+                        related_include_patterns.append(token)
+                    else:
+                        related_include_patterns.append(f"*.{token}")
 
-    include_values = discovery_includes or None
-    exclude_values = exclude_patterns or None
+        discovery_includes = list(include_patterns)
+        if related_include_patterns:
+            discovery_includes.extend(related_include_patterns)
+
+        include_values = discovery_includes or None
+        exclude_values = exclude_patterns or None
+        relation_overrides = cli_common.parse_relation_links(links)
+    else:
+        if links:
+            raise DiscoveryError("--link is not supported when using --type.")
+        if with_related:
+            raise DiscoveryError("--with-related is not supported when using --type.")
+        include_values = None
+        exclude_values = None
 
     try:
         result = generate_json_artifacts(
@@ -311,8 +358,10 @@ def _execute_json_command(
             profile=profile,
             respect_validators=respect_validators,
             validator_max_retries=validator_max_retries,
-            relations=cli_common.parse_relation_links(links),
+            relations=relation_overrides,
             with_related=related_identifiers or None,
+            type_annotation=type_annotation,
+            type_label=type_label,
             logger=logger,
         )
     except PFGError as exc:

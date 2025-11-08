@@ -7,7 +7,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal, cast
 
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter, ValidationError, create_model
 
 from pydantic_fixturegen.core.config import AppConfig, load_config
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError, PFGError
@@ -157,7 +157,7 @@ def _build_instance_generator(
 
 def generate_json_artifacts(
     *,
-    target: str | Path,
+    target: str | Path | None,
     output_template: OutputTemplate,
     count: int,
     jsonl: bool,
@@ -176,16 +176,37 @@ def generate_json_artifacts(
     validator_max_retries: int | None = None,
     relations: Mapping[str, str] | None = None,
     with_related: Sequence[str] | None = None,
+    type_annotation: Any | None = None,
+    type_label: str | None = None,
     logger: Logger | None = None,
 ) -> JsonGenerationResult:
     from ..cli.gen import _common as cli_common
 
     logger = logger or get_logger()
-    path = Path(target)
-    if not path.exists():
-        raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
-    if not path.is_file():
-        raise DiscoveryError("Target must be a Python module file.", details={"path": target})
+
+    path: Path | None = None
+    if target is not None:
+        path = Path(target)
+        if not path.exists():
+            raise DiscoveryError(
+                f"Target path '{target}' does not exist.",
+                details={"path": target},
+            )
+        if not path.is_file():
+            raise DiscoveryError(
+                "Target must be a Python module file.",
+                details={"path": target},
+            )
+    elif type_annotation is None:
+        raise DiscoveryError("Target path must be provided when no --type is specified.")
+
+    if type_annotation is not None:
+        if freeze_seeds:
+            raise DiscoveryError("Seed freezing is not supported with --type targets.")
+        if relations:
+            raise DiscoveryError("Relation links cannot be combined with --type targets.")
+        if with_related:
+            raise DiscoveryError("Related model generation is unavailable for --type targets.")
 
     clear_include = _resolve_patterns(include)
     clear_exclude = _resolve_patterns(exclude)
@@ -247,6 +268,21 @@ def generate_json_artifacts(
     app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
     config_snapshot = _snapshot_config(app_config)
 
+    if type_annotation is not None:
+        return _generate_type_adapter_json(
+            annotation=type_annotation,
+            label=type_label,
+            app_config=app_config,
+            config_snapshot=config_snapshot,
+            output_template=output_template,
+            count=count,
+            jsonl=jsonl,
+            indent=indent,
+            use_orjson=use_orjson,
+            shard_size=shard_size,
+        )
+
+    assert path is not None
     discovery = cli_common.discover_models(
         path,
         include=app_config.include,
@@ -452,6 +488,145 @@ def generate_json_artifacts(
         warnings=warnings,
         delegated=False,
     )
+
+
+def _generate_type_adapter_json(
+    *,
+    annotation: Any,
+    label: str | None,
+    app_config: AppConfig,
+    config_snapshot: ConfigSnapshot,
+    output_template: OutputTemplate,
+    count: int,
+    jsonl: bool,
+    indent: int | None,
+    use_orjson: bool | None,
+    shard_size: int | None,
+) -> JsonGenerationResult:
+    generator = _build_instance_generator(app_config)
+    adapter = TypeAdapter(annotation)
+    model_name = f"_PFGTypeAdapter_{abs(hash(label or 'TypeAdapter'))}"
+    adapter_model = create_model(
+        model_name,
+        __base__=BaseModel,
+        value=(annotation, ...),
+    )
+
+    reporter = getattr(generator, "constraint_report", None)
+    warnings: tuple[str, ...] = ()
+    indent_value = indent if indent is not None else app_config.json.indent
+    use_orjson_value = use_orjson if use_orjson is not None else app_config.json.orjson
+    timestamp = _dt.datetime.now(_dt.timezone.utc)
+    display_label = label or "TypeAdapter"
+    safe_label = _sanitize_identifier(display_label)
+    template_context = OutputTemplateContext(model=safe_label, timestamp=timestamp)
+    base_output = output_template.render(
+        context=template_context,
+        case_index=1 if output_template.uses_case_index() else None,
+    )
+
+    context = EmitterContext(
+        models=(),
+        output=base_output,
+        parameters={
+            "count": count,
+            "jsonl": jsonl,
+            "indent": indent_value,
+            "shard_size": shard_size,
+            "use_orjson": use_orjson_value,
+            "path_template": output_template.raw,
+        },
+    )
+
+    if emit_artifact("json", context):
+        return JsonGenerationResult(
+            paths=(),
+            base_output=base_output,
+            model=None,
+            config=config_snapshot,
+            constraint_summary=None,
+            warnings=warnings,
+            delegated=True,
+            type_annotation=annotation,
+            type_label=display_label,
+        )
+
+    def sample_factory() -> Any:
+        instance = generator.generate_one(adapter_model)
+        if instance is None:
+            details: dict[str, Any] = {"type_adapter": safe_label}
+            failure = getattr(generator, "validator_failure_details", None)
+            if failure:
+                details["validator_failure"] = failure
+            summary_snapshot = _summarize_constraint_report(generator.constraint_report)
+            if summary_snapshot:
+                details["constraint_summary"] = summary_snapshot
+            raise MappingError(
+                f"Failed to generate value for {safe_label}.",
+                details=details,
+            )
+        raw_value = getattr(instance, "value", None)
+        try:
+            validated = adapter.validate_python(raw_value)
+        except ValidationError as exc:
+            raise MappingError(
+                f"TypeAdapter validation failed for {safe_label}.",
+                details={"error": str(exc)},
+            ) from exc
+        return adapter.dump_python(validated)
+
+    try:
+        paths = emit_json_samples(
+            sample_factory,
+            output_path=output_template.raw,
+            count=count,
+            jsonl=jsonl,
+            indent=indent_value,
+            shard_size=shard_size,
+            use_orjson=use_orjson_value,
+            ensure_ascii=False,
+            template=output_template,
+            template_context=template_context,
+        )
+    except RuntimeError as exc:
+        constraint_summary = _summarize_constraint_report(reporter)
+        details = _build_error_details(
+            config_snapshot=config_snapshot,
+            warnings=warnings,
+            base_output=base_output,
+            constraint_summary=constraint_summary,
+        )
+        raise EmitError(str(exc), details=details) from exc
+    except PFGError as exc:
+        constraint_summary = _summarize_constraint_report(reporter)
+        details = _build_error_details(
+            config_snapshot=config_snapshot,
+            warnings=warnings,
+            base_output=base_output,
+            constraint_summary=constraint_summary,
+        )
+        _attach_error_details(exc, details)
+        raise
+
+    constraint_summary = _summarize_constraint_report(reporter)
+
+    return JsonGenerationResult(
+        paths=tuple(paths),
+        base_output=base_output,
+        model=None,
+        config=config_snapshot,
+        constraint_summary=constraint_summary,
+        warnings=warnings,
+        delegated=False,
+        type_annotation=annotation,
+        type_label=display_label,
+    )
+
+
+def _sanitize_identifier(value: str) -> str:
+    cleaned = "".join(ch if ch.isalnum() else "_" for ch in value)
+    cleaned = cleaned.strip("_")
+    return cleaned or "TypeAdapter"
 
 
 def generate_fixtures_artifacts(

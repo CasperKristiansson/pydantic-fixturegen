@@ -23,6 +23,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added deterministic NumPy array providers with configurable shape/dtype caps (requires the `numpy` extra).
 - Added validator-aware retries controlled by `respect_validators`/`validator_max_retries`, exposing matching CLI flags on `gen json`, `gen fixtures`, and `diff` plus structured `validator_failure` diagnostics when retries exhaust.
 - Added relation-aware generation via `[relations]` config and new `--link` / `--with-related` CLI flags so JSON bundles and pytest fixtures can keep foreign keys aligned across models while emitting related records together; diff now understands the relation overrides too.
+- Added automatic providers for a broad set of `pydantic-extra-types` annotations (colors, coordinates, phone numbers, cron strings, semantic versions, ULIDs, etc.) with matching `pfg doctor` diagnostics when the optional dependency is missing so gaps are surfaced early.
+- Added TypeAdapter generation to `pfg gen json`/`generate_json` via `--type`/`type_annotation`, including CLI expression evaluation, watch safeguards, and detailed MappingError diagnostics when adapter validation fails.
 
 ## [1.1.0] - 2025-11-04
 

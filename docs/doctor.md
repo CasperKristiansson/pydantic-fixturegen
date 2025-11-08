@@ -12,6 +12,7 @@ pfg doctor ./models.py --fail-on-gaps 0 --json-errors
 - Discovery options match `pfg list`: `--ast`, `--hybrid`, `--include`, `--exclude`, `--timeout`, `--memory-limit-mb`.
 - Use `--fail-on-gaps <N>` to exit with code `2` when more than `N` fields lack providers (set `0` to fail on any gap).
 - `--json-errors` prints structured diagnostic payloads, enabling CI gating.
+- Extra-type awareness: doctor now calls out `pydantic-extra-types` annotations that don't have providers loaded (for example when the optional dependency is missing) so you can install the extra or override the field before it reaches production.
 
 Review the report to see gap summaries grouped by type, recommended remediations, and severity levels.
 

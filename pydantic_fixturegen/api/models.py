@@ -32,6 +32,8 @@ class JsonGenerationResult:
     constraint_summary: Mapping[str, Any] | None
     warnings: tuple[str, ...]
     delegated: bool
+    type_annotation: Any | None = None
+    type_label: str | None = None
 
 
 @dataclass(slots=True)

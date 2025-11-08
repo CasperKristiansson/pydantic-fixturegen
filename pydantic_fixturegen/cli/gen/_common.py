@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import datetime as _dt
+import decimal as _decimal
 import importlib
 import importlib.util
 import json
 import sys
+import typing
+import uuid as _uuid
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from types import ModuleType
@@ -32,6 +36,7 @@ __all__ = [
     "split_patterns",
     "emit_constraint_summary",
     "parse_relation_links",
+    "evaluate_type_expression",
 ]
 
 
@@ -288,3 +293,70 @@ def _import_module_by_path(module_name: str, path: Path) -> ModuleType:
 
     _module_cache[module_name] = module
     return module
+
+
+def evaluate_type_expression(expression: str, *, module_path: Path | None = None) -> Any:
+    """Evaluate a Python type expression in a constrained namespace."""
+
+    module = None
+    if module_path is not None:
+        module = _import_module_by_path(module_path.stem, module_path)
+    namespace = _build_type_namespace(module)
+    try:
+        return eval(expression, {"__builtins__": {}}, namespace)
+    except NameError as exc:
+        raise ValueError(f"Unknown name in type expression: {exc}") from exc
+    except Exception as exc:
+        raise ValueError(f"Invalid type expression: {exc}") from exc
+
+
+def _build_type_namespace(extra_module: ModuleType | None) -> dict[str, Any]:
+    ns: dict[str, Any] = {
+        "typing": typing,
+        "Path": Path,
+        "datetime": _dt,
+        "date": _dt.date,
+        "time": _dt.time,
+        "timedelta": _dt.timedelta,
+        "timezone": _dt.timezone,
+        "Decimal": _decimal.Decimal,
+        "uuid": _uuid,
+        "UUID": _uuid.UUID,
+        "BaseModel": BaseModel,
+    }
+
+    for builtin in (list, dict, set, tuple, frozenset, int, float, bool, str):
+        ns[builtin.__name__] = builtin
+
+    ns.setdefault("Literal", typing.Literal)
+    ns.setdefault("Annotated", typing.Annotated)
+    ns.setdefault("Union", typing.Union)
+    ns.setdefault("Any", typing.Any)
+    ns.setdefault("Optional", typing.Optional)
+
+    pydantic_module = _maybe_import("pydantic")
+    if pydantic_module is not None:
+        ns.setdefault("pydantic", pydantic_module)
+        for attr in ("EmailStr", "AnyUrl", "AnyHttpUrl", "TypeAdapter"):
+            if hasattr(pydantic_module, attr):
+                ns.setdefault(attr, getattr(pydantic_module, attr))
+
+    extra_pkg = _maybe_import("pydantic_extra_types")
+    if extra_pkg is not None:
+        ns.setdefault("pydantic_extra_types", extra_pkg)
+
+    if extra_module is not None:
+        ns.setdefault(extra_module.__name__, extra_module)
+        for name, value in vars(extra_module).items():
+            if name.startswith("_"):
+                continue
+            ns.setdefault(name, value)
+
+    return ns
+
+
+def _maybe_import(name: str) -> ModuleType | None:
+    try:
+        return importlib.import_module(name)
+    except ModuleNotFoundError:
+        return None

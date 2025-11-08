@@ -5,12 +5,18 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal, cast, get_origin
 
 import typer
 from pydantic import BaseModel
 
 from pydantic_fixturegen.core.errors import DiscoveryError, PFGError
+from pydantic_fixturegen.core.extra_types import (
+    describe_extra_annotation,
+)
+from pydantic_fixturegen.core.extra_types import (
+    resolve_type_id as resolve_extra_type_id,
+)
 from pydantic_fixturegen.core.providers import create_default_registry
 from pydantic_fixturegen.core.schema import FieldSummary, summarize_model_fields
 from pydantic_fixturegen.core.strategies import StrategyBuilder, StrategyResult, UnionStrategy
@@ -289,16 +295,46 @@ def _strategy_status(summary: FieldSummary, strategy: StrategyResult) -> tuple[b
     if summary.type in {"model", "dataclass"}:
         return True, gaps
 
+    base_annotation = _resolve_annotation_origin(summary.annotation)
+    extra_label = describe_extra_annotation(summary.annotation) if summary.annotation else None
+    extra_supported = bool(base_annotation and resolve_extra_type_id(base_annotation))
+
     if strategy.provider_ref is None:
+        if extra_label and not extra_supported:
+            gaps.append(
+                GapInfo(
+                    type_name="pydantic-extra-types",
+                    reason=f"No provider available for {extra_label}.",
+                    remediation=(
+                        "Install the missing dependency or register a provider for this type."
+                    ),
+                    severity="error",
+                )
+            )
+        else:
+            gaps.append(
+                GapInfo(
+                    type_name=summary.type,
+                    reason=f"No provider registered for type '{summary.type}'.",
+                    remediation=(
+                        "Register a custom provider or configure an override for this field."
+                    ),
+                    severity="error",
+                )
+            )
+        return False, gaps
+
+    if extra_label and not extra_supported:
         gaps.append(
             GapInfo(
-                type_name=summary.type,
-                reason=f"No provider registered for type '{summary.type}'.",
-                remediation="Register a custom provider or configure an override for this field.",
+                type_name="pydantic-extra-types",
+                reason=f"Field falls back to generic providers for {extra_label}.",
+                remediation=(
+                    "Pin a supported provider or override the field to avoid generic values."
+                ),
                 severity="error",
             )
         )
-        return False, gaps
 
     if summary.type == "any":
         gaps.append(
@@ -310,6 +346,16 @@ def _strategy_status(summary: FieldSummary, strategy: StrategyResult) -> tuple[b
             )
         )
     return True, gaps
+
+
+def _resolve_annotation_origin(annotation: Any | None) -> Any | None:
+    target = annotation
+    while True:
+        origin = get_origin(target)
+        if origin is None:
+            break
+        target = origin
+    return target
 
 
 def _summarize_gaps(field_gaps: Iterable[FieldGap]) -> GapSummary:

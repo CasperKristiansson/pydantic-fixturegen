@@ -78,6 +78,13 @@ Tweak behaviour through the `[tool.pydantic_fixturegen.identifiers]` section doc
 
 > **Extras**: `EmailStr` support requires the optional `email` extra, while `PaymentCardNumber` relies on the `payment` extra that pulls in `pydantic-extra-types`.
 
+## `pydantic-extra-types` support
+
+- When the [`pydantic-extra-types`](https://pypi.org/project/pydantic-extra-types/) package is installed, fixturegen automatically registers providers for common shapes such as `Color`, `Coordinate`, `Country*`, `DomainStr`, `PhoneNumber`, `SemanticVersion`, `S3Path`, `ULID`, and the pendulum date/time classes.
+- Providers emit deterministic but realistic payloads (for example, hex colours, ISO 4217 currency codes, or MongoDB object IDs) so seeded runs stay stable across CLI, API, and emitter workflows.
+- The registry only activates providers for types whose modules can be imported; missing optional dependencies simply skip registration without failing the run.
+- `pfg doctor` now flags models that reference `pydantic-extra-types` annotations when the matching provider is unavailable, helping you decide whether to install the extra or override the field manually.
+
 ## Built-in path providers
 
 - `pathlib.Path`, `pydantic.DirectoryPath`, and `pydantic.FilePath` fields now receive seeded paths that mimic Windows, macOS, or generic POSIX conventions.

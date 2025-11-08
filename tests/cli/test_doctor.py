@@ -57,6 +57,34 @@ def test_doctor_basic(tmp_path: Path) -> None:
     assert "Type coverage gaps: none" in result.stdout
 
 
+def test_doctor_reports_unknown_extra_type(tmp_path: Path) -> None:
+    module_path = tmp_path / "extra_models.py"
+    module_path.write_text(
+        """
+from pydantic import BaseModel
+
+
+class FakeExtra(str):
+    pass
+
+
+FakeExtra.__module__ = "pydantic_extra_types.fake"
+
+
+class Payload(BaseModel):
+    model_config = {"arbitrary_types_allowed": True}
+    token: FakeExtra
+""",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(cli_app, ["doctor", str(module_path)])
+
+    assert result.exit_code == 0
+    assert "pydantic-extra-types" in result.stdout
+    assert "FakeExtra" in result.stdout
+
+
 def test_doctor_reports_provider_issue(tmp_path: Path) -> None:
     module_path = tmp_path / "models.py"
     module_path.write_text(

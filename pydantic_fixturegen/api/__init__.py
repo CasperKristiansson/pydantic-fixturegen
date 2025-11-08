@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from pydantic_fixturegen.core.path_template import OutputTemplate
 
@@ -25,7 +26,7 @@ __all__ = [
 
 
 def generate_json(
-    target: str | Path,
+    target: str | Path | None,
     *,
     out: str | Path,
     count: int = 1,
@@ -41,14 +42,22 @@ def generate_json(
     freeze_seeds_file: str | Path | None = None,
     preset: str | None = None,
     profile: str | None = None,
+    type_annotation: Any | None = None,
+    type_label: str | None = None,
 ) -> JsonGenerationResult:
-    """Generate JSON artifacts for a single Pydantic model.
+    """Generate JSON artifacts for a single Pydantic model or ``TypeAdapter`` target.
 
-    Parameters mirror the ``pfg gen json`` CLI command.
+    Parameters mirror the ``pfg gen json`` CLI command. When ``type_annotation`` is provided,
+    ``target`` may be ``None`` and the annotation will be evaluated directly via a
+    dynamically constructed adapter.
     """
 
     template = OutputTemplate(str(out))
     freeze_path = Path(freeze_seeds_file) if freeze_seeds_file is not None else None
+
+    label_override = type_label
+    if label_override is None and type_annotation is not None:
+        label_override = repr(type_annotation)
 
     return generate_json_artifacts(
         target=target,
@@ -66,6 +75,8 @@ def generate_json(
         freeze_seeds_file=freeze_path,
         preset=preset,
         profile=profile,
+        type_annotation=type_annotation,
+        type_label=label_override,
     )
 
 

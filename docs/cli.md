@@ -47,6 +47,7 @@ pfg gen json ./models.py \
 - Switch encoding with `--jsonl`, `--indent`, `--orjson/--no-orjson`.
 - Determinism helpers: `--seed`, `--freeze-seeds`, `--freeze-seeds-file`, `--preset`.
 - Relations: declare cross-model links with `--link Order.user_id=User.id` and co-generate related records with `--with-related User,Item` (each JSON sample becomes a dict keyed by model name).
+- TypeAdapter mode: pass `--type "list[EmailStr]"` to evaluate a Python type expression via `TypeAdapter` without discovering a module first. Expressions can reference types from the target module when you also pass the module path, but you cannot combine `--type` with `--link`, `--with-related`, or `--freeze-seeds`, and watch mode requires a module path so imports can be refreshed.
 - Validator enforcement: add `--respect-validators` to retry on model/dataclass validator failures and `--validator-max-retries` to cap the extra attempts.
 - Privacy bundles: `--profile pii-safe` masks identifiers; `--profile realistic` restores richer distributions.
 - Observability: `--json-errors`, `--watch`, `--watch-debounce`, `--now`.
