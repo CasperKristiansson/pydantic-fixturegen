@@ -34,6 +34,10 @@ dependencies = [
 regex = [
   "rstr>=3.2.2",
 ]
+fastapi = [
+  "fastapi>=0.115.0",
+  "uvicorn>=0.32.0",
+]
 openapi = [
   "datamodel-code-generator>=0.35.0,<0.36.0",
   "pyyaml>=6.0.1",
@@ -70,6 +74,8 @@ watch = [
 ]
 docs = []
 all = [
+  "fastapi>=0.115.0",
+  "uvicorn>=0.32.0",
   "datamodel-code-generator>=0.35.0,<0.36.0",
   "pyyaml>=6.0.1",
   "email-validator>=2.0.0",
@@ -87,6 +93,8 @@ all-dev = [
   "ruff>=0.6.5",
   "pytest>=8.3",
   "pytest-cov>=5.0",
+  "fastapi>=0.115.0",
+  "uvicorn>=0.32.0",
   "datamodel-code-generator>=0.35.0,<0.36.0",
   "pyyaml>=6.0.1",
   "email-validator>=2.0.0",
@@ -191,6 +199,22 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "datamodel_code_generator.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "fastapi"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "fastapi.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "uvicorn"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "uvicorn.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

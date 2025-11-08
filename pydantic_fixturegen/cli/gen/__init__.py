@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import typer
 
+from .examples import register as register_examples
 from .explain import app as explain_app
 from .fixtures import register as register_fixtures
 from .json import register as register_json
@@ -16,6 +17,7 @@ app = typer.Typer(help="Generate data artifacts from Pydantic models.")
 register_json(app)
 register_openapi(app)
 register_schema(app)
+register_examples(app)
 register_fixtures(app)
 register_strategies(app)
 app.add_typer(

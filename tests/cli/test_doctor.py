@@ -537,5 +537,5 @@ def test_doctor_handles_schema_input(tmp_path: Path) -> None:
         ],
     )
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 0, result.stderr or result.output
     assert "User" in result.stdout

@@ -14,7 +14,15 @@
 - `pfg gen json --schema schema.json` ingests standalone JSON Schema documents (via `datamodel-code-generator`) and immediately reuses the cached module for generation, explain, and diff workflows.
 - `pfg gen openapi spec.yaml --route "GET /users"` materialises OpenAPI 3.x components, isolates the schemas referenced by the selected routes, and emits a per-schema JSON sample (using `{model}` in your output template to fan out across operations).
 - `pfg doctor --schema` / `--openapi` surface coverage gaps for schema-driven models, so you can spot unsupported field shapes before writing a single Python class.
+- `pfg gen examples spec.yaml --out spec_with_examples.yaml` injects deterministic example payloads into every referenced schema/component, so your OpenAPI docs stay realistic without manual curation.
 - Generated modules are cached under `.pfg-cache/schemas` keyed by the document fingerprint and selected routes, which keeps reruns instant while still regenerating when the source spec changes.
+
+## FastAPI integration
+
+- `pfg fastapi smoke app.main:app` inspects live FastAPI apps, generates deterministic request/response bodies with pydantic-fixturegen, and scaffolds a pytest suite that asserts every documented route returns a 2xx status and passes response-model validation.
+- `pfg fastapi serve app.main:app --port 8050` spins up a mock server that mirrors your routes but responds with fixture-generated payloads—perfect for demos, contract-first development, or onboarding stakeholders before the real backend exists.
+- Dependency injection hooks can be bypassed via `--dependency-override original=stub`, so auth/session providers or rate-limiters don’t block smoke tests and mock responses.
+- Install the `fastapi` extra to pull in FastAPI + Uvicorn support for these commands.
 
 ## Generation engine
 

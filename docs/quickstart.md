@@ -5,7 +5,7 @@
 ## You need
 
 - Python 3.10–3.14.
-- `pip install pydantic-fixturegen` (add extras like `orjson`, `regex`, `hypothesis`, `openapi`, or `watch` as needed).
+- `pip install pydantic-fixturegen` (add extras like `orjson`, `regex`, `hypothesis`, `openapi`, `fastapi`, or `watch` as needed).
 - A small Pydantic v2 model module.
 
 ## Step 1 — Create a model file
@@ -92,6 +92,28 @@ pfg gen openapi api.yaml --route "GET /users" --route "POST /orders" --out opena
 - `pfg doctor --schema ...` / `--openapi ...` surface coverage gaps without writing Python models first.
 
 Schema-derived modules are cached and invalidated automatically when the underlying document (or selected routes) change.
+
+### FastAPI smoke + mock server
+
+Install the `fastapi` extra to unlock the new commands:
+
+```bash
+pip install 'pydantic-fixturegen[fastapi]'
+
+pfg fastapi smoke app.main:app --out tests/test_fastapi_smoke.py
+pfg fastapi serve app.main:app --port 8050 --seed 7
+```
+
+- The smoke command generates a pytest module (one test per route) using fixture data, asserts responses stay 2xx, and validates response models. Pass `--dependency-override original=stub` to bypass auth dependencies.
+- The mock server mirrors your FastAPI routes but returns deterministic JSON payloads, making it easy to share a contract-first API without deploying the real backend.
+
+### OpenAPI examples via fixtures
+
+```bash
+pfg gen examples openapi.yaml --out openapi.examples.yaml
+```
+
+- The command uses the same schema-ingestion pipeline to attach realistic `example` blocks to every referenced schema or component, so docs and SDKs inherit the exact payloads your fixtures produce.
 
 ```bash
 pfg gen fixtures ./models.py \
