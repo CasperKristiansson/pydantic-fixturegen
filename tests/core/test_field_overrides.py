@@ -88,7 +88,7 @@ def test_field_override_post_generate_applies_callback() -> None:
             "joined": {
                 "value": "",
                 "post_generate": f"{__name__}:_join_post",
-            }
+            },
         }
     }
     override_set = build_field_override_set(overrides)

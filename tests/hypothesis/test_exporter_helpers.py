@@ -14,6 +14,7 @@ try:  # pragma: no cover - optional dependency
     from hypothesis.errors import HypothesisDeprecationWarning, NonInteractiveExampleWarning
 
     from hypothesis import strategies as st
+
     warnings.filterwarnings("ignore", category=HypothesisDeprecationWarning)
     WARNING_TYPES = (NonInteractiveExampleWarning, HypothesisDeprecationWarning)
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
