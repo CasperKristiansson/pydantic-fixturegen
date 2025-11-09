@@ -154,6 +154,101 @@ def test_generate_models_missing_dependency(
         )
 
 
+def test_ingest_json_schema_uses_fallback_compiler(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    schema_doc = {
+        "title": "User",
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "age": {"type": "integer"},
+        },
+    }
+    schema_path = tmp_path / "schema.json"
+    schema_path.write_text(json.dumps(schema_doc), encoding="utf-8")
+
+    def fake_import(name: str):
+        if name == "datamodel_code_generator":
+            raise RuntimeError(
+                "Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater."
+            )
+        return real_import_module(name)
+
+    real_import_module = importlib.import_module
+    monkeypatch.setattr(
+        "pydantic_fixturegen.core.schema_ingest.importlib.import_module",
+        fake_import,
+    )
+
+    @contextmanager
+    def fake_compat():
+        yield
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.core.schema_ingest._ensure_pydantic_compatibility",
+        fake_compat,
+    )
+
+    ingester = SchemaIngester(root=tmp_path)
+    module = ingester.ingest_json_schema(schema_path)
+    contents = module.path.read_text(encoding="utf-8")
+    assert "class User(BaseModel):" in contents
+    assert "name: str" in contents
+    assert "age: int" in contents
+
+
+def test_ingest_openapi_fallback_generates_models(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    document = {
+        "openapi": "3.1.0",
+        "components": {
+            "schemas": {
+                "Widget": {
+                    "type": "object",
+                    "properties": {
+                        "label": {"type": "string"},
+                        "count": {"type": "integer"},
+                    },
+                }
+            }
+        },
+    }
+
+    spec_path = tmp_path / "spec.json"
+    spec_path.write_text("{}", encoding="utf-8")
+    payload = json.dumps(document).encode("utf-8")
+
+    def fake_import(name: str):
+        if name == "datamodel_code_generator":
+            raise RuntimeError(
+                "Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater."
+            )
+        return real_import_module(name)
+
+    real_import_module = importlib.import_module
+    monkeypatch.setattr(
+        "pydantic_fixturegen.core.schema_ingest.importlib.import_module",
+        fake_import,
+    )
+
+    @contextmanager
+    def fake_compat():
+        yield
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.core.schema_ingest._ensure_pydantic_compatibility",
+        fake_compat,
+    )
+
+    ingester = SchemaIngester(root=tmp_path)
+    module = ingester.ingest_openapi(spec_path, document_bytes=payload, fingerprint="demo")
+    contents = module.path.read_text(encoding="utf-8")
+    assert "class Widget(BaseModel):" in contents
+    assert "label: str" in contents
+
+
 def test_generate_models_rethrows_discovery_error(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
