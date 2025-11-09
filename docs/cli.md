@@ -12,6 +12,24 @@ pfg --log-json      # emit structured JSON logs; combine with jq for CI parsing
 
 You can append `-- --help` after any proxy command to view native Typer help because `pfg` forwards arguments to sub-apps.
 
+## Command map (cheat sheet)
+
+| Command | Purpose |
+| ------- | ------- |
+| `pfg list` | Discover models via AST/safe-import hybrids. |
+| `pfg gen json` / `dataset` / `fixtures` / `schema` | Emit JSON/JSONL, CSV/Parquet/Arrow, pytest fixtures, or JSON Schema. |
+| `pfg gen seed sqlmodel|beanie` | Populate SQLModel/SQLAlchemy or Beanie/MongoDB databases. |
+| `pfg gen examples` | Inject deterministic examples into OpenAPI specs. |
+| `pfg gen strategies` | Export Hypothesis strategies wired to `strategy_for`. |
+| `pfg gen explain` | Visualise generation plans (tree or JSON). |
+| `pfg gen polyfactory` | Scaffold Polyfactory classes that delegate to fixturegen. |
+| `pfg fastapi smoke` / `serve` | Generate FastAPI smoke tests or launch a deterministic mock server. |
+| `pfg anonymize` | Rewrite JSON/JSONL payloads via rule-driven strategies. |
+| `pfg diff` / `check` / `doctor` | Compare artefacts, validate configs, audit coverage. |
+| `pfg snapshot verify/write` | Verify or refresh stored snapshots outside pytest. |
+| `pfg lock` / `verify` | Record and enforce coverage manifests in CI. |
+| `pfg init` / `plugin` | Scaffold config files or custom pluggy providers. |
+
 ## `pfg list`
 
 ```bash
@@ -125,6 +143,23 @@ pfg gen schema ./models.py --out ./schema --include pkg.User
 - Requires `--out` and writes JSON Schema files atomically.
 - Combine with `--include`/`--exclude`, `--json-errors`, `--watch`, `--now`, and `--profile` when you want schema discovery to evaluate a specific privacy profile.
 
+### `pfg gen examples`
+
+```bash
+pfg gen examples openapi.yaml \
+  --route "GET /users" \
+  --route "POST /orders" \
+  --out openapi.examples.yaml \
+  --seed 7 \
+  --freeze-seeds
+```
+
+- Requires the `openapi` extra so `datamodel-code-generator` and PyYAML are available.
+- Ingests an OpenAPI 3.x spec, isolates the referenced schemas per route, and injects deterministic `example` blocks into responses and request bodies.
+- `--route` is repeatable; omit it to process every route/component. Use `--include`/`--exclude` for fine-grained schema control.
+- Determinism helpers mirror `gen json`: `--seed`, `--freeze-seeds`, `--profile`, `--respect-validators`, `--validator-max-retries`, `--max-depth`, `--on-cycle`, `--rng-mode`.
+- Combine with `pfg gen openapi` JSON emission to keep SDK examples and test fixtures aligned without hand-crafted payloads.
+
 ### `pfg gen explain`
 
 ```bash
@@ -146,6 +181,22 @@ pfg gen polyfactory ./models.py --out tests/polyfactory_factories.py --seed 11 -
 - Supports `--include`/`--exclude`, `--seed`, `--max-depth`, `--on-cycle`, `--rng-mode`, and `--watch` just like other `gen` subcommands. Pass `--stdout` to stream the scaffold elsewhere.
 - Pair with the `[polyfactory]` config block: the CLI respects `prefer_delegation` and automatically registers any factories it exported the next time you run `gen json`, `gen fixtures`, or the FastAPI commands.
 
+### `pfg gen strategies`
+
+```bash
+pfg gen strategies ./models.py \
+  --include models.User \
+  --out tests/strategies/test_users.py \
+  --seed 123 \
+  --strategy-profile edge \
+  --stdout
+```
+
+- Exports Hypothesis strategies built on `pydantic_fixturegen.hypothesis.strategy_for` so property-based tests reuse the same configuration (seed, RNG mode, cycle policy, presets) as the CLI.
+- `--strategy-profile` toggles value distributions (`typical`, `edge`, `adversarial`); combine with `--preset` and `--profile` for complete control.
+- Add `--stdout` to stream the module directly into other tooling, or point `--out` at a Python file to commit alongside your tests.
+- The generated module includes helper functions to reseed strategies on demand, and each exported symbol carries docstrings describing the deterministic settings used.
+
 ## `pfg anonymize`
 
 ```bash
@@ -165,6 +216,38 @@ pfg anonymize \
 - Observability: `--report` writes a JSON summary containing before/after diff samples, per-strategy counts, and privacy budget metrics. Add `--doctor-target` to reuse `pfg doctor` gap detection after data is anonymized.
 - Budgets: `--max-required-misses` and `--max-rule-failures` override the thresholds defined in the rules file/profile so CI can fail fast when sensitive fields slip through unchanged.
 - Input/output flexibility: accept JSON arrays, standalone objects, JSONL/NDJSON streams, or directory trees (mirrored to the output directory). Every writer preserves determinism, so running the command twice with the same salt/entity key yields identical sanitized payloads.
+
+## `pfg fastapi`
+
+Install the `fastapi` extra to enable FastAPI tooling.
+
+### `pfg fastapi smoke`
+
+```bash
+pfg fastapi smoke app.main:app \
+  --out tests/test_fastapi_smoke.py \
+  --seed 11 \
+  --dependency-override auth.get_current_user=fakes.allow_all \
+  --respect-validators
+```
+
+- Generates a pytest module with one smoke test per route. Each test issues a client request, asserts a 2xx response, and validates the response model using the same deterministic fixture engine.
+- `--dependency-override original=stub` (repeatable) bypasses expensive dependencies—perfect for auth/session providers or rate-limiters.
+- Honour the usual deterministic flags (`--seed`, `--preset`, `--profile`, `--link`, `--with-related`, `--max-depth`, `--on-cycle`, `--rng-mode`) so smoke payloads stay in sync with the rest of your suite.
+
+### `pfg fastapi serve`
+
+```bash
+pfg fastapi serve app.main:app \
+  --port 8050 \
+  --seed 7 \
+  --host 0.0.0.0 \
+  --reload
+```
+
+- Spins up a deterministic mock server that mirrors your FastAPI routes but responds with fixture-generated payloads. Ideal for contract-first development, front-end demos, or QA sandboxes.
+- Respects the same deterministic config as every other command, and supports Uvicorn flags like `--host`, `--port`, and `--reload`.
+- Combine with `--dependency-override` to stub external services when mocking.
 
 ## `pfg lock`
 
@@ -188,6 +271,30 @@ pfg verify --lockfile .pfg-lock.json ./models.py
 - Recomputes the manifest with the current codebase and compares it to the stored lockfile (ignoring timestamps). Exit code `30` indicates drift and prints a unified diff of the JSON payload.
 - Pair `pfg lock` with `pfg verify` in CI or pre-commit hooks to block merges when coverage regresses or new models land without regenerated fixtures.
 - Pass options before the positional module argument to keep the root proxy satisfied.
+
+## `pfg snapshot`
+
+| Subcommand | Purpose |
+| ---------- | ------- |
+| `pfg snapshot verify` | Regenerate artifacts in-memory and fail with exit code `30` when drift is detected (without updating files). |
+| `pfg snapshot write`  | Regenerate artifacts and refresh on-disk snapshots using the same deterministic pipeline. |
+
+```bash
+pfg snapshot verify ./models.py \
+  --json-out artifacts/users.json \
+  --fixtures-out tests/fixtures/test_users.py \
+  --seed 42 \
+  --freeze-seeds
+
+pfg snapshot write ./models.py \
+  --json-out artifacts/users.json \
+  --fixtures-out tests/fixtures/test_users.py \
+  --seed 42
+```
+
+- Mirrors `pfg diff` options (`--json-out`, `--fixtures-out`, `--schema-out`, `--include`, `--exclude`, `--seed`, `--preset`, `--link`, `--with-related`, `--respect-validators`, `--max-depth`, `--on-cycle`, `--rng-mode`).
+- Designed for CI/lint workflows where you want “diff-only” vs “update in place” behaviour without invoking the pytest plugin.
+- Pair with the pytest helper documented in [testing.md](testing.md) to give individual tests opt-in updates (`pytest --pfg-update-snapshots=update`) while CI stick to `pfg snapshot verify`.
 
 ## `pfg diff`
 

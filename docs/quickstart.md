@@ -1,99 +1,96 @@
-# Quick start: Build deterministic Pydantic fixtures fast
+# Quickstart: deterministic data in minutes
 
-> Follow one file from discovery to fixtures, learn config precedence, and watch artifacts regenerate on change.
+> Install the CLI, generate JSON/datasets/fixtures, diff them, and lock in deterministic snapshots.
 
-## You need
+## 0. Before you begin
 
-- Python 3.10–3.14.
-- `pip install pydantic-fixturegen` (add extras like `orjson`, `regex`, `hypothesis`, `openapi`, `fastapi`, or `watch` as needed).
-- A small Pydantic v2 model module.
+```bash
+python -m pip install --upgrade pip
+pip install "pydantic-fixturegen[openapi,fastapi,dataset,polyfactory]"
+pfg --version
+```
 
-## Step 1 — Create a model file
+- Add extras that match your stack (`openapi` for schema ingestion, `fastapi` for smoke/mock commands, `dataset` for CSV/Parquet/Arrow, `polyfactory` if you already have ModelFactory classes, `seed` for SQLModel + Beanie).
+- Run `pfg --help` once to ensure the entry point is on your PATH. All CLI examples assume a POSIX shell; on Windows, swap `\` for ``^`` when you wrap long commands.
+
+## 1. Scaffold a model module
+
+Create `models.py` anywhere inside your repo:
 
 ```python
-# models.py
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
 
 class Address(BaseModel):
     street: str
+    city: str
+
 
 class User(BaseModel):
     id: int
     name: str
     nickname: str | None = None
     address: Address
+    email: str = Field(regex=r".+@example.org$")
 ```
 
-You can drop this file alongside your test suite or inside a sample project root.
+Inspect it with `pfg list models.py --include models.User` to confirm discovery works. Need a config file? `pfg init --seed 42 --json-indent 2` writes TOML/YAML templates so you can persist defaults (seed, presets, emitters).
 
-## Step 2 — Discover models
+## 2. Generate JSON and datasets
+
+### JSON / JSONL / sharded payloads
 
 ```bash
-pfg list ./models.py
+pfg gen json ./models.py \
+  --include models.User \
+  --out artifacts/{model}/sample-{case_index}.json \
+  --n 5 \
+  --indent 2 \
+  --seed 42 \
+  --freeze-seeds \
+  --preset boundary \
+  --watch
 ```
 
-You see fully-qualified names such as:
+- `--include` narrows generation when the module exports multiple models.
+- `--out` accepts placeholders (`{model}`, `{case_index}`, `{timestamp}`) so you can route artifacts per model/shard.
+- Use `--jsonl` for newline-delimited output or `--shard-size` to split runs without buffering everything in memory.
+- `--seed` and `--freeze-seeds` keep runs deterministic even after adding/removing models; the header banner records `seed`, `version`, and `model-digest`.
+- `--preset boundary` applies opinionated constraints (higher optional `None` frequency, min/max numeric bias). Add `--respect-validators` if your models enforce `@field_validator` rules.
 
-```text
-models.User
-models.Address
-```
-
-Use `--include`/`--exclude` to target specific classes, `--public-only` to respect `__all__`, or `--ast` when imports are unsafe.
-Machine-readable errors are available with `--json-errors`; discovery failures surface error code `20`.
-
-## Step 3 — Generate JSON artifacts
-
-```bash
-pfg gen json ./models.py --include models.User --n 2 --indent 2 --out ./out/User
-```
-
-- `--include` narrows generation when the module exposes many models.
-- `--out` accepts template placeholders like `{model}`, `{case_index}`, and `{timestamp}`.
-- `--indent` adds a metadata banner containing `seed`, `version`, and `digest`.
-- Add `--jsonl` and `--shard-size` when you stream large datasets.
-
-The command writes `out/User.json` with deterministic content:
-
-```json
-/* seed=42 version=1.0.0 digest=<sha256> */
-[
-  {
-    "id": 1,
-    "name": "Alice",
-    "nickname": null,
-    "address": { "street": "42 Main St" }
-  },
-  {
-    "id": 2,
-    "name": "Bob",
-    "nickname": "b",
-    "address": { "street": "1 Side Rd" }
-  }
-]
-```
-
-## Step 3b — Generate tabular datasets
-
-When you need warehouse-friendly sinks instead of JSON blobs, install the `dataset` extra (`pip install 'pydantic-fixturegen[dataset]'`) and stream directly to CSV, Parquet, or Arrow:
+### CSV / Parquet / Arrow datasets
 
 ```bash
 pfg gen dataset ./models.py \
   --include models.User \
   --format parquet \
   --compression zstd \
-  --n 500000 \
-  --shard-size 100000 \
-  --out ./warehouse/users.parquet
+  --n 100000 \
+  --shard-size 25000 \
+  --out warehouse/users.parquet
 ```
 
-- CSV writers stream line-by-line (add `--compression gzip` if you want `.csv.gz` files), and the PyArrow-backed Parquet/Arrow emitters flush in batches so multi-million record runs stay memory-friendly.
-- The column order derives from your Pydantic model and includes a `__cycles__` column whenever recursion policies fire, making QA investigations trivial.
-- Seeds, presets, validator retries, relation links, and cycle policies mirror the `gen json` options, so you can share a single configuration block across emitters.
+- Install the `dataset` extra to pull in PyArrow.
+- `--format csv|parquet|arrow` controls the sink; CSVs stream row-by-row (add `--compression gzip` for `.csv.gz`), while columnar formats flush in batches.
+- Shards/multiple files use the same templating rules as JSON emission, and every dataset includes a `__cycles__` column if recursion policies (max depth, cycle policy) fire.
 
-## Step 4 — Seed integration databases
+## 3. Emit pytest fixtures or seeds
 
-Install the `[seed]` extra and populate an actual database when running integration tests:
+```bash
+pfg gen fixtures ./models.py \
+  --include models.User \
+  --out tests/fixtures/test_users.py \
+  --style functions \
+  --scope module \
+  --cases 3 \
+  --return-type model
+```
+
+- Swap `--style factory` or `--style class` to match the test style you prefer.
+- `--return-type dict` keeps fixtures JSON-serialisable.
+- The generated module includes a banner with seed + digest so diffs are easy to audit.
+
+Need a populated database for integration tests?
 
 ```bash
 pfg gen seed sqlmodel ./models.py \
@@ -101,237 +98,95 @@ pfg gen seed sqlmodel ./models.py \
   --include models.User \
   --n 25 \
   --create-schema \
-  --batch-size 10 \
-  --truncate
+  --truncate \
+  --rollback
 ```
 
-- The SQLModel seeder wraps inserts in a transaction; add `--rollback` when you want to keep the database pristine between tests or `--truncate` when you want a clean slate before writing.
-- For MongoDB-backed stacks, swap `sqlmodel` for `beanie` and point `--database` at `mongodb://...`; adding `--cleanup` deletes inserted documents at the end.
-- Deterministic flags (`--seed`, `--profile`, `--link`, `--with-related`, etc.) behave exactly like JSON/dataset emitters, so your fixtures and databases stay in sync.
+For MongoDB stacks, replace `sqlmodel` with `beanie` and install the `seed` extra. Both commands honour the same determinism knobs (`--seed`, `--preset`, `--link`, `--with-related`, `--respect-validators`, `--max-depth`, `--on-cycle`, `--rng-mode`).
 
-## Step 5 — Emit pytest fixtures
-
-### No models yet? Start from schema or OpenAPI
-
-Install the `openapi` extra (`pip install 'pydantic-fixturegen[openapi]'`) and let the CLI scaffold temporary models under the hood:
+## 4. Diff & snapshot artifacts
 
 ```bash
-# Standalone JSON Schema
-pfg gen json --schema contracts/user.schema.json --out out/{model}.json
-
-# OpenAPI components per route
-pfg gen openapi api.yaml --route "GET /users" --route "POST /orders" --out openapi/{model}.json
+pfg diff ./models.py \
+  --json-out artifacts/users.json \
+  --fixtures-out tests/fixtures/test_users.py \
+  --schema-out schema \
+  --show-diff \
+  --seed 42 \
+  --freeze-seeds
 ```
 
-- `--schema` feeds the document through `datamodel-code-generator`, caches the generated module under `.pfg-cache/schemas`, and immediately reuses it for `gen json`, `diff`, or `doctor` runs.
-- `pfg gen openapi` isolates the schemas referenced by the selected HTTP methods and writes one artifact per component—use `{model}` in your template to isolate each response/request body.
-- `pfg doctor --schema ...` / `--openapi ...` surface coverage gaps without writing Python models first.
+Diff reruns generation in-memory and compares against existing files. Combine with `pfg check` to validate configs without writing new files.
 
-Schema-derived modules are cached and invalidated automatically when the underlying document (or selected routes) change.
-
-### FastAPI smoke + mock server
-
-Install the `fastapi` extra to unlock the new commands:
+Lock in deterministic reviews with snapshots:
 
 ```bash
-pip install 'pydantic-fixturegen[fastapi]'
+pfg snapshot verify ./models.py \
+  --json-out artifacts/users.json \
+  --fixtures-out tests/fixtures/test_users.py \
+  --seed 42
 
+pfg snapshot write ./models.py \
+  --json-out artifacts/users.json \
+  --fixtures-out tests/fixtures/test_users.py \
+  --seed 42
+```
+
+Pair snapshot commands with the [pytest plugin](testing.md) to let `pfg_snapshot` assertions update on demand (`pytest --pfg-update-snapshots=update`) while CI runs `pfg snapshot verify` to block regressions.
+
+Finally, capture a coverage manifest and enforce it in CI:
+
+```bash
+pfg lock ./models.py --lockfile .pfg-lock.json
+pfg verify ./models.py --lockfile .pfg-lock.json
+```
+
+## 5. Layer on advanced workflows
+
+### Watch & explain
+
+- Add `--watch --watch-debounce 0.5` to any generation command for live regeneration.
+- Use `pfg gen explain ./models.py --tree --include models.User` to visualise heuristic/provider choices when debugging deterministic output.
+
+### Schema ingestion & OpenAPI examples
+
+```bash
+pfg gen json --schema contracts/user.schema.json --out artifacts/{model}.json
+pfg gen openapi api.yaml --route "GET /users" --out openapi/{model}.json
+pfg gen examples api.yaml --out api.examples.yaml
+```
+
+The `openapi` extra pulls in `datamodel-code-generator` and PyYAML so schema ingestion, OpenAPI fan-out, and example injection require no manual scaffolding.
+
+### FastAPI smoke tests & mock servers
+
+```bash
 pfg fastapi smoke app.main:app --out tests/test_fastapi_smoke.py
 pfg fastapi serve app.main:app --port 8050 --seed 7
 ```
 
-- The smoke command generates a pytest module (one test per route) using fixture data, asserts responses stay 2xx, and validates response models. Pass `--dependency-override original=stub` to bypass auth dependencies.
-- The mock server mirrors your FastAPI routes but returns deterministic JSON payloads, making it easy to share a contract-first API without deploying the real backend.
+Dependency overrides (`--dependency-override original=stub`) let you bypass auth/session providers, and both commands reuse your deterministic settings so contract drift shows up as diff noise immediately.
 
-### Bridge existing Polyfactory factories
-
-```bash
-pip install 'pydantic-fixturegen[polyfactory]'
-
-pfg gen polyfactory ./models.py --out tests/factories.py --include app.models.User
-```
-
-- With the extra installed, fixturegen automatically discovers `ModelFactory` subclasses in your project (including `app.factories`-style modules) and delegates matching models to them for `gen json`, `gen fixtures`, and FastAPI/mock workflows—no double maintenance when migrating.
-- Set `[polyfactory] prefer_delegation = false` if you only want detection logs; you can still export wrapper factories via `pfg gen polyfactory` so teams that rely on Polyfactory APIs can call your new fixturegen-powered implementations.
-- The generated module includes `seed_factories(seed)` so test suites can reseed the shared `InstanceGenerator`, and every exported factory still honors keyword overrides by falling back to Polyfactory’s native `build()` implementation when explicit kwargs are provided.
-
-### OpenAPI examples via fixtures
+### Polyfactory interoperability
 
 ```bash
-pfg gen examples openapi.yaml --out openapi.examples.yaml
+# auto-detect ModelFactory subclasses when the polyfactory extra is installed
+pfg gen json ./models.py --include models.User --seed 15
+
+# export wrapper factories that call fixturegen under the hood
+pfg gen polyfactory ./models.py --out tests/factories_pfg.py --seed 15
 ```
 
-- The command uses the same schema-ingestion pipeline to attach realistic `example` blocks to every referenced schema or component, so docs and SDKs inherit the exact payloads your fixtures produce.
+Set `[polyfactory] prefer_delegation = true` in your config to let fixturegen defer to existing factories while still controlling seeds, presets, and relation wiring.
 
-```bash
-pfg gen fixtures ./models.py \
-  --out tests/fixtures/test_user_fixtures.py \
-  --style functions --scope module --cases 3 --return-type model
-```
+### Datasets + anonymizer + FastAPI?
 
-You receive a formatted module with deduplicated imports and a banner:
+See [Emitters](emitters.md) for CSV/Parquet/Arrow details, [anonymize](emitters.md#anonymizer) for rule syntax, and [features](features.md) for FastAPI, Hypothesis, and seeding highlights.
 
-```python
-# pydantic-fixturegen v1.0.0  seed=42  digest=<sha256>
-import pytest
-from models import User, Address
+## Next steps
 
-@pytest.fixture(scope="module", params=[0, 1, 2], ids=lambda i: f"user_case_{i}")
-def user(request) -> User:
-    ...
-```
+- Adopt the [Cookbook](cookbook.md) recipes for CI diffing, dataset streaming, SQL seeding, or Polyfactory migrations.
+- Explore the [CLI reference](cli.md) and [API reference](api.md) when you automate these flows.
+- Compare fixturegen with your current approach via [Alternatives & migration guides](alternatives.md).
 
-Tune `--style` (`functions`, `factory`, `class`), `--scope` (`function`, `module`, `session`), and `--return-type` (`model`, `dict`) to match your test style.
-Add `--p-none` to bias optional fields.
-
-## Step 6 — Export JSON Schema
-
-```bash
-pfg gen schema ./models.py --out ./schema
-```
-
-Schema files write atomically to avoid partial artifacts.
-Combine with `--watch` to rebuild on file changes.
-
-## Step 7 — Explain generation strategies
-
-```bash
-pfg gen explain ./models.py --tree
-```
-
-You see an ASCII tree per field. Switch to machine-readable output with `--json`, cap recursion with `--max-depth`, and limit models with `--include` or `--exclude`.
-
-```text
-User
- ├─ id: int ← number_provider(int)
- ├─ name: str ← string_provider
- ├─ nickname: Optional[str] ← union(p_none=0.25)
- └─ address: Address ← nested model
-```
-
-Use this view to confirm plugin overrides or preset tweaks.
-
-## Step 8 — Property-based tests with Hypothesis
-
-Install the `hypothesis` extra and import `strategy_for` whenever you need shrinkable strategies:
-
-```python
-from hypothesis import given
-from pydantic_fixturegen.hypothesis import strategy_for
-from models import User
-
-
-@given(strategy_for(User, profile="edge"))
-def test_user_round_trips_through_api(instance: User) -> None:
-    payload = instance.model_dump()
-    restored = User.model_validate(payload)
-    assert restored == instance
-```
-
-Prefer repeatable fixtures? Generate a python module with `pfg gen strategies models.py --out tests/strategies.py --strategy-profile edge` and import the exported `user_strategy` in multiple tests without writing boilerplate.
-
-## Step 9 — Deterministic anonymization
-
-Start by declaring rule sets in TOML/YAML/JSON:
-
-```toml
-[anonymize]
-salt = "rotation-nov-2025"
-entity_field = "account.id"
-
-  [[anonymize.rules]]
-  pattern = "*.email"
-  strategy = "faker"
-  provider = "email"
-  required = true
-
-  [[anonymize.rules]]
-  pattern = "*.ssn"
-  strategy = "hash"
-  hash_algorithm = "sha1"
-  required = true
-
-  [[anonymize.budget]]
-  max_required_rule_misses = 0
-  max_rule_failures = 0
-```
-
-Then run:
-
-```bash
-pfg anonymize \
-  --rules anonymize.toml \
-  --profile pii-safe \
-  --report reports/anonymize.json \
-  --doctor-target app/models.py \
-  ./data/users.json ./sanitized/users.json
-```
-
-- Rule patterns are glob-friendly dotted paths (`users.*.email`, `orders[*].card.last4`) and strategies include `faker`, `hash`, and `mask`.
-- Determinism comes from the salt, entity key, and optional privacy profile. Change the salt to rotate pseudonyms without editing rules. When invoking via `pfg`, place options before the positional arguments so the proxy forwards them correctly.
-- Privacy budgets fail the run when required rules never match or a strategy throws; the JSON report logs every replacement count, diff sample, and coverage summary from `pfg doctor` when you pass `--doctor-target`.
-- Need the functionality inside Python? `from pydantic_fixturegen.api import anonymize_from_rules` returns the sanitized payload plus the same report structure.
-
-## Step 10 — Enforce coverage with lockfiles
-
-```bash
-pfg lock --lockfile .pfg-lock.json ./models.py
-pfg verify --lockfile .pfg-lock.json ./models.py
-```
-
-- The lockfile records per-model coverage, provider assignments, and gap summaries pulled from `pfg doctor`. Commit it to your repo just like other lockfiles.
-- `pfg verify` recomputes coverage and fails when anything drifts; the unified diff in the failure output highlights exactly which model/field needs attention.
-- Run `pfg lock` after intentional schema changes (or add it to release scripts) so pull requests only contain meaningful coverage updates.
-
-## Watch mode
-
-<a id="watch-mode"></a>
-
-Install the `watch` extra, then run:
-
-```bash
-pip install 'pydantic-fixturegen[watch]'
-pfg gen json ./models.py --out ./out/User.json --watch
-```
-
-- The CLI monitors Python and configuration files beneath the working directory.
-- `--watch-debounce <seconds>` controls the filesystem event throttle (default `0.5`).
-- Combine with `--freeze-seeds` to keep deterministic outputs even as models change.
-
-Watch mode is available on `gen json`, `gen fixtures`, and `gen schema`.
-
-## Configuration checkpoints
-
-- Run `pfg init` to scaffold `[tool.pydantic_fixturegen]` with sensible defaults (seed `42`, union policy `weighted`, enum policy `random`, pytest scope `module`).
-- The precedence order is `CLI > environment (PFG_*) > pyproject.toml/YAML > defaults`.
-- Reference the schema directly with `pfg schema config --out schema/config.schema.json`.
-- Use `.pfg-seeds.json` with `--freeze-seeds` for reproducible CI runs; see [docs/seeds.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/seeds.md).
-
-## Quick command reference
-
-```bash
-# Scaffold configuration files
-pfg init --yaml
-
-# Diff regenerated artifacts against stored outputs
-pfg diff models.py --json-out out/current.json --show-diff
-
-# Validate configuration without generating artifacts
-pfg check models.py --json-errors
-
-# Regenerate JSON automatically (requires [watch] extra)
-pfg gen json models.py --out out/models.json --watch
-
-# Export configuration schema
-pfg schema config --out schema/config.schema.json
-```
-
-## Troubleshooting tips
-
-- Discovery import errors? Switch to `--ast` or fix `PYTHONPATH`. Capture machine-readable details with `--json-errors`.
-- Non-deterministic outputs? Pin `--seed` or `PFG_SEED` and inspect banner metadata.
-- Large files choking CI? Use `--jsonl` and `--shard-size`, or enable `--orjson` via the `orjson` extra.
-- Optional fields feel off? Adjust `--p-none` or configure `field_policies` in `pyproject.toml`.
-- Sandbox blocked a write or socket? Move output beneath the working directory; network calls are intentionally disabled.
-
-Next: explore deeper recipes in the [Cookbook](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/cookbook.md) or tighten config options in the [Configuration guide](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md).
+Because every command shares the same deterministic engine, once you lock in seeds/presets, any new workflow (snapshots, anonymizer, FastAPI smoke tests, Polyfactory exports) becomes a copy-paste away.

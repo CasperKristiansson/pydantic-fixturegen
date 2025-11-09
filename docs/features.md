@@ -45,6 +45,12 @@
 - Field policies for enums, unions, and optional probabilities (`p_none`).
 - Configuration precedence: CLI → environment (`PFG_*`) → pyproject/YAML → defaults.
 
+## Decision support
+
+- [Alternatives & migration guides](alternatives.md) compare pydantic-fixturegen with Polyfactory, Pydantic-Factories, factory_boy, and hand-written fixtures so you can justify the tooling choice to stakeholders.
+- Concrete migration playbooks cover Polyfactory delegation, dissolving Faker scripts into presets, and preserving Hypothesis strategies when you move orchestration to fixturegen.
+- Case studies describe how real teams wired fixturegen into snapshot-based CI, schema contracts, anonymisation flows, and data science pipelines.
+
 ## Hypothesis
 
 - `pydantic_fixturegen.hypothesis.strategy_for(Model)` turns the generation metadata into shrinkable Hypothesis strategies that honour the same constraints, providers, and recursion policies as the fixture engine.

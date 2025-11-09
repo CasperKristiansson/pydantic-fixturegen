@@ -1,28 +1,46 @@
-# Documentation index: orient yourself fast
+# Documentation index
 
-> Pick the task you need to finish and jump straight to the right guide.
+> Understand the value proposition, install the CLI, and drill into the workflow you need.
 
-- [Quickstart](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/quickstart.md) — Follow one module from discovery to fixtures and learn watch mode.
-- [Cookbook](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/cookbook.md) — Apply repeatable recipes for scaling JSON, fixtures, seeds, and plugins.
-- [Install guide](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/install.md) — Choose pip, Poetry, Hatch, and extras like `orjson`, `regex`, `hypothesis`, `watch`.
-- [Configuration reference](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md) — Review every config key, default, and precedence layer.
-- [CLI reference](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/cli.md) — Inspect top-level commands, subcommands, and flag defaults.
-- [Concepts](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/concepts.md) — Understand why determinism, sandboxing, and Pluggy hooks matter.
-- [Features at a glance](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/features.md) — Explore discovery, generation, emitters, policies, and quality levers.
-- [Discovery guide](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/discovery.md) — Compare AST vs safe-import and configure sandbox limits.
-- [Emitters](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/emitters.md) — Learn JSON/JSONL, pytest fixtures, schema emitters, and atomic write behaviour.
-- [Providers](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/providers.md) & [Strategies](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/strategies.md) — Extend generation with new hooks or tweaks.
-- [Explain command](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/explain.md) — Read tree and JSON outputs to debug generation plans.
-- [Seeds](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/seeds.md) & [Presets](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/presets.md) — Freeze seeds, apply presets, and manage probability policies.
-- [Logging](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/logging.md) — Emit JSON logs, inspect event schemas, and tune verbosity.
-- [Doctor & diagnostics](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/doctor.md) — Validate coverage, run diff/check, and harden discovery.
-- [Testing helpers](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/testing.md) — Adopt the pytest snapshot plugin and CLI guardrails for your suites.
-- [Security](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/security.md) — Review sandbox guards, exit codes, and safe-import behaviour.
-- [Output paths](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/output-paths.md) — Use templated destinations and understand the validation rules.
-- [API reference](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/api.md) — Call `generate_json`, `generate_fixtures`, `generate_schema`, and inspect return types.
-- [Alternatives](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/alternatives.md) — Compare fixture tooling and pick the right approach.
-- [VS Code integration](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/vscode.md) — Run CLI tasks from the editor and surface diagnostics in the Problems panel.
-- [Troubleshooting](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/troubleshooting.md) — Decode error taxonomy, fix watch mode, and unblock CI.
-- [Architecture](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/architecture.md) — Visualise the pipeline and plugin hook flow.
+## Why pydantic-fixturegen?
 
-Stay in second-person across docs so you can follow copy-paste ready steps without translation.
+- **Determinism everywhere** — cascaded seeds across `random`, Faker, NumPy, and PyArrow plus optional freeze files keep JSON, datasets, fixtures, FastAPI smoke tests, and anonymized payloads byte-for-byte identical.
+- **Guardrails built in** — sandboxed discovery, `pfg diff`, `pfg doctor`, `pfg snapshot`, lockfiles, and coverage manifests let CI block regressions without custom glue code.
+- **Extensible engine** — Pluggy hooks, Polyfactory delegation, schema ingestion, dataset emitters, anonymizer, Hypothesis strategies, SQLModel/Beanie seeders, and FastAPI tooling reuse the same generation plan across APIs, tests, and data pipelines.
+
+If you are comparing tools, start with the [Alternatives & migration guides](alternatives.md) to see head-to-head features, Polyfactory/Pydantic-Factories migration steps, and real-world case studies.
+
+## Start here
+
+1. **Install + verify** — follow the [Install guide](install.md) to pick pip/Poetry/Hatch and enable extras like `fastapi`, `openapi`, `polyfactory`, `dataset`, or `seed`.
+2. **Hands-on tour** — run through the [Quickstart](quickstart.md) to discover models, emit JSON/datasets/fixtures, diff artifacts, and capture deterministic snapshots.
+3. **Configure once** — keep the [Configuration reference](configuration.md) open to centralise seeds, presets, heuristic policies, and emitter defaults. Refer back to [Concepts](concepts.md) when you want background on sandboxing, determinism, or hook design.
+
+Already familiar with the basics? Jump to the section that matches your task.
+
+### Day-to-day workflows
+
+- [CLI reference](cli.md) — command-by-command coverage (`list`, `gen`, datasets, fixtures, seeders, anonymize, FastAPI, snapshot, lock, verify, doctor, schema, plugin scaffolding).
+- [Cookbook](cookbook.md) — apply repeatable recipes for diffing artifacts, streaming datasets, toggling presets, seeding databases, or wiring Polyfactory delegation.
+- [Testing helpers](testing.md) — pytest snapshot fixture, CLI snapshot commands (`pfg snapshot verify/write`), and CI/linting tips.
+- [Doctor & diagnostics](doctor.md) — interpret coverage reports, enforce `--fail-on-gaps`, and integrate lockfiles.
+- [Features at a glance](features.md) — skim capabilities (discovery, generation, emitters, privacy) with links to deep dives.
+
+### Emitters & integrations
+
+- [Discovery guide](discovery.md) — AST vs safe-import, sandbox caps, schema ingestion, OpenAPI fan-out.
+- [Emitters](emitters.md) — JSON/JSONL, datasets (CSV/Parquet/Arrow), pytest fixtures, schema emitters, anonymizer workflows, and FastAPI smoke/mock commands.
+- [Providers](providers.md) & [Strategies](strategies.md) — extend providers, heuristics, and Hypothesis exporters.
+- [Seeds](seeds.md) & [Presets](presets.md) — freeze seeds, manage optional probabilities, compose privacy profiles.
+- [Output paths](output-paths.md) — templated destinations, sharding, compression rules.
+- [Logging](logging.md) — JSON logs, event schemas, verbosity toggles, CI piping.
+
+### Reference material
+
+- [API reference](api.md) — call `generate_json`, `generate_dataset`, `generate_fixtures`, `generate_schema`, and anonymizer helpers from Python, complete with parameter tables and result fields.
+- [Security](security.md) — sandbox boundaries, exit codes, safe-import behaviour, supply-chain considerations.
+- [Troubleshooting](troubleshooting.md) — error taxonomy, watch mode fixes, Typer proxy gotchas.
+- [VS Code integration](vscode.md) — ready-made tasks and problem matchers for editor-driven workflows.
+- [Architecture](architecture.md) — visualise the generation pipeline, hook order, and configuration precedence.
+
+All docs stay in second-person so you can copy/paste commands without mental translation. If something feels missing, open an issue—the docs ship from the same repo as the CLI.
