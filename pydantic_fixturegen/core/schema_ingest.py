@@ -249,10 +249,10 @@ def _patch_pydantic_v1_for_v2_api(module: Any) -> None:
     if base_model is None or getattr(base_model, "__pfg_v2_shim__", False):
         return
 
-    def _model_validate(cls: type[Any], obj: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: ARG001
+    def _model_validate(cls: type[Any], obj: Any, /, *args: Any, **kwargs: Any) -> Any:  # noqa: ARG001
         return cls.parse_obj(obj)
 
-    def _model_validate_json(cls: type[Any], data: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: ARG001
+    def _model_validate_json(cls: type[Any], data: Any, /, *args: Any, **kwargs: Any) -> Any:  # noqa: ARG001
         return cls.parse_raw(data)
 
     def _model_dump(

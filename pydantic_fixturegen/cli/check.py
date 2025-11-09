@@ -43,14 +43,12 @@ EXCLUDE_OPTION = typer.Option(
 AST_OPTION = typer.Option(
     False,
     "--ast",
-    is_flag=True,
     help="Use AST discovery only (no imports executed).",
 )
 
 HYBRID_OPTION = typer.Option(
     False,
     "--hybrid",
-    is_flag=True,
     help="Combine AST and safe import discovery.",
 )
 

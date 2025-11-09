@@ -52,6 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Cycle metadata is now attached to generated models even when recursion is limited solely by `max_depth`, ensuring `__cycles__` blocks in JSON and pytest fixtures always report the active `cycle_policy` (addresses issue #33).
 - Deterministic seed freezing, explain/doctor reports, heuristics, and pytest fixture emitters now normalize models back to their canonical `module.Class` identifiers even when the same file is imported multiple times under internal aliases, keeping `.pfg-seeds.json`, CLI output, and generated imports stable after running other commands (fixes issue #35).
 - Dataset CLI (CSV/Parquet/Arrow) and explain JSON mode now pass under Python 3.14, so the suite runs in full without interpreter-specific skips.
+- Restored CLI compatibility with Typer 0.12 / Click 8.3 by shimming the new `make_metavar` signature; error output now renders correctly on every supported Python version without Typer warnings.
 
 ## [1.1.0] - 2025-11-04
 

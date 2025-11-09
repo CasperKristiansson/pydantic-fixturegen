@@ -8,6 +8,7 @@ from importlib import import_module
 import typer
 from typer.main import get_command
 
+import pydantic_fixturegen.cli._typer_compat  # noqa: F401
 from pydantic_fixturegen.cli import anonymize as anonymize_cli
 from pydantic_fixturegen.cli import fastapi as fastapi_cli
 from pydantic_fixturegen.cli import schema as schema_cli
