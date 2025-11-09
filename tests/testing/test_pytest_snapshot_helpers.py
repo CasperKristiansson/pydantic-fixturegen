@@ -6,6 +6,8 @@ import pytest
 from pydantic_fixturegen.testing.pytest_plugin import (
     SNAPSHOT_MARKER_NAME,
     UPDATE_OPTION_NAME,
+    _safe_getoption,
+    _SnapshotFixtureProxy,
     pfg_snapshot,
     pytest_addoption,
 )
@@ -17,8 +19,11 @@ class _DummyConfig:
     option_value: str | None
 
     def getoption(self, name: str, default=None):
-        assert name == UPDATE_OPTION_NAME
-        return self.option_value if self.option_value is not None else default
+        if name == UPDATE_OPTION_NAME:
+            return self.option_value if self.option_value is not None else default
+        if name in {"force_regen", "regen_all"}:
+            return False
+        return default
 
 
 @dataclass
@@ -68,7 +73,8 @@ def test_pfg_snapshot_prefers_cli_option(monkeypatch: pytest.MonkeyPatch) -> Non
         request=_DummyRequest(),
     )
 
-    assert isinstance(runner, SnapshotRunner)
+    assert isinstance(runner, _SnapshotFixtureProxy)
+    assert isinstance(runner._runner, SnapshotRunner)
     assert runner.update_mode is SnapshotUpdateMode.UPDATE
 
 
@@ -122,3 +128,11 @@ def test_snapshot_update_mode_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     assert SnapshotUpdateMode.from_env() is SnapshotUpdateMode.UPDATE
     monkeypatch.delenv("PFG_SNAPSHOT_UPDATE", raising=False)
     assert SnapshotUpdateMode.from_env() is SnapshotUpdateMode.FAIL
+
+
+def test_safe_getoption_handles_missing() -> None:
+    class DummyConfig:
+        def getoption(self, name: str, default=None):
+            raise ValueError("missing")
+
+    assert _safe_getoption(DummyConfig(), "force_regen") is False

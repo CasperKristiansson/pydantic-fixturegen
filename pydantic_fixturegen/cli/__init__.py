@@ -123,6 +123,11 @@ _proxy(
     "Compare current coverage against the stored lockfile.",
 )
 _proxy(
+    "snapshot",
+    "pydantic_fixturegen.cli.snapshot:app",
+    "Verify or refresh stored artifact snapshots.",
+)
+_proxy(
     "explain",
     "pydantic_fixturegen.cli.gen.explain:app",
     "Explain generation strategies per model field.",

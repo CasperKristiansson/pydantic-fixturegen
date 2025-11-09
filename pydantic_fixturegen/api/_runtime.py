@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as _dt
+import hashlib
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
@@ -1237,6 +1238,8 @@ def generate_fixtures_artifacts(
 
     relation_model_map = _build_relation_model_map(model_classes)
 
+    combined_digest = _aggregate_model_digest(model_classes, model_digests)
+
     pytest_config = PytestEmitConfig(
         scope=scope_value,
         style=style_literal,
@@ -1246,6 +1249,7 @@ def generate_fixtures_artifacts(
         optional_p_none=app_config.p_none,
         per_model_seeds=per_model_seeds if freeze_manager is not None else None,
         time_anchor=app_config.now,
+        model_digest=combined_digest,
         field_policies=app_config.field_policies,
         locale=app_config.locale,
         locale_policies=app_config.locale_policies,
@@ -1495,6 +1499,22 @@ def generate_schema_artifacts(
         warnings=warnings,
         delegated=False,
     )
+
+
+def _aggregate_model_digest(
+    model_classes: Sequence[type[BaseModel]],
+    model_digests: Mapping[str, str | None],
+) -> str | None:
+    if not model_classes:
+        return None
+    hasher = hashlib.sha256()
+    for cls in sorted(model_classes, key=lambda value: model_identifier(value)):
+        identifier = model_identifier(cls)
+        hasher.update(identifier.encode("utf-8"))
+        digest = model_digests.get(identifier)
+        if digest:
+            hasher.update(digest.encode("utf-8"))
+    return hasher.hexdigest()
 
 
 __all__ = [

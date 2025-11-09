@@ -8,6 +8,7 @@ from .snapshot import (
     JsonSnapshotConfig,
     SchemaSnapshotConfig,
     SnapshotAssertionError,
+    SnapshotResult,
     SnapshotRunner,
     SnapshotUpdateMode,
 )
@@ -17,6 +18,7 @@ __all__ = [
     "JsonSnapshotConfig",
     "SchemaSnapshotConfig",
     "SnapshotAssertionError",
+    "SnapshotResult",
     "SnapshotRunner",
     "SnapshotUpdateMode",
     "SQLModelSeedRunner",

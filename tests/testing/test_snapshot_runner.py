@@ -7,6 +7,7 @@ from pydantic_fixturegen.testing.snapshot import (
     JsonSnapshotConfig,
     SchemaSnapshotConfig,
     SnapshotAssertionError,
+    SnapshotResult,
     SnapshotRunner,
     SnapshotUpdateMode,
     _build_fixtures_options,
@@ -41,7 +42,8 @@ def test_snapshot_runner_returns_when_no_changes(monkeypatch: pytest.MonkeyPatch
         lambda **kwargs: [DummyReport(changed=False)],
     )
 
-    runner.assert_artifacts("models:User", json=JsonSnapshotConfig(out=Path("out.json")))
+    result = runner.assert_artifacts("models:User", json=JsonSnapshotConfig(out=Path("out.json")))
+    assert result.updated is False
 
 
 def test_snapshot_runner_updates_and_rechecks(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -65,8 +67,9 @@ def test_snapshot_runner_updates_and_rechecks(monkeypatch: pytest.MonkeyPatch) -
 
     monkeypatch.setattr(SnapshotRunner, "_update_artifacts", fake_update, raising=False)
 
-    runner.assert_artifacts("models:User", json=JsonSnapshotConfig(out=Path("snap.json")))
+    result = runner.assert_artifacts("models:User", json=JsonSnapshotConfig(out=Path("snap.json")))
     assert updated.get("called") is True
+    assert result.updated is True
 
 
 def test_snapshot_runner_raises_when_changes_persist(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -129,6 +132,34 @@ def test_snapshot_helpers_build_defaults() -> None:
     assert schema_opts.indent == 4
 
 
+def test_snapshot_runner_passes_additional_options(monkeypatch: pytest.MonkeyPatch) -> None:
+    runner = SnapshotRunner()
+    captured: dict[str, Any] = {}
+
+    def fake_diff(**kwargs: Any):
+        captured.update(kwargs)
+        return [DummyReport(changed=False)]
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.testing.snapshot._execute_diff",
+        fake_diff,
+    )
+
+    runner.assert_artifacts(
+        "models:User",
+        json=JsonSnapshotConfig(out=Path("snap.json")),
+        respect_validators=True,
+        validator_max_retries=5,
+        links=("models.User.id=models.Profile.id",),
+        rng_mode="portable",
+    )
+
+    assert captured["respect_validators"] is True
+    assert captured["validator_max_retries"] == 5
+    assert captured["links"] == ["models.User.id=models.Profile.id"]
+    assert captured["rng_mode"] == "portable"
+
+
 def test_update_artifacts_invokes_generators(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -187,3 +218,9 @@ def test_format_failure_message_skips_unchanged_reports() -> None:
     report = DummyReport(changed=False)
     message = _format_failure_message([report], SnapshotUpdateMode.FAIL)
     assert "Artifacts differ" in message
+
+
+def test_snapshot_result_changed_flag() -> None:
+    report = DummyReport(changed=True)
+    result = SnapshotResult(reports=(report,), updated=False, mode=SnapshotUpdateMode.FAIL)
+    assert result.changed is True

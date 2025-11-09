@@ -152,8 +152,10 @@ def test_user_snapshot(pfg_snapshot):
 - The `pfg_snapshot` fixture ships via the `pytest11` entry point; no manual plugin registration needed.
 - Pass one or more configs (`JsonSnapshotConfig`, `FixturesSnapshotConfig`, `SchemaSnapshotConfig`) to cover the artifacts you want to track.
 - Run `pytest --pfg-update-snapshots=update` or set `PFG_SNAPSHOT_UPDATE=update` to refresh snapshots when behaviour changes; by default the helper fails with the unified diff from `pfg diff`.
+- When [`pytest-regressions`](https://pytest-regressions.readthedocs.io/) is installed, `pytest --force-regen` refreshes snapshots but still fails the test, and `pytest --regen-all` refreshes snapshots while letting the suite pass.
 - For one-off overrides, tag a test with `@pytest.mark.pfg_snapshot_config(update="update", timeout=10)` to opt into updates or tweak sandbox limits without affecting neighbouring tests.
 - All `pfg diff` knobs are available—`include`, `exclude`, `seed`, `preset`, `freeze_seeds`, etc.—so update determinism is preserved.
+- Outside pytest, reach for the CLI helpers: `pfg snapshot verify ...` to assert snapshots in CI and `pfg snapshot write ...` to regenerate JSON/fixtures/schema artifacts in bulk.
 
 Use this in tandem with Recipe 3 (freeze seeds) to keep fixtures stable across machines.
 

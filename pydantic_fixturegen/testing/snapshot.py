@@ -11,6 +11,7 @@ from typing import Any
 
 from pydantic_fixturegen.api import generate_fixtures, generate_json, generate_schema
 from pydantic_fixturegen.cli.diff import (
+    DiffReport,
     FixturesDiffOptions,
     JsonDiffOptions,
     SchemaDiffOptions,
@@ -22,6 +23,7 @@ __all__ = [
     "JsonSnapshotConfig",
     "SchemaSnapshotConfig",
     "SnapshotAssertionError",
+    "SnapshotResult",
     "SnapshotRunner",
     "SnapshotUpdateMode",
 ]
@@ -86,6 +88,19 @@ class SchemaSnapshotConfig:
 
 
 @dataclass(slots=True)
+class SnapshotResult:
+    """Details about a snapshot comparison."""
+
+    reports: tuple[DiffReport, ...]
+    updated: bool
+    mode: SnapshotUpdateMode
+
+    @property
+    def changed(self) -> bool:
+        return any(report.changed for report in self.reports)
+
+
+@dataclass(slots=True)
 class SnapshotRunner:
     """Execute snapshot comparisons against deterministic artifacts."""
 
@@ -112,7 +127,11 @@ class SnapshotRunner:
         freeze_seeds: bool = False,
         freeze_seeds_file: str | Path | None = None,
         update: SnapshotUpdateMode | str | None = None,
-    ) -> None:
+        respect_validators: bool | None = None,
+        validator_max_retries: int | None = None,
+        links: Sequence[str] | None = None,
+        rng_mode: str | None = None,
+    ) -> SnapshotResult:
         """Compare regenerated artifacts to snapshots or update when configured."""
 
         if json is None and fixtures is None and schema is None:
@@ -128,46 +147,10 @@ class SnapshotRunner:
         fixtures_opts = _build_fixtures_options(fixtures)
         schema_opts = _build_schema_options(schema)
 
-        reports = _execute_diff(
-            target=str(target),
-            include=include_patterns,
-            exclude=exclude_patterns,
-            ast_mode=self.ast_mode,
-            hybrid_mode=self.hybrid_mode,
-            timeout=self.timeout,
-            memory_limit_mb=self.memory_limit_mb,
-            seed_override=seed,
-            p_none_override=p_none,
-            json_options=json_opts,
-            fixtures_options=fixtures_opts,
-            schema_options=schema_opts,
-            freeze_seeds=freeze_seeds,
-            freeze_seeds_file=Path(freeze_seeds_file) if freeze_seeds_file else None,
-            preset=preset,
-            profile=profile,
-            now_override=now,
-        )
+        link_list = list(links) if links else None
 
-        if not any(report.changed for report in reports):
-            return
-
-        if effective_mode is SnapshotUpdateMode.UPDATE:
-            self._update_artifacts(
-                target=Path(target),
-                json=json,
-                fixtures=fixtures,
-                schema=schema,
-                include=include,
-                exclude=exclude,
-                seed=seed,
-                p_none=p_none,
-                now=now,
-                preset=preset,
-                profile=profile,
-                freeze_seeds=freeze_seeds,
-                freeze_seeds_file=freeze_seeds_file,
-            )
-            reports = _execute_diff(
+        reports = tuple(
+            _execute_diff(
                 target=str(target),
                 include=include_patterns,
                 exclude=exclude_patterns,
@@ -185,12 +168,67 @@ class SnapshotRunner:
                 preset=preset,
                 profile=profile,
                 now_override=now,
+                respect_validators=respect_validators,
+                validator_max_retries=validator_max_retries,
+                links=link_list,
+                rng_mode=rng_mode,
             )
-            if not any(report.changed for report in reports):
-                return
+        )
 
-        message = _format_failure_message(reports, effective_mode)
-        raise SnapshotAssertionError(message)
+        if not any(report.changed for report in reports):
+            return SnapshotResult(reports=reports, updated=False, mode=effective_mode)
+
+        if effective_mode is SnapshotUpdateMode.FAIL:
+            message = _format_failure_message(reports, effective_mode)
+            raise SnapshotAssertionError(message)
+
+        self._update_artifacts(
+            target=Path(target),
+            json=json,
+            fixtures=fixtures,
+            schema=schema,
+            include=include,
+            exclude=exclude,
+            seed=seed,
+            p_none=p_none,
+            now=now,
+            preset=preset,
+            profile=profile,
+            freeze_seeds=freeze_seeds,
+            freeze_seeds_file=freeze_seeds_file,
+        )
+
+        refreshed_reports = tuple(
+            _execute_diff(
+                target=str(target),
+                include=include_patterns,
+                exclude=exclude_patterns,
+                ast_mode=self.ast_mode,
+                hybrid_mode=self.hybrid_mode,
+                timeout=self.timeout,
+                memory_limit_mb=self.memory_limit_mb,
+                seed_override=seed,
+                p_none_override=p_none,
+                json_options=json_opts,
+                fixtures_options=fixtures_opts,
+                schema_options=schema_opts,
+                freeze_seeds=freeze_seeds,
+                freeze_seeds_file=Path(freeze_seeds_file) if freeze_seeds_file else None,
+                preset=preset,
+                profile=profile,
+                now_override=now,
+                respect_validators=respect_validators,
+                validator_max_retries=validator_max_retries,
+                links=link_list,
+                rng_mode=rng_mode,
+            )
+        )
+
+        if any(report.changed for report in refreshed_reports):
+            message = _format_failure_message(refreshed_reports, effective_mode)
+            raise SnapshotAssertionError(message)
+
+        return SnapshotResult(reports=refreshed_reports, updated=True, mode=effective_mode)
 
     def _update_artifacts(
         self,

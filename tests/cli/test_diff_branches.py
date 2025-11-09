@@ -476,6 +476,7 @@ def test_diff_fixtures_require_output() -> None:
     with pytest.raises(diff_module.DiscoveryError):
         diff_module._diff_fixtures_artifact(
             model_classes=[AlphaModel],
+            model_digests={},
             app_config_seed=None,
             app_config_p_none=None,
             app_config_style="functions",
@@ -513,6 +514,7 @@ def test_diff_fixtures_emit_artifact_success(
 
     report = diff_module._diff_fixtures_artifact(
         model_classes=[AlphaModel],
+        model_digests={},
         app_config_seed=None,
         app_config_p_none=None,
         app_config_style="functions",
@@ -546,6 +548,7 @@ def test_diff_fixtures_emit_artifact_without_file(
     with pytest.raises(diff_module.EmitError):
         diff_module._diff_fixtures_artifact(
             model_classes=[AlphaModel],
+            model_digests={},
             app_config_seed=None,
             app_config_p_none=None,
             app_config_style="functions",
@@ -573,6 +576,7 @@ def test_diff_fixtures_detect_directory_target(tmp_path: Path) -> None:
 
     report = diff_module._diff_fixtures_artifact(
         model_classes=[AlphaModel],
+        model_digests={},
         app_config_seed=None,
         app_config_p_none=None,
         app_config_style="functions",

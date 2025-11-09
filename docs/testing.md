@@ -38,6 +38,11 @@ By default, the helper fails when drift is detected and shows the unified diff g
 
 When update mode is active, the helper regenerates the requested artifacts using the deterministic CLI paths and re-diffs to confirm that changes were applied successfully.
 
+If you already depend on [`pytest-regressions`](https://pytest-regressions.readthedocs.io/), the `pfg_snapshot` fixture honours its CLI toggles as well:
+
+- `pytest --force-regen` refreshes artifacts and still fails the test so you remember to commit the changes.
+- `pytest --regen-all` refreshes artifacts and lets tests pass, mirroring the plugin’s default behaviour.
+
 ### Per-test overrides via marker
 
 Need to bump the timeout, force updates, or flip discovery modes for a single test? Annotate it with `@pytest.mark.pfg_snapshot_config(...)`:
@@ -102,9 +107,19 @@ Combine snapshots with features that keep outputs stable:
 ### Troubleshooting snapshot failures
 
 - Inspect the diff in the pytest failure message; it mirrors `pfg diff --show-diff` output.
+- Newer releases annotate diffs with hints such as field additions/removals, schema definition churn, or fixture header drift (seed, model digest, style), so scan the `Hint:` lines before digging into the raw diff.
 - When no diff is produced, check that paths in your configs exist and are writable.
 - Make sure the models you target are importable and that entry points (if any) are registered before the assertion runs. Use module-level imports or autouse fixtures to register plugins when needed.
 - If you run pytest from a different working directory, convert `target` and `snapshot` paths to absolute paths or anchor them on `Path(__file__).parent`.
+
+## Snapshot CLI
+
+Prefer managing snapshots from the command line instead of pytest? Use the dedicated helpers:
+
+- `pfg snapshot verify models.py --json-out snapshots/users.json --include app.models.User` — regenerates artifacts in-memory and exits with code `1` if any drift is detected.
+- `pfg snapshot write models.py --json-out snapshots/users.json --fixtures-out snapshots/users_fixtures.py` — refreshes the on-disk snapshots using the same deterministic config as the pytest helper and prints whether anything changed.
+
+Both commands support the same knobs as `pfg diff` (`--seed`, `--preset`, `--freeze-seeds`, `--rng-mode`, `--link`), so you can script snapshot refreshes in CI or pre-commit hooks without duplicating logic from your test suite.
 
 ## Coverage tips
 

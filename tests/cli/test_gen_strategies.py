@@ -149,7 +149,7 @@ def test_gen_strategies_errors_when_no_models_match(
     )
 
     assert result.exit_code == 0
-    assert errors and "no models discovered" in str(errors[0]).lower()
+    assert any("no models discovered" in str(err).lower() for err in errors)
 
 
 def test_gen_strategies_watch_mode_invokes_runner(
