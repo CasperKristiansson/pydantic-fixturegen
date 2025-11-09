@@ -430,13 +430,21 @@ def _fallback_strategy_payload(
     }
 
     remaining = None if max_depth is None else max_depth - 1
-    if summary.type == "model" and isinstance(annotation, type) and annotation not in visited:
-        payload["nested_model"] = _collect_model_report(
-            annotation,
-            builder=builder,
-            max_depth=remaining,
-            visited=visited,
-        )
+    if summary.type == "model":
+        if isinstance(annotation, type) and annotation not in visited:
+            payload["nested_model"] = _collect_model_report(
+                annotation,
+                builder=builder,
+                max_depth=remaining,
+                visited=visited,
+            )
+        else:
+            payload["nested_model"] = {
+                "kind": "model",
+                "qualname": _describe_annotation(annotation),
+                "fields": [],
+                "unsupported": True,
+            }
     elif summary.type == "dataclass" and isinstance(annotation, type):
         payload["nested_model"] = _collect_dataclass_report(
             annotation,
