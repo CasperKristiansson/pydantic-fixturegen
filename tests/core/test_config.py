@@ -259,6 +259,10 @@ def test_normalize_relations_rejects_invalid_type() -> None:
         config_mod._normalize_relations(object())
 
 
+def test_normalize_relations_none_returns_empty() -> None:
+    assert config_mod._normalize_relations(None) == ()
+
+
 def test_normalize_emitters_merges_pytest_config() -> None:
     emitters = config_mod._normalize_emitters({"pytest": {"style": "factory", "scope": "module"}})
     assert emitters.pytest.style == "factory"
@@ -268,6 +272,11 @@ def test_normalize_emitters_merges_pytest_config() -> None:
 def test_normalize_emitters_validates_pytest_mapping() -> None:
     with pytest.raises(ConfigError):
         config_mod._normalize_emitters({"pytest": "inline"})
+
+
+def test_normalize_json_requires_mapping() -> None:
+    with pytest.raises(ConfigError):
+        config_mod._normalize_json("invalid")
 
 
 def test_coerce_path_target_variations() -> None:
@@ -358,11 +367,40 @@ def test_normalize_identifier_config_validates_lengths() -> None:
         )
 
 
+def test_normalize_emitters_and_json_configs() -> None:
+    emitters = config_mod._normalize_emitters(
+        {"pytest": {"style": "class", "scope": "session"}}
+    )
+    assert emitters.pytest.style == "class"
+    assert emitters.pytest.scope == "session"
+
+    json_cfg = config_mod._normalize_json({"indent": 2, "orjson": "false"})
+    assert json_cfg.indent == 2
+    assert json_cfg.orjson is False
+
+
+def test_normalize_identifier_config_accepts_bool_fields() -> None:
+    cfg = config_mod._normalize_identifier_config(
+        {
+            "secret_str_length": 2,
+            "secret_bytes_length": 4,
+            "url_schemes": "https",
+            "url_include_path": False,
+            "uuid_version": 4,
+            "mask_sensitive": True,
+        }
+    )
+    assert cfg.url_include_path is False
+    assert cfg.mask_sensitive is True
+
+
 def test_path_config_target_for_matches_pattern() -> None:
-    config = PathConfig(default_os="posix", model_targets=(("tests.unit.Dummy", "windows"),))
-    Dummy = type("Dummy", (), {})
-    Dummy.__module__ = "tests.unit"
-    assert config.target_for(Dummy) == "windows"
+    config = PathConfig(default_os="posix", model_targets=(("*.DummyModel", "windows"),))
+
+    class DummyModel:
+        pass
+
+    assert config.target_for(DummyModel) == "windows"
     assert config.target_for(None) == "posix"
 
 
@@ -371,6 +409,9 @@ def test_coerce_bool_value_handles_strings() -> None:
     with pytest.raises(ConfigError):
         config_mod._coerce_bool_value("unknown", field_name="demo", default=False)
     assert config_mod._coerce_bool_value(0, field_name="demo", default=True) is False
+    assert config_mod._coerce_bool_value(None, field_name="demo", default=True) is True
+    with pytest.raises(ConfigError):
+        config_mod._coerce_bool_value(object(), field_name="demo", default=True)
 
 
 def test_coerce_non_negative_int_validates() -> None:
@@ -381,6 +422,7 @@ def test_coerce_non_negative_int_validates() -> None:
         config_mod._coerce_non_negative_int(True, field_name="demo", default=1)
     with pytest.raises(ConfigError):
         config_mod._coerce_non_negative_int("bad", field_name="demo", default=1)
+    assert config_mod._coerce_non_negative_int(None, field_name="demo", default=5) == 5
 
 
 def test_coerce_cycle_policy_and_rng_mode() -> None:
@@ -416,6 +458,18 @@ def test_coerce_datetime_parses_variants() -> None:
 def test_normalize_locale_policies_accepts_mapping() -> None:
     policies = config_mod._normalize_locale_policies({"*.email": "en_US"})
     assert policies[0].options["locale"] == "en_US"
+    assert config_mod._normalize_locale_policies(None) == ()
+    with pytest.raises(ConfigError):
+        config_mod._normalize_locale_policies({"*.email": ""})
+
+
+def test_normalize_heuristics_handles_mappings() -> None:
+    heuristics = config_mod._normalize_heuristics({"enabled": False})
+    assert heuristics.enabled is False
+    existing = config_mod._normalize_heuristics(heuristics)
+    assert existing is heuristics
+    with pytest.raises(ConfigError):
+        config_mod._normalize_heuristics("invalid")
 
 
 def test_normalize_field_policies_accepts_mappings() -> None:
@@ -819,6 +873,7 @@ def test_config_helper_defaults() -> None:
     )
     assert config_mod._coerce_indent(None) == config_mod.JsonConfig().indent
     assert config_mod._coerce_preset_value(" ") is None
+    assert config_mod._coerce_profile_value(" ") is None
 
 
 def test_config_helper_non_default_branches() -> None:
@@ -849,6 +904,12 @@ def test_config_helper_non_default_branches() -> None:
     assert config_mod._coerce_bool("TRUE", "json.orjson") is True
     with pytest.raises(ConfigError):
         config_mod._coerce_bool("maybe", "json.orjson")
+    with pytest.raises(ConfigError):
+        config_mod._coerce_optional_str(123, "emitters.pytest.scope")
+    with pytest.raises(ConfigError):
+        config_mod._coerce_preset_value(123)
+    with pytest.raises(ConfigError):
+        config_mod._coerce_profile_value(123)
 
 
 def test_merge_source_with_preset_variants() -> None:
@@ -861,6 +922,14 @@ def test_merge_source_with_preset_variants() -> None:
     assert data2["preset"] == "boundary"
     assert "p_none" in data2  # preset settings merged
 
+    with pytest.raises(ConfigError):
+        config_mod._merge_source_with_preset({}, {"preset": 123})
+
+    config_mod._merge_source_with_preset(data2, {"profile": " "})
+    assert data2["profile"] is None
+    with pytest.raises(ConfigError):
+        config_mod._merge_source_with_preset({}, {"profile": 123})
+
 
 def test_coerce_env_value_parses_types() -> None:
     assert config_mod._coerce_env_value(" true ") is True
@@ -869,6 +938,17 @@ def test_coerce_env_value_parses_types() -> None:
     assert config_mod._coerce_env_value("42") == 42
     assert config_mod._coerce_env_value("3.14") == pytest.approx(3.14)
     assert config_mod._coerce_env_value("text") == "text"
+
+
+def test_coerce_preset_and_profile_value_validation() -> None:
+    with pytest.raises(ConfigError):
+        config_mod._coerce_preset_value(123)
+    with pytest.raises(ConfigError):
+        config_mod._coerce_profile_value(123)
+    with pytest.raises(ConfigError):
+        config_mod._coerce_preset_value("unknown-preset")
+    with pytest.raises(ConfigError):
+        config_mod._coerce_profile_value("unknown-profile")
 
 
 def test_normalize_sequence_and_policy_validation() -> None:

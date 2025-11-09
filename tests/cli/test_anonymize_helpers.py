@@ -30,6 +30,15 @@ def test_collect_input_files_behaviour(tmp_path: Path) -> None:
         _collect_input_files(tmp_path / "missing.json")
 
 
+def test_collect_input_files_requires_json_payloads(tmp_path: Path) -> None:
+    empty_dir = tmp_path / "empty"
+    empty_dir.mkdir()
+    (empty_dir / "notes.txt").write_text("noop", encoding="utf-8")
+
+    with pytest.raises(EmitError, match="No JSON/JSONL files"):
+        _collect_input_files(empty_dir)
+
+
 def test_read_and_write_records_json_variants(tmp_path: Path) -> None:
     json_file = tmp_path / "single.json"
     json_file.write_text(json.dumps({"email": "one"}), encoding="utf-8")

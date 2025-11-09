@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from pydantic import BaseModel
@@ -120,6 +121,32 @@ def test_doctor_json_errors(tmp_path: Path) -> None:
     assert "DiscoveryError" in result.stdout
 
 
+def test_doctor_fail_on_gaps_exits_with_code_two(tmp_path: Path) -> None:
+    module_path = tmp_path / "models.py"
+    module_path.write_text(
+        """
+from pydantic import BaseModel
+
+
+class Broken(BaseModel):
+    payload: object
+""",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "doctor",
+            "--fail-on-gaps",
+            "0",
+            str(module_path),
+        ],
+    )
+
+    assert result.exit_code == 2
+
+
 def test_execute_doctor_path_checks(tmp_path: Path) -> None:
     not_there = tmp_path / "missing.py"
     with pytest.raises(DiscoveryError):
@@ -175,6 +202,103 @@ def test_doctor_warnings_and_no_models(
     captured = capsys.readouterr()
     assert "warning: unused" in captured.err
     assert "No models discovered." in captured.out
+
+
+def test_prepare_doctor_target_requires_openapi_with_routes() -> None:
+    with pytest.raises(DiscoveryError):
+        doctor_mod._prepare_doctor_target(
+            path_arg=None,
+            schema=None,
+            openapi=None,
+            routes=["GET /users"],
+        )
+
+
+def test_prepare_doctor_target_schema(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    schema_path = tmp_path / "schema.json"
+    schema_path.write_text("{}", encoding="utf-8")
+    generated = tmp_path / "generated.py"
+
+    class DummyIngester:
+        def ingest_json_schema(self, _: Path) -> SimpleNamespace:
+            return SimpleNamespace(path=generated)
+
+    monkeypatch.setattr(doctor_mod, "SchemaIngester", lambda: DummyIngester())
+
+    target, includes = doctor_mod._prepare_doctor_target(
+        path_arg=None,
+        schema=schema_path,
+        openapi=None,
+        routes=None,
+    )
+
+    assert target == generated
+    assert includes == []
+
+
+def test_prepare_doctor_target_openapi_with_routes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    openapi_path = tmp_path / "spec.yaml"
+    openapi_path.write_text("openapi: 3.0.0", encoding="utf-8")
+    generated = tmp_path / "openapi_models.py"
+
+    class DummySelection:
+        def __init__(self, parsed_routes) -> None:
+            self.document = {"paths": {}}
+            self.schemas = ("User",)
+            self.routes = tuple(parsed_routes or [])
+
+        def fingerprint(self) -> str:
+            return "sig"
+
+    class DummyIngester:
+        def ingest_openapi(self, *args, **kwargs) -> SimpleNamespace:  # noqa: ARG002
+            return SimpleNamespace(path=generated)
+
+    monkeypatch.setattr(doctor_mod, "SchemaIngester", lambda: DummyIngester())
+    monkeypatch.setattr(
+        doctor_mod,
+        "load_openapi_document",
+        lambda path: {"paths": {"/users": {"get": {}}}},
+    )
+    monkeypatch.setattr(
+        doctor_mod,
+        "select_openapi_schemas",
+        lambda document, routes: DummySelection(routes),
+    )
+    monkeypatch.setattr(doctor_mod, "dump_document", lambda document: b"doc")
+
+    target, includes = doctor_mod._prepare_doctor_target(
+        path_arg=None,
+        schema=None,
+        openapi=openapi_path,
+        routes=["GET /users"],
+    )
+
+    assert target == generated
+    assert includes == ["*.User"]
+
+
+def test_prepare_doctor_target_invalid_route(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    openapi_path = tmp_path / "spec.yaml"
+    openapi_path.write_text("openapi: 3.0.0", encoding="utf-8")
+
+    monkeypatch.setattr(
+        doctor_mod,
+        "load_openapi_document",
+        lambda path: {"paths": {"/users": {"get": {}}}},
+    )
+
+    with pytest.raises(DiscoveryError):
+        doctor_mod._prepare_doctor_target(
+            path_arg=None,
+            schema=None,
+            openapi=openapi_path,
+            routes=["INVALID"],
+        )
 
 
 def test_doctor_resolve_method_conflict() -> None:
