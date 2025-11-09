@@ -213,6 +213,7 @@ def _collect_model_report(
         field_report: dict[str, Any] = {
             "name": field_name,
             "summary": _summary_to_payload(summary),
+            "strategy": None,
         }
         try:
             strategy = builder.build_field_strategy(
