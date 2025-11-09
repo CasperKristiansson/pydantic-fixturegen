@@ -19,7 +19,12 @@ from pydantic_fixturegen.core.errors import DiscoveryError, PFGError
 from pydantic_fixturegen.core.providers import create_default_registry
 from pydantic_fixturegen.core.schema import FieldSummary, summarize_model_fields
 from pydantic_fixturegen.core.seed_freeze import canonical_module_name
-from pydantic_fixturegen.core.strategies import StrategyBuilder, StrategyResult, UnionStrategy
+from pydantic_fixturegen.core.strategies import (
+    Strategy,
+    StrategyBuilder,
+    StrategyResult,
+    UnionStrategy,
+)
 from pydantic_fixturegen.plugins.loader import get_plugin_manager
 
 from ._common import (
@@ -300,12 +305,10 @@ def _strategy_to_payload(
     next_depth = None if remaining_depth is None else remaining_depth - 1
     summary_type = strategy.summary.type
     annotation = strategy.annotation
-    if isinstance(annotation, type) and (
-        (summary_type == "model" and issubclass(annotation, BaseModel))
-        or (strategy.provider_name == "model" and hasattr(annotation, "model_fields"))
-    ):
+    target_model = _resolve_nested_model_type(annotation, strategy, summary_type)
+    if target_model is not None:
         provider_payload["nested_model"] = _collect_model_report(
-            annotation,
+            target_model,
             builder=builder,
             max_depth=next_depth,
             visited=visited,
@@ -398,6 +401,26 @@ def _collect_dataclass_report(
 
     visited.remove(cls)
     return report
+
+
+def _resolve_nested_model_type(
+    annotation: Any,
+    strategy: Strategy,
+    summary_type: str,
+) -> type[BaseModel] | None:
+    candidate = annotation
+    if not isinstance(candidate, type):
+        candidate = strategy.summary.annotation
+    if not isinstance(candidate, type):
+        return None
+    try:
+        if summary_type == "model" and issubclass(candidate, BaseModel):
+            return candidate
+    except TypeError:
+        return None
+    if strategy.provider_name == "model" and hasattr(candidate, "model_fields"):
+        return candidate  # fallback model compiled outside BaseModel hierarchy
+    return None
 
 
 def _summary_to_payload(summary: FieldSummary) -> dict[str, Any]:
