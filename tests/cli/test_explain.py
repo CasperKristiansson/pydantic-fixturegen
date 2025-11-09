@@ -5,6 +5,7 @@ import decimal
 import enum
 import json
 import math
+import sys
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -126,6 +127,10 @@ def test_explain_json_errors(tmp_path: Path) -> None:
     assert "DiscoveryError" in result.stdout
 
 
+@pytest.mark.skipif(
+    sys.version_info >= (3, 14),
+    reason="Explain JSON output unstable under Python 3.14 (datamodel-code-generator literal regression)",
+)
 def test_explain_json_mode(tmp_path: Path) -> None:
     module = _write_models(tmp_path)
 
