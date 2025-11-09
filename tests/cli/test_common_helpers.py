@@ -70,6 +70,24 @@ def test_load_model_class_invalid(tmp_path: Path) -> None:
         common.load_model_class(info)
 
 
+def test_load_model_class_promotes_fallback(tmp_path: Path) -> None:
+    module_path = tmp_path / "fallback_module.py"
+    module_path.write_text(
+        """
+__pfg_schema_fallback__ = True
+
+
+class User:
+    __annotations__ = {"name": str}
+    name = None
+""",
+        encoding="utf-8",
+    )
+    info = _model_info(module_path, "fallback_module", "User")
+    model_cls = common.load_model_class(info)
+    assert issubclass(model_cls, BaseModel)
+
+
 def test_render_cli_error_prints_hint(capsys: pytest.CaptureFixture[str]) -> None:
     error = DiscoveryError("missing", hint="install fixture")
     with pytest.raises(typer.Exit) as exc:

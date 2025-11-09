@@ -237,6 +237,13 @@ def discover_models(
 def load_model_class(model_info: IntrospectedModel) -> type[BaseModel]:
     module = _load_module(model_info.module, Path(model_info.locator))
     attr = getattr(module, model_info.name, None)
+    if (
+        isinstance(attr, type)
+        and not issubclass(attr, BaseModel)
+        and getattr(module, "__pfg_schema_fallback__", False)
+    ):
+        attr = _promote_to_base_model(attr)
+        setattr(module, model_info.name, attr)
     if not isinstance(attr, type) or not issubclass(attr, BaseModel):
         raise RuntimeError(
             f"Attribute {model_info.name!r} in module "
@@ -332,6 +339,16 @@ def emit_constraint_summary(
                 hint = failure.get("hint")
                 if hint:
                     typer.secho(f"        hint: {hint}", fg=typer.colors.MAGENTA)
+
+
+def _promote_to_base_model(model_cls: type[Any]) -> type[BaseModel]:
+    annotations = dict(getattr(model_cls, "__annotations__", {}))
+    namespace: dict[str, Any] = {"__module__": model_cls.__module__, "__annotations__": annotations}
+    for key, value in vars(model_cls).items():
+        if key.startswith("__") and key not in {"__annotations__", "__doc__"}:
+            continue
+        namespace[key] = value
+    return type(model_cls.__name__, (BaseModel,), namespace)
 
 
 def _load_module(module_name: str, locator: Path) -> ModuleType:

@@ -409,6 +409,8 @@ class _SimpleSchemaCompiler:
             lines.append(f"from datetime import {dt_exports}")
         lines.append("from pydantic import BaseModel" + (", Field" if self._needs_field else ""))
         lines.append("")
+        lines.append("__pfg_schema_fallback__ = True")
+        lines.append("")
 
         if not self.models:
             lines.append("class SchemaModel(BaseModel):")

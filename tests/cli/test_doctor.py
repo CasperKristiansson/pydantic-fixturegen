@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import importlib
 import json
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -663,3 +665,47 @@ def test_doctor_handles_schema_input(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.stderr or result.output
     assert "User" in result.stdout
+
+
+def test_doctor_handles_schema_input_with_fallback(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    schema_path = tmp_path / "user.schema.json"
+    schema_path.write_text(
+        json.dumps({"title": "User", "type": "object", "properties": {"name": {"type": "string"}}}),
+        encoding="utf-8",
+    )
+
+    real_import = importlib.import_module
+
+    def fake_import(name: str, package: str | None = None):
+        if name == "datamodel_code_generator":
+            raise RuntimeError(
+                "Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater."
+            )
+        return real_import(name, package=package)
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.core.schema_ingest.importlib.import_module",
+        fake_import,
+    )
+
+    @contextmanager
+    def fake_compat():
+        yield
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.core.schema_ingest._ensure_pydantic_compatibility",
+        fake_compat,
+    )
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "doctor",
+            "--schema",
+            str(schema_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.stderr or result.output

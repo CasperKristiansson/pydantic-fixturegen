@@ -302,6 +302,8 @@ class _HypothesisStrategyExporter:
     def _strategy_for_annotation(self, annotation: Any) -> HypothesisSearchStrategy[Any]:
         if annotation is None:
             return st.none()
+        if annotation is Any:
+            return st.none()
 
         origin = get_origin(annotation)
         args = get_args(annotation)
@@ -342,8 +344,6 @@ class _HypothesisStrategyExporter:
                 return self.model_strategy(annotation)
             if _dataclasses.is_dataclass(annotation):
                 return self._dataclass_strategy(annotation)
-            if annotation is Any:
-                return st.none()
 
         try:
             return st.from_type(annotation)

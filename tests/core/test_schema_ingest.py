@@ -196,6 +196,11 @@ def test_ingest_json_schema_uses_fallback_compiler(
     assert "class User(BaseModel):" in contents
     assert "name: str" in contents
     assert "age: int" in contents
+    loaded = _import_module_from_path(module.path)
+    from pydantic import BaseModel
+
+    assert getattr(loaded, "__pfg_schema_fallback__", False) is True
+    assert issubclass(loaded.User, BaseModel)
 
 
 def test_ingest_openapi_fallback_generates_models(
@@ -247,6 +252,11 @@ def test_ingest_openapi_fallback_generates_models(
     contents = module.path.read_text(encoding="utf-8")
     assert "class Widget(BaseModel):" in contents
     assert "label: str" in contents
+    loaded = _import_module_from_path(module.path)
+    from pydantic import BaseModel
+
+    assert getattr(loaded, "__pfg_schema_fallback__", False) is True
+    assert issubclass(loaded.Widget, BaseModel)
 
 
 def test_generate_models_rethrows_discovery_error(
@@ -376,3 +386,13 @@ def test_patch_pydantic_v1_for_v2_api_is_idempotent() -> None:
 
     module = SimpleNamespace(BaseModel=DummyModel)
     _patch_pydantic_v1_for_v2_api(module)
+
+
+def _import_module_from_path(path: Path):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(f"schema_fallback_{path.stem}", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
