@@ -368,9 +368,7 @@ def test_normalize_identifier_config_validates_lengths() -> None:
 
 
 def test_normalize_emitters_and_json_configs() -> None:
-    emitters = config_mod._normalize_emitters(
-        {"pytest": {"style": "class", "scope": "session"}}
-    )
+    emitters = config_mod._normalize_emitters({"pytest": {"style": "class", "scope": "session"}})
     assert emitters.pytest.style == "class"
     assert emitters.pytest.scope == "session"
 

@@ -233,7 +233,7 @@ def _build_module_source(
     lines.append("    instance = _GENERATOR.generate_one(model)")
     lines.append("    if instance is None:")
     lines.append(
-        "        raise RuntimeError(f\"pydantic-fixturegen could not build {model.__name__}.\")"
+        '        raise RuntimeError(f"pydantic-fixturegen could not build {model.__name__}.")'
     )
     lines.append("    return instance")
     lines.append("")

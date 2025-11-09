@@ -237,6 +237,52 @@ export PFG_POLYFACTORY__MODULES=app.factories,tests.factories
 
 The CLI still respects per-command `--include`/`--exclude` filters; only factories whose models are actually in scope will be attached.
 
+### Per-field overrides
+
+Use `[tool.pydantic_fixturegen.overrides]` when you need Polyfactory-style overrides without writing factories:
+
+```toml
+[tool.pydantic_fixturegen.overrides."app.models.User".token]
+value = "demo-token"
+
+[tool.pydantic_fixturegen.overrides."app.models.User".slug]
+factory = "app.factories:build_slug"
+factory_kwargs = { prefix = "user" }
+
+[tool.pydantic_fixturegen.overrides."app.models.User".legacy_id]
+require = true
+
+[tool.pydantic_fixturegen.overrides."app.models.User".joined_name]
+value = ""
+post_generate = "app.factories:join_fields"
+
+[tool.pydantic_fixturegen.overrides."app.models.User".email]
+provider = "string"
+provider_kwargs = { length = 12 }
+```
+
+| Key                 | Description                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `value` / `use`     | Literal value to inject (deep-copied so shared state is safe).                                                |
+| `factory`           | Callable expressed as `module.path:attr` (or dotted module path). Receives `(context, *args, **kwargs)`.      |
+| `factory_args` / `factory_kwargs` | Optional arguments forwarded to the factory callable.                                           |
+| `ignore`            | Skip populating the field so model defaults apply.                                                            |
+| `require`           | Fail fast unless a `value`/`factory` is supplied (mirrors Polyfactory’s `Require`).                           |
+| `post_generate`     | Callable executed after the field’s value is produced. Signature matches factories, but receives `(value, context, *args, **kwargs)`. |
+| `provider` / `provider_format` / `provider_kwargs` | Override the provider/type registered in the registry.                         |
+| `p_none`, `enum_policy`, `union_policy` | Per-field policy overrides on top of the global settings.                                 |
+
+`context` is a `FieldOverrideContext` exposing the model class, field name, alias, Faker/random handles, path, and the partially-populated `values` mapping.
+
+The CLI mirrors the file format via `--override/-O`:
+
+```bash
+pfg gen json models.py --override 'app.models.User.token={"value": "demo"}' \
+                       --override 'app.models.User.slug={"factory": "app.factories:build_slug"}'
+```
+
+Overrides participate in the same precedence chain as the rest of the config (pyproject < env < CLI), so you can keep long-lived defaults in TOML and apply run-specific tweaks from the command line.
+
 ### Field policy schemas
 
 `field_policies` accepts nested options that map patterns to policy tweaks.

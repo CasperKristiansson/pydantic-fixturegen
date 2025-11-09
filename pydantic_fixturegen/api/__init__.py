@@ -161,6 +161,8 @@ def _normalize_sequence(values: Sequence[str] | None) -> Sequence[str] | None:
     if values is None:
         return None
     return tuple(values)
+
+
 def generate_dataset(
     target: str | Path,
     *,

@@ -300,11 +300,7 @@ def _resolve_output_path(
 ) -> Path:
     if not output_is_dir:
         return output
-    relative = (
-        Path(input_path.name)
-        if input_root.is_file()
-        else input_path.relative_to(input_root)
-    )
+    relative = Path(input_path.name) if input_root.is_file() else input_path.relative_to(input_root)
     destination = output / relative
     destination.parent.mkdir(parents=True, exist_ok=True)
     return destination

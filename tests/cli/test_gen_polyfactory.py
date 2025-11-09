@@ -79,9 +79,7 @@ def test_gen_polyfactory_requires_dependency(monkeypatch, tmp_path: Path) -> Non
     captured = _suppress_polyfactory_cli_exit(monkeypatch)
     module_path = tmp_path / "models.py"
     module_path.write_text(
-        "from pydantic import BaseModel\n"
-        "class Item(BaseModel):\n"
-        "    value: int\n",
+        "from pydantic import BaseModel\nclass Item(BaseModel):\n    value: int\n",
         encoding="utf-8",
     )
 
@@ -128,9 +126,7 @@ def test_gen_polyfactory_handles_missing_target(monkeypatch, tmp_path: Path) -> 
 def test_gen_polyfactory_supports_stdout(monkeypatch, tmp_path: Path) -> None:
     module_path = tmp_path / "models.py"
     module_path.write_text(
-        "from pydantic import BaseModel\n"
-        "class Item(BaseModel):\n"
-        "    value: int\n",
+        "from pydantic import BaseModel\nclass Item(BaseModel):\n    value: int\n",
         encoding="utf-8",
     )
     monkeypatch.setitem(sys.modules, "polyfactory", ModuleType("polyfactory"))
@@ -162,9 +158,7 @@ def test_gen_polyfactory_handles_build_errors(monkeypatch, tmp_path: Path) -> No
     captured = _suppress_polyfactory_cli_exit(monkeypatch)
     module_path = tmp_path / "models.py"
     module_path.write_text(
-        "from pydantic import BaseModel\n"
-        "class Item(BaseModel):\n"
-        "    value: int\n",
+        "from pydantic import BaseModel\nclass Item(BaseModel):\n    value: int\n",
         encoding="utf-8",
     )
     monkeypatch.setitem(sys.modules, "polyfactory", ModuleType("polyfactory"))
@@ -190,9 +184,7 @@ def test_gen_polyfactory_handles_build_errors(monkeypatch, tmp_path: Path) -> No
 def test_gen_polyfactory_watch_mode_invokes_runner(monkeypatch, tmp_path: Path) -> None:
     module_path = tmp_path / "models.py"
     module_path.write_text(
-        "from pydantic import BaseModel\n"
-        "class Item(BaseModel):\n"
-        "    value: int\n",
+        "from pydantic import BaseModel\nclass Item(BaseModel):\n    value: int\n",
         encoding="utf-8",
     )
     monkeypatch.setitem(sys.modules, "polyfactory", ModuleType("polyfactory"))

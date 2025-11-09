@@ -24,9 +24,7 @@ OPENAPI_SPEC = {
                     "200": {
                         "description": "ok",
                         "content": {
-                            "application/json": {
-                                "schema": {"$ref": "#/components/schemas/User"}
-                            }
+                            "application/json": {"schema": {"$ref": "#/components/schemas/User"}}
                         },
                     }
                 }

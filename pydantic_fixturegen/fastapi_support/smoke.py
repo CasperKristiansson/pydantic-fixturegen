@@ -100,19 +100,19 @@ class FastAPISmokeSuite:
         for mod, cls in imports:
             lines.append(f"from {mod} import {cls}")
         lines.append("")
-        lines.append(f"_module = import_module(\"{module}\")")
-        lines.append(f"app = getattr(_module, \"{attr}\")")
+        lines.append(f'_module = import_module("{module}")')
+        lines.append(f'app = getattr(_module, "{attr}")')
         if self.dependency_overrides:
             lines.append("_DEPENDENCY_OVERRIDES = [")
             for entry in self.dependency_overrides:
-                lines.append(f"    \"{entry}\",")
+                lines.append(f'    "{entry}",')
             lines.append("]")
             lines.extend(
                 [
                     "for mapping in _DEPENDENCY_OVERRIDES:",
-                    "    original_path, override_path = mapping.split(\"=\", 1)",
-                    "    original_mod, original_attr = original_path.rsplit(\".\", 1)",
-                    "    override_mod, override_attr = override_path.rsplit(\".\", 1)",
+                    '    original_path, override_path = mapping.split("=", 1)',
+                    '    original_mod, original_attr = original_path.rsplit(".", 1)',
+                    '    override_mod, override_attr = override_path.rsplit(".", 1)',
                     "    original_obj = getattr(import_module(original_mod), original_attr)",
                     "    override_obj = getattr(import_module(override_mod), override_attr)",
                     "    app.dependency_overrides[original_obj] = override_obj",

@@ -68,8 +68,10 @@ def _build_delegate(binding: PolyfactoryBinding) -> ModelDelegate:
             raise RuntimeError(f"Polyfactory build failed for {factory_label}: {exc}") from exc
 
         if not isinstance(instance, model_type):
-            if isinstance(instance, BaseModel) and isinstance(model_type, type) and issubclass(
-                model_type, BaseModel
+            if (
+                isinstance(instance, BaseModel)
+                and isinstance(model_type, type)
+                and issubclass(model_type, BaseModel)
             ):
                 try:
                     instance = model_type.model_validate(instance.model_dump())

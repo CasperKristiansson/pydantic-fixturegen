@@ -126,8 +126,7 @@ def select_openapi_schemas(
         raise DiscoveryError(
             "Selected routes did not reference any reusable schemas via $ref.",
             hint=(
-                "Reference components under '#/components/schemas/*' "
-                "to enable fixture generation."
+                "Reference components under '#/components/schemas/*' to enable fixture generation."
             ),
         )
 
@@ -178,11 +177,7 @@ def _build_component_graph(
 
     initial_refs: list[tuple[str, str]] = []
     for route in routes:
-        op = (
-            document.get("paths", {})
-            .get(route.path, {})
-            .get(route.method.lower())
-        )
+        op = document.get("paths", {}).get(route.path, {}).get(route.method.lower())
         if not isinstance(op, Mapping):
             continue
         initial_refs.extend(_iter_component_refs(op))
@@ -244,9 +239,7 @@ def _build_trimmed_document(
             if not isinstance(section, Mapping):
                 continue
             filtered_components[comp_type] = {
-                name: copy.deepcopy(section[name])
-                for name in names
-                if name in section
+                name: copy.deepcopy(section[name]) for name in names if name in section
             }
         trimmed_dict["components"] = filtered_components
 

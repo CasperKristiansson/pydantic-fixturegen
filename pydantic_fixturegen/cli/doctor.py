@@ -234,9 +234,7 @@ def _prepare_doctor_target(
     if routes and openapi is None:
         raise DiscoveryError("--route can only be used together with --openapi.")
 
-    provided = sum(
-        1 for value in (path_arg, schema, openapi) if value is not None
-    )
+    provided = sum(1 for value in (path_arg, schema, openapi) if value is not None)
     if provided == 0:
         raise DiscoveryError("Provide a module path, --schema, or --openapi.")
     if provided > 1:
@@ -494,7 +492,7 @@ def _strategy_status(summary: FieldSummary, strategy: StrategyResult) -> tuple[b
                 remediation="Define a provider for this shape or narrow the field annotation.",
                 severity="warning",
             )
-    )
+        )
     return True, gaps
 
 

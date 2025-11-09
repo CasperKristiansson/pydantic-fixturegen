@@ -139,3 +139,14 @@ def test_parse_relation_links_handles_multiple_sources() -> None:
 def test_parse_relation_links_requires_equals() -> None:
     with pytest.raises(typer.BadParameter):
         common.parse_relation_links(["missing-delimiter"])
+
+
+def test_parse_override_entries_parses_json_payloads() -> None:
+    entries = ('User.email={"value": "fixed@example.com"}',)
+    result = common.parse_override_entries(entries)
+    assert result["User"]["email"]["value"] == "fixed@example.com"
+
+
+def test_parse_override_entries_rejects_invalid_payload() -> None:
+    with pytest.raises(typer.BadParameter):
+        common.parse_override_entries(["User.email={not-json}"])

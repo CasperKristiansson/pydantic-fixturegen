@@ -68,6 +68,7 @@ pfg gen json ./models.py \
 - TypeAdapter mode: pass `--type "list[EmailStr]"` to evaluate a Python type expression via `TypeAdapter` without discovering a module first. Expressions can reference types from the target module when you also pass the module path, but you cannot combine `--type` with `--link`, `--with-related`, or `--freeze-seeds`, and watch mode requires a module path so imports can be refreshed.
 - Validator enforcement: add `--respect-validators` to retry on model/dataclass validator failures and `--validator-max-retries` to cap the extra attempts.
 - Privacy bundles: `--profile pii-safe` masks identifiers; `--profile realistic` restores richer distributions.
+- Per-field overrides: repeat `--override/-O Model.field='{"value": "demo"}'` (or `{"factory": "pkg.module:callable"}`, `{"ignore": true}`, etc.) to apply the same Use/Ignore/Require/PostGenerated behaviours documented under configuration without touching `pyproject.toml`.
 - Observability: `--json-errors`, `--watch`, `--watch-debounce`, `--now`.
 
 ### `pfg gen dataset`
@@ -87,6 +88,7 @@ pfg gen dataset ./models.py \
 - `--format` selects `csv`, `parquet`, or `arrow`. Each honours deterministic seeds and shares the same generation pipeline as `gen json`.
 - CSV output streams line-by-line (optionally via `--compression gzip`), while Parquet and Arrow use PyArrow writers; install the `[dataset]` extra or `pyarrow` to enable columnar formats.
 - `--shard-size` splits high-volume runs across multiple files without buffering the entire dataset in memory; templates with `{case_index}` apply per shard exactly like `gen json`.
+- `--override/-O` accepts the same JSON payloads as `[tool.pydantic_fixturegen.overrides]` so you can pin individual fields, mark them as `require`, or run post-generation hooks for one-off datasets.
 - Cycle metadata is preserved via the `__cycles__` column so downstream checks can reason about recursion heuristics.
 - Determinism helpers mirror `gen json`: `--seed`, `--freeze-seeds`, `--preset`, `--profile`, `--now`, `--respect-validators`, `--validator-max-retries`, `--max-depth`, `--on-cycle`, `--rng-mode`.
 - Observability: `--json-errors`, `--watch`, `--watch-debounce`, and relation links via `--link source.field=target.field` stay consistent with other emitters.
@@ -131,6 +133,7 @@ pfg gen fixtures ./models.py \
 - `--scope` sets fixture scope; `--cases` parametrises templates.
 - `--return-type` chooses between returning the model or its dict representation.
 - Determinism flags mirror `gen json`, and `--profile` applies the same privacy bundles before fixture emission.
+- Per-field overrides: `--override/-O Model.field='{"value": "demo"}'` (repeatable) honours Use/Ignore/Require/PostGenerated semantics at the CLI level, matching `[tool.pydantic_fixturegen.overrides]`.
 - Relations: `--link Order.user_id=User.id` keeps fixtures consistent and `--with-related User` ensures the related fixtures are emitted in the same module when you need bundles.
 - Validator enforcement mirrors `gen json`: `--respect-validators` applies bounded retries and `--validator-max-retries` adjusts the ceiling.
 

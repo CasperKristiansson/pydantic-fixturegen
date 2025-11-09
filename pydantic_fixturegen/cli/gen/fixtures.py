@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 import typer
 
@@ -204,6 +205,7 @@ def register(app: typer.Typer) -> None:
         max_depth: int | None = MAX_DEPTH_OPTION,
         cycle_policy: str | None = CYCLE_POLICY_OPTION,
         rng_mode: str | None = RNG_MODE_OPTION,
+        override_entries: list[str] | None = cli_common.OVERRIDES_OPTION,
     ) -> None:
         logger = get_logger()
 
@@ -219,6 +221,7 @@ def register(app: typer.Typer) -> None:
             watch_extra = [output_template.watch_parent()]
         else:
             watch_output = output_template.preview_path()
+        field_overrides = cli_common.parse_override_entries(override_entries)
 
         def invoke(exit_app: bool) -> None:
             try:
@@ -245,6 +248,7 @@ def register(app: typer.Typer) -> None:
                     max_depth=max_depth,
                     cycle_policy=cycle_policy,
                     rng_mode=rng_mode,
+                    field_overrides=field_overrides or None,
                 )
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors, exit_app=exit_app)
@@ -306,6 +310,7 @@ def _execute_fixtures_command(
     max_depth: int | None = None,
     cycle_policy: str | None = None,
     rng_mode: str | None = None,
+    field_overrides: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> None:
     logger = get_logger()
 
@@ -358,6 +363,7 @@ def _execute_fixtures_command(
             max_depth=max_depth,
             cycle_policy=cycle_policy,
             rng_mode=rng_mode,
+            field_overrides=field_overrides,
         )
     except PFGError as exc:
         _handle_fixtures_error(logger, exc)

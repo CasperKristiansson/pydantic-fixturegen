@@ -1090,10 +1090,7 @@ def _combined_model_digest(
 
 
 def _fixture_model_list(model_classes: Sequence[type[BaseModel]]) -> str:
-    entries = [
-        f"{canonical_module_name(model)}.{model.__name__}"
-        for model in model_classes
-    ]
+    entries = [f"{canonical_module_name(model)}.{model.__name__}" for model in model_classes]
     return ", ".join(entries)
 
 
@@ -1171,8 +1168,7 @@ def _json_field_hints(
         hints.append(f"Hint: generated payload now includes fields: {', '.join(added)}.")
     if removed:
         hints.append(
-            "Hint: snapshot still contains fields no longer generated: "
-            f"{', '.join(removed)}."
+            f"Hint: snapshot still contains fields no longer generated: {', '.join(removed)}."
         )
     return hints
 

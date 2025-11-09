@@ -33,7 +33,16 @@ from pydantic_fixturegen.core.field_policies import (
     FieldPolicyConflictError,
     FieldPolicySet,
 )
-from pydantic_fixturegen.core.providers import ProviderRegistry, create_default_registry
+from pydantic_fixturegen.core.overrides import (
+    FieldOverride,
+    FieldOverrideContext,
+    FieldOverrideSet,
+)
+from pydantic_fixturegen.core.providers import (
+    ProviderRef,
+    ProviderRegistry,
+    create_default_registry,
+)
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary, extract_constraints
 from pydantic_fixturegen.core.seed import DEFAULT_LOCALE, RNGModeLiteral, SeedManager
 from pydantic_fixturegen.core.seed_freeze import canonical_module_name
@@ -70,6 +79,7 @@ class GenerationConfig:
     cycle_policy: str = "reuse"
     rng_mode: RNGModeLiteral = "portable"
     heuristics_enabled: bool = True
+    field_overrides: FieldOverrideSet | None = None
 
 
 @dataclass(slots=True)
@@ -294,6 +304,8 @@ class InstanceGenerator:
         self._locale_policy_set = (
             FieldPolicySet(self.config.locale_policies) if self.config.locale_policies else None
         )
+        self._field_override_set = self.config.field_overrides
+        self._override_cache: dict[tuple[type[Any], str], FieldOverride | None] = {}
         self._path_stack: list[_PathEntry] = []
         self._cycle_policy = self.config.cycle_policy
         self._cycle_events: list[CycleEvent] = []
@@ -446,19 +458,58 @@ class InstanceGenerator:
             return delegated_instance
 
         values: dict[str, Any] = {}
+        post_actions: list[tuple[str, FieldOverride, FieldOverrideContext]] = []
         try:
             for field_name, strategy in strategies.items():
-                self._apply_field_policies(field_name, strategy)
-                values[field_name] = self._evaluate_strategy(
-                    strategy,
-                    depth,
-                    model_type,
-                    field_name,
-                    report_model,
-                )
-                entry.partial_values[field_name] = values[field_name]
+                override = self._field_override(model_type, field_name)
+                if override and override.ignore:
+                    continue
+
+                summary = self._strategy_summary(strategy)
+                context: FieldOverrideContext | None = None
+                if override and override.has_value_override:
+                    context = self._build_override_context(
+                        model_type,
+                        field_name,
+                        summary,
+                        values,
+                        entry,
+                    )
+                    value = override.resolve_value(context)
+                else:
+                    if override and override.require:
+                        full_path = f"{entry.full}.{field_name}"
+                        raise ConfigError(
+                            f"Override '{full_path}' is marked as require; provide a value via "
+                            "config or CLI overrides."
+                        )
+                    self._apply_field_policies(field_name, strategy)
+                    value = self._evaluate_strategy(
+                        strategy,
+                        depth,
+                        model_type,
+                        field_name,
+                        report_model,
+                    )
+                values[field_name] = value
+                entry.partial_values[field_name] = value
+                if override and override.post_generate:
+                    if context is None:
+                        context = self._build_override_context(
+                            model_type,
+                            field_name,
+                            summary,
+                            values,
+                            entry,
+                        )
+                    post_actions.append((field_name, override, context))
         finally:
             self._path_stack.pop()
+
+        for field_name, override, context in post_actions:
+            updated = override.apply_post(values.get(field_name), context)
+            values[field_name] = updated
+            entry.partial_values[field_name] = updated
 
         try:
             instance: Any | None = None
@@ -631,6 +682,67 @@ class InstanceGenerator:
 
         self._apply_field_policy_to_strategy(strategy, policy_values)
 
+    def _apply_override_to_strategy(
+        self,
+        model_type: type[Any],
+        field_name: str,
+        strategy: StrategyResult,
+        override: FieldOverride,
+    ) -> None:
+        path = f"{self._describe_model(model_type)}.{field_name}"
+        if isinstance(strategy, UnionStrategy):
+            if override.union_policy is not None:
+                strategy.policy = override.union_policy
+            disallowed = any(
+                (
+                    override.provider,
+                    override.provider_format,
+                    bool(override.provider_kwargs),
+                    override.p_none is not None,
+                    override.enum_policy,
+                )
+            )
+            if disallowed:
+                raise ConfigError(
+                    f"Override '{path}' cannot override providers or probabilities on union fields."
+                )
+            return
+
+        if override.provider is not None or override.provider_format is not None:
+            provider = self._resolve_override_provider(path, strategy, override)
+            strategy.provider_ref = provider
+            strategy.provider_name = provider.name
+        if override.provider_kwargs:
+            strategy.provider_kwargs.update(dict(override.provider_kwargs))
+        if override.p_none is not None:
+            strategy.p_none = override.p_none
+        if override.enum_policy is not None and strategy.enum_values:
+            strategy.enum_policy = override.enum_policy
+        if override.union_policy is not None:
+            raise ConfigError(
+                f"Override '{path}' specifies union_policy but the field is not a union."
+            )
+
+    def _resolve_override_provider(
+        self,
+        path: str,
+        strategy: Strategy,
+        override: FieldOverride,
+    ) -> ProviderRef:
+        type_id = override.provider or strategy.summary.type
+        format_id = override.provider_format or strategy.summary.format
+        if type_id is None:
+            raise ConfigError(f"Override '{path}' must specify a provider type.")
+        provider = self.registry.get(type_id, format_id)
+        if provider is None:
+            if format_id is not None:
+                raise ConfigError(
+                    f"Override '{path}' references unknown provider '{type_id}'"
+                    f" with format '{format_id}'."
+                )
+            raise ConfigError(f"Override '{path}' references unknown provider '{type_id}'.")
+        return provider
+
     def _current_field_paths(self, field_name: str) -> tuple[str, tuple[str, ...]]:
         if not self._path_stack:
             return field_name, ()
@@ -689,6 +801,47 @@ class InstanceGenerator:
             seen[path] = None
         return tuple(seen.keys())
 
+    def _field_override(self, model_type: type[Any], field_name: str) -> FieldOverride | None:
+        if self._field_override_set is None:
+            return None
+        cache_key = (model_type, field_name)
+        if cache_key in self._override_cache:
+            return self._override_cache[cache_key]
+
+        model_keys = self._model_identifier_keys(model_type)
+        alias = self._field_alias(model_type, field_name)
+        aliases = (alias,) if alias else None
+        override = self._field_override_set.resolve(
+            model_keys=model_keys,
+            field_name=field_name,
+            aliases=aliases,
+        )
+        self._override_cache[cache_key] = override
+        return override
+
+    def _model_identifier_keys(self, model_type: type[Any]) -> tuple[str, ...]:
+        full = self._describe_model(model_type)
+        qualname = getattr(model_type, "__qualname__", "")
+        name = getattr(model_type, "__name__", "")
+        simple = _simple_name(full)
+        candidates = [full]
+        for candidate in (qualname, name, simple):
+            if candidate and candidate not in candidates:
+                candidates.append(candidate)
+        return tuple(candidates)
+
+    def _field_alias(self, model_type: type[Any], field_name: str) -> str | None:
+        model_fields = getattr(model_type, "model_fields", None)
+        if not isinstance(model_fields, Mapping):
+            return None
+        field_info = model_fields.get(field_name)
+        if field_info is None:
+            return None
+        alias = getattr(field_info, "alias", None)
+        if isinstance(alias, str) and alias != field_name:
+            return alias
+        return None
+
     def _resolve_locale(self, field_name: str) -> tuple[str, str]:
         base_locale = self.config.locale
         full_path, aliases = self._current_field_paths(field_name)
@@ -728,6 +881,33 @@ class InstanceGenerator:
             strategy.p_none = policy_values["p_none"]
         if "enum_policy" in policy_values and policy_values["enum_policy"] is not None:
             strategy.enum_policy = policy_values["enum_policy"]
+
+    def _build_override_context(
+        self,
+        model_type: type[Any],
+        field_name: str,
+        summary: FieldSummary | None,
+        values: Mapping[str, Any],
+        entry: _PathEntry,
+    ) -> FieldOverrideContext:
+        alias = self._field_alias(model_type, field_name)
+        path = f"{entry.full}.{field_name}"
+        return FieldOverrideContext(
+            model=model_type,
+            field_name=field_name,
+            alias=alias,
+            summary=summary,
+            faker=self.faker,
+            random=self.random,
+            values=values,
+            path=path,
+        )
+
+    @staticmethod
+    def _strategy_summary(strategy: StrategyResult) -> FieldSummary | None:
+        if isinstance(strategy, Strategy):
+            return strategy.summary
+        return None
 
     def _detect_cycle_entry(self, model_type: type[Any]) -> _PathEntry | None:
         for entry in reversed(self._path_stack):
@@ -997,8 +1177,27 @@ class InstanceGenerator:
         else:
             raise TypeError(f"Unsupported model type: {model_type!r}")
 
+        if self._field_override_set is not None:
+            self._apply_strategy_overrides(model_type, strategies)
+
         self._strategy_cache[model_type] = strategies
         return strategies
+
+    def _apply_strategy_overrides(
+        self,
+        model_type: type[Any],
+        strategies: Mapping[str, StrategyResult],
+    ) -> None:
+        for field_name, strategy in strategies.items():
+            override = self._field_override(model_type, field_name)
+            if override is None or not override.affects_strategy:
+                continue
+            self._apply_override_to_strategy(
+                model_type,
+                field_name,
+                strategy,
+                override,
+            )
 
     def _build_dataclass_strategies(self, cls: type[Any]) -> dict[str, StrategyResult]:
         strategies: dict[str, StrategyResult] = {}

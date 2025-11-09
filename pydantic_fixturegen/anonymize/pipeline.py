@@ -360,10 +360,7 @@ class Anonymizer:
                 f"({required_rule_misses} > {budget.max_required_rule_misses})."
             )
         total_failures = sum(self._rule_failures.values())
-        if (
-            budget.max_rule_failures is not None
-            and total_failures > budget.max_rule_failures
-        ):
+        if budget.max_rule_failures is not None and total_failures > budget.max_rule_failures:
             raise EmitError(
                 f"Rule execution failures exceeded budget "
                 f"({total_failures} > {budget.max_rule_failures})."

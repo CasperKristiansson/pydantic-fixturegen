@@ -33,8 +33,7 @@ seed_app = typer.Typer(help="Seed integration databases via supported ORMs.")
 TARGET_ARGUMENT = typer.Argument(
     None,
     help=(
-        "Path to a Python module containing SQLModel/Beanie models "
-        "(optional when using --schema)."
+        "Path to a Python module containing SQLModel/Beanie models (optional when using --schema)."
     ),
 )
 
@@ -132,8 +131,7 @@ WITH_RELATED_OPTION = typer.Option(
     None,
     "--with-related",
     help=(
-        "Comma-separated list (repeatable) of additional models "
-        "to generate alongside the primary."
+        "Comma-separated list (repeatable) of additional models to generate alongside the primary."
     ),
 )
 
@@ -315,6 +313,7 @@ def seed_beanie(  # noqa: PLR0913
 ) -> None:
     logger = get_logger()
     from pydantic_fixturegen.orm.beanie import BeanieSeeder
+
     try:
         _validate_connection(database, allow_url)
         module_path = _resolve_target_module(target, schema)
@@ -338,8 +337,10 @@ def seed_beanie(  # noqa: PLR0913
             logger=logger,
         )
         database_name = _mongo_database_name(database)
+
         def client_factory() -> Any:
             return _create_beanie_client(database)
+
         seeder = BeanieSeeder(plan, client_factory, database_name=database_name, logger=logger)
         warning_category: type[Warning] = DeprecationWarning
         try:  # pragma: no cover - narrow import path
@@ -485,7 +486,9 @@ def _mongo_database_name(database: str) -> str:
     parsed = urlparse(database)
     db_name = parsed.path.strip("/")
     if not db_name:
-        raise DiscoveryError("MongoDB connection URL must include a database name (e.g. mongodb://localhost/app)")
+        raise DiscoveryError(
+            "MongoDB connection URL must include a database name (e.g. mongodb://localhost/app)"
+        )
     return db_name
 
 

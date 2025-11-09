@@ -918,6 +918,59 @@ def test_generate_json_artifacts_type_adapter_overrides(tmp_path: Path) -> None:
     assert out_path.exists()
 
 
+def test_generate_json_artifacts_respects_field_overrides(tmp_path: Path) -> None:
+    module_path = _write_module(
+        tmp_path,
+        """
+from pydantic import BaseModel
+
+
+class Item(BaseModel):
+    name: str
+    slug: str
+""",
+    )
+    output_path = tmp_path / "items.json"
+    overrides = {
+        "models.Item": {
+            "slug": {"value": "fixed-slug"},
+        }
+    }
+
+    result = runtime_mod.generate_json_artifacts(
+        target=module_path,
+        output_template=OutputTemplate(str(output_path)),
+        count=1,
+        jsonl=False,
+        indent=0,
+        use_orjson=False,
+        shard_size=None,
+        include=("models.Item",),
+        exclude=None,
+        seed=1,
+        now=None,
+        freeze_seeds=False,
+        freeze_seeds_file=None,
+        preset=None,
+        profile=None,
+        respect_validators=None,
+        validator_max_retries=None,
+        relations=None,
+        with_related=None,
+        type_annotation=None,
+        type_label=None,
+        logger=FakeLogger(),
+        max_depth=None,
+        cycle_policy=None,
+        rng_mode=None,
+        field_overrides=overrides,
+    )
+
+    assert isinstance(result, JsonGenerationResult)
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload[0]["slug"] == "fixed-slug"
+
+
 def test_generate_json_artifacts_type_adapter_failure_details(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

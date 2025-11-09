@@ -3,6 +3,7 @@ import decimal
 import ipaddress
 import pathlib
 import uuid
+import warnings
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any, Literal
@@ -10,9 +11,11 @@ from typing import Any, Literal
 import pytest
 
 try:  # pragma: no cover - optional dependency
-    from hypothesis.errors import NonInteractiveExampleWarning
+    from hypothesis.errors import HypothesisDeprecationWarning, NonInteractiveExampleWarning
 
     from hypothesis import strategies as st
+    warnings.filterwarnings("ignore", category=HypothesisDeprecationWarning)
+    WARNING_TYPES = (NonInteractiveExampleWarning, HypothesisDeprecationWarning)
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
     pytest.skip("hypothesis is not installed", allow_module_level=True)
 
@@ -64,15 +67,15 @@ def _summary(
 def test_optional_strategy_branches() -> None:
     exporter = _exporter()
     always_none = exporter._optional(st.just("x"), 1.2)
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert always_none.example() is None
 
     never_none = exporter._optional(st.just("x"), -0.5)
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert never_none.example() in {None, "x"}
 
     mixed = exporter._optional(st.just("value"), 0.5)
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert mixed.example() in {None, "value"}
 
 
@@ -86,11 +89,11 @@ def test_secret_and_path_strategies_generate_expected_wrappers() -> None:
         format="file",
     )
 
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         str_value = exporter._secret_strategy(secret_str).example()
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         bytes_value = exporter._secret_strategy(secret_bytes).example()
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         path_value = exporter._path_strategy(file_path).example()
 
     from pydantic import SecretBytes, SecretStr  # local import keeps optional dependency lazy
@@ -118,11 +121,11 @@ def test_collection_and_mapping_strategies_respect_bounds() -> None:
         item_annotation=str,
     )
 
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         tuple_value = exporter._collection_strategy(tuple_summary).example()
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         set_value = exporter._collection_strategy(set_summary).example()
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         mapping_value = exporter._mapping_strategy(mapping_summary).example()
 
     assert isinstance(tuple_value, tuple) and 1 <= len(tuple_value) <= 2
@@ -137,14 +140,14 @@ def test_annotation_strategy_handles_literal_and_union() -> None:
     list_strategy = exporter._strategy_for_annotation(list[int])
     dict_strategy = exporter._strategy_for_annotation(dict[str, int])
 
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert literal_strategy.example() in {"a", "b"}
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         union_value = union_strategy.example()
     assert union_value is None or isinstance(union_value, int)
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert isinstance(list_strategy.example(), list)
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert isinstance(dict_strategy.example(), dict)
 
 
@@ -159,7 +162,7 @@ def test_dataclass_strategy_caches_instances() -> None:
     second = exporter._dataclass_strategy(Sample)
     assert first is second
 
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert isinstance(first.example(), Sample)
 
 
@@ -169,7 +172,7 @@ def test_fallback_strategy_uses_generator_value() -> None:
     exporter = _HypothesisStrategyExporter(generator=generator, profile="typical")
     fallback = exporter._fallback_strategy(SimpleNamespace, "field")
 
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert fallback.example() == "ok"
 
 
@@ -181,7 +184,7 @@ def test_strategy_for_annotation_handles_dataclass_and_model() -> None:
         label: str
 
     result = exporter._strategy_for_annotation(Nested)
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert isinstance(result.example(), Nested)
 
     def fake_model_strategy(model: type[BaseModel]) -> Any:
@@ -189,7 +192,7 @@ def test_strategy_for_annotation_handles_dataclass_and_model() -> None:
 
     exporter.model_strategy = lambda model: fake_model_strategy(model)  # type: ignore[assignment]
     model_result = exporter._strategy_for_annotation(_EmbeddedModel)
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert isinstance(model_result.example(), _EmbeddedModel)
 
 
@@ -230,7 +233,7 @@ def test_base_strategy_handles_core_scalars() -> None:
             "value",
             SimpleNamespace(summary=summary),
         )
-        with pytest.warns(NonInteractiveExampleWarning):
+        with pytest.warns(WARNING_TYPES):
             sample = strategy.example()
         if isinstance(expected, set):
             assert sample in expected
@@ -262,7 +265,7 @@ def test_union_strategy_combines_choices() -> None:
     strategy = exporter._strategy_for_field(_EmbeddedModel, "value", union)
 
     for _ in range(5):
-        with pytest.warns(NonInteractiveExampleWarning):
+        with pytest.warns(WARNING_TYPES):
             sample = strategy.example()
         assert isinstance(sample, (str, int))
 
@@ -301,9 +304,9 @@ def test_base_strategy_handles_nested_model_and_dataclass() -> None:
         ),
     )
 
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert isinstance(model_strategy.example(), _EmbeddedModel)
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert isinstance(dataclass_strategy.example(), Nested)
 
 
@@ -320,7 +323,7 @@ def test_base_strategy_fallback_errors_when_generator_returns_none() -> None:
     )
     fallback = exporter._base_strategy(_EmbeddedModel, "value", dummy_strategy)
 
-    with pytest.raises(RuntimeError), pytest.warns(NonInteractiveExampleWarning):
+    with pytest.raises(RuntimeError), pytest.warns(WARNING_TYPES):
         fallback.example()
 
 
@@ -329,9 +332,9 @@ def test_strategy_for_annotation_handles_none_and_any() -> None:
     none_strategy = exporter._strategy_for_annotation(None)
     any_strategy = exporter._strategy_for_annotation(Any)
 
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert none_strategy.example() is None
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert any_strategy.example() is None
 
 
@@ -340,7 +343,7 @@ def test_strategy_for_applies_rng_mode() -> None:
         value: int = 10
 
     strat = strategy_for(DefaultModel, rng_mode="system")
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert isinstance(strat.example(), DefaultModel)
 
 
@@ -368,14 +371,14 @@ def test_string_strategy_handles_patterns() -> None:
     exporter = _exporter()
     summary = _summary("string", constraints=FieldConstraints(pattern="^abc$"))
     strategy = exporter._string_strategy(summary)
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert strategy.example() == "abc"
 
 
 def test_path_strategy_applies_file_suffix() -> None:
     exporter = _exporter()
     summary = _summary("path", constraints=FieldConstraints(), format="file")
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         sample = exporter._path_strategy(summary).example()
     assert sample.suffix in {".json", ".txt", ".log"}
 
@@ -384,9 +387,9 @@ def test_annotation_strategy_handles_sets_and_tuples() -> None:
     exporter = _exporter()
     set_strategy = exporter._strategy_for_annotation(set[int])
     tuple_strategy = exporter._strategy_for_annotation(tuple[int])
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert isinstance(set_strategy.example(), set)
-    with pytest.warns(NonInteractiveExampleWarning):
+    with pytest.warns(WARNING_TYPES):
         assert isinstance(tuple_strategy.example(), tuple)
 
 

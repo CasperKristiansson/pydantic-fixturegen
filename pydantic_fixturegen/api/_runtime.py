@@ -17,6 +17,7 @@ from pydantic_fixturegen.core.cycle_report import consume_cycle_events
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError, PFGError
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.introspect import IntrospectedModel
+from pydantic_fixturegen.core.overrides import build_field_override_set
 from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
 from pydantic_fixturegen.core.seed import SeedManager
 from pydantic_fixturegen.core.seed_freeze import (
@@ -154,6 +155,7 @@ def _build_model_artifact_plan(
     max_depth: int | None,
     cycle_policy: str | None,
     rng_mode: str | None,
+    field_overrides: Mapping[str, Mapping[str, Any]] | None = None,
     payload_mode: Literal["python", "json"],
 ) -> ModelArtifactPlan:
     from ..cli.gen import _common as cli_common
@@ -225,6 +227,11 @@ def _build_model_artifact_plan(
         cli_overrides["exclude"] = list(exclude_values)
     if relations:
         cli_overrides["relations"] = dict(relations)
+    if field_overrides:
+        merged_overrides: dict[str, dict[str, Any]] = {}
+        for model_key, field_map in field_overrides.items():
+            merged_overrides[model_key] = dict(field_map)
+        cli_overrides["overrides"] = merged_overrides
 
     app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
     config_snapshot = _snapshot_config(app_config)
@@ -444,6 +451,7 @@ def _build_instance_generator(
             ).normalized_seed
 
     p_none = app_config.p_none if app_config.p_none is not None else 0.0
+    override_set = build_field_override_set(app_config.overrides)
     gen_config = GenerationConfig(
         seed=seed_value,
         enum_policy=app_config.enum_policy,
@@ -466,6 +474,7 @@ def _build_instance_generator(
         max_depth=app_config.max_depth,
         cycle_policy=app_config.cycle_policy,
         rng_mode=app_config.rng_mode,
+        field_overrides=override_set,
     )
     return InstanceGenerator(config=gen_config)
 
@@ -588,6 +597,7 @@ def generate_json_artifacts(
     max_depth: int | None = None,
     cycle_policy: str | None = None,
     rng_mode: str | None = None,
+    field_overrides: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> JsonGenerationResult:
     logger = logger or get_logger()
 
@@ -635,6 +645,10 @@ def generate_json_artifacts(
             cli_overrides["cycle_policy"] = cycle_policy
         if rng_mode is not None:
             cli_overrides["rng_mode"] = rng_mode
+        if field_overrides:
+            cli_overrides["overrides"] = {
+                model_key: dict(field_map) for model_key, field_map in field_overrides.items()
+            }
         json_overrides: dict[str, Any] = {}
         if indent is not None:
             json_overrides["indent"] = indent
@@ -680,6 +694,7 @@ def generate_json_artifacts(
         max_depth=max_depth,
         cycle_policy=cycle_policy,
         rng_mode=rng_mode,
+        field_overrides=field_overrides,
         payload_mode="python",
     )
 
@@ -793,6 +808,7 @@ def generate_dataset_artifacts(
     max_depth: int | None = None,
     cycle_policy: str | None = None,
     rng_mode: str | None = None,
+    field_overrides: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> DatasetGenerationResult:
     logger = logger or get_logger()
     fmt = format.lower()
@@ -818,6 +834,7 @@ def generate_dataset_artifacts(
         max_depth=max_depth,
         cycle_policy=cycle_policy,
         rng_mode=rng_mode,
+        field_overrides=field_overrides,
         payload_mode="json",
     )
 
@@ -1072,6 +1089,7 @@ def generate_fixtures_artifacts(
     max_depth: int | None = None,
     cycle_policy: str | None = None,
     rng_mode: str | None = None,
+    field_overrides: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> FixturesGenerationResult:
     from ..cli.gen import _common as cli_common
 
@@ -1146,6 +1164,10 @@ def generate_fixtures_artifacts(
         cli_overrides["exclude"] = list(clear_exclude)
     if relations:
         cli_overrides["relations"] = dict(relations)
+    if field_overrides:
+        cli_overrides["overrides"] = {
+            model_key: dict(field_map) for model_key, field_map in field_overrides.items()
+        }
 
     app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
     config_snapshot = _snapshot_config(app_config)

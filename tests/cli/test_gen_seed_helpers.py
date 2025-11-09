@@ -34,9 +34,7 @@ def test_mongo_database_name_requires_path() -> None:
 def test_resolve_target_module_accepts_module_path(tmp_path: Path) -> None:
     module_path = tmp_path / "models.py"
     module_path.write_text(
-        "from pydantic import BaseModel\n"
-        "class Model(BaseModel):\n"
-        "    value: int\n",
+        "from pydantic import BaseModel\nclass Model(BaseModel):\n    value: int\n",
         encoding="utf-8",
     )
 

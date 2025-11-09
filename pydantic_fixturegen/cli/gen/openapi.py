@@ -83,9 +83,7 @@ def register(app: typer.Typer) -> None:
         logger = get_logger()
 
         try:
-            parsed_routes = (
-                [parse_route_value(value) for value in routes] if routes else None
-            )
+            parsed_routes = [parse_route_value(value) for value in routes] if routes else None
         except ValueError as exc:
             render_cli_error(DiscoveryError(str(exc)), json_errors=json_errors)
             return

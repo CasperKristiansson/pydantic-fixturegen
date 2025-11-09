@@ -30,6 +30,7 @@ from pydantic_fixturegen.logging import Logger
 __all__ = [
     "JSON_ERRORS_OPTION",
     "NOW_OPTION",
+    "OVERRIDES_OPTION",
     "RNG_MODE_OPTION",
     "clear_module_cache",
     "discover_models",
@@ -37,6 +38,7 @@ __all__ = [
     "render_cli_error",
     "split_patterns",
     "emit_constraint_summary",
+    "parse_override_entries",
     "parse_relation_links",
     "evaluate_type_expression",
 ]
@@ -66,15 +68,23 @@ RNG_MODE_OPTION = typer.Option(
     help="Random generator mode: 'portable' (default) or 'legacy'.",
 )
 
+OVERRIDES_OPTION = typer.Option(
+    None,
+    "--override",
+    "-O",
+    help=(
+        "Per-field override entry (repeatable) formatted as Model.field={'value': 1} "
+        "or Model.field={'factory': 'pkg.module:func'}."
+    ),
+)
+
 
 def clear_module_cache() -> None:
     """Clear cached module imports used during CLI execution."""
 
     _module_cache.clear()
     stale_modules = [
-        name
-        for name, module in list(sys.modules.items())
-        if getattr(module, _CANONICAL_ATTR, None)
+        name for name, module in list(sys.modules.items()) if getattr(module, _CANONICAL_ATTR, None)
     ]
     for name in stale_modules:
         sys.modules.pop(name, None)
@@ -121,6 +131,41 @@ def parse_relation_links(values: Sequence[str] | None) -> dict[str, str]:
                 )
             mapping[source_key] = target_key
     return mapping
+
+
+def parse_override_entries(entries: Sequence[str] | None) -> dict[str, dict[str, Any]]:
+    overrides: dict[str, dict[str, Any]] = {}
+    if not entries:
+        return overrides
+    for raw_entry in entries:
+        if not raw_entry:
+            continue
+        if "=" not in raw_entry:
+            raise typer.BadParameter(
+                "Override entries must be formatted as 'Model.field={\"value\": ...}'."
+            )
+        path, payload = raw_entry.split("=", 1)
+        path = path.strip()
+        payload = payload.strip()
+        if "." not in path:
+            raise typer.BadParameter(
+                "Override paths must include the model and field name (Model.field)."
+            )
+        model_key, field_key = path.rsplit(".", 1)
+        model_key = model_key.strip()
+        field_key = field_key.strip()
+        if not model_key or not field_key:
+            raise typer.BadParameter("Override paths must include non-empty model and field names.")
+        try:
+            data = json.loads(payload)
+        except json.JSONDecodeError as exc:
+            raise typer.BadParameter(f"Override payload for '{path}' must be valid JSON.") from exc
+        if not isinstance(data, dict):
+            raise typer.BadParameter(
+                f"Override payload for '{path}' must be a JSON object containing override options."
+            )
+        overrides.setdefault(model_key, {})[field_key] = data
+    return overrides
 
 
 def _package_hierarchy(module_path: Path) -> list[Path]:
