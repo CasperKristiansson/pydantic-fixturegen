@@ -5,12 +5,13 @@ from __future__ import annotations
 import dataclasses
 import decimal
 import enum
+import importlib
 import json
 import types
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any, Union, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, ForwardRef, Union, get_args, get_origin, get_type_hints
 
 import typer
 from pydantic import BaseModel
@@ -238,6 +239,7 @@ def _collect_model_report(
                 builder=builder,
                 remaining_depth=max_depth,
                 visited=visited,
+                parent_model=model_cls,
             )
         report["fields"].append(field_report)
 
@@ -251,6 +253,7 @@ def _strategy_to_payload(
     builder: StrategyBuilder,
     remaining_depth: int | None,
     visited: set[type[Any]],
+    parent_model: type[BaseModel],
 ) -> dict[str, Any]:
     if isinstance(strategy, UnionStrategy):
         payload: dict[str, Any] = {
@@ -275,6 +278,7 @@ def _strategy_to_payload(
                     builder=builder,
                     remaining_depth=next_depth,
                     visited=visited,
+                    parent_model=parent_model,
                 ),
             }
             payload["options"].append(option_payload)
@@ -313,7 +317,12 @@ def _strategy_to_payload(
     next_depth = None if remaining_depth is None else remaining_depth - 1
     summary_type = strategy.summary.type
     annotation = strategy.annotation
-    target_model = _resolve_nested_model_type(annotation, strategy, summary_type)
+    target_model = _resolve_nested_model_type(
+        annotation,
+        strategy,
+        summary_type,
+        parent_model=parent_model,
+    )
     if target_model is not None:
         provider_payload["nested_model"] = _collect_model_report(
             target_model,
@@ -454,6 +463,8 @@ def _resolve_nested_model_type(
     annotation: Any,
     strategy: Strategy,
     summary_type: str,
+    *,
+    parent_model: type[BaseModel],
 ) -> type[BaseModel] | None:
     candidate = annotation
     if not isinstance(candidate, type):
@@ -461,6 +472,10 @@ def _resolve_nested_model_type(
     resolved = _resolve_runtime_type(candidate)
     if resolved is not None:
         candidate = resolved
+    if not isinstance(candidate, type):
+        forward = _resolve_forward_reference(candidate, parent_model)
+        if forward is not None:
+            candidate = forward
     if not isinstance(candidate, type):
         return None
     try:
@@ -543,6 +558,42 @@ def _resolve_runtime_type(annotation: Any) -> type[Any] | None:
             return _resolve_runtime_type(args[0])
         return None
 
+    return None
+
+
+def _resolve_forward_reference(
+    annotation: Any,
+    parent_model: type[BaseModel],
+) -> type[Any] | None:
+    target_module: str | None = None
+    target_name: str | None = None
+
+    if isinstance(annotation, ForwardRef):
+        target_module = getattr(annotation, "__forward_module__", None)
+        target_name = annotation.__forward_arg__
+    elif isinstance(annotation, str):
+        if "." in annotation:
+            target_module, _, target_name = annotation.rpartition(".")
+        else:
+            target_name = annotation
+            target_module = parent_model.__module__
+
+    if not target_name:
+        return None
+
+    module_name = target_module or parent_model.__module__
+    try:
+        module = importlib.import_module(module_name)
+    except Exception:  # pragma: no cover - defensive
+        return None
+
+    attr: Any = module
+    for part in target_name.split("."):
+        attr = getattr(attr, part, None)
+        if attr is None:
+            return None
+    if isinstance(attr, type):
+        return attr
     return None
 
 
