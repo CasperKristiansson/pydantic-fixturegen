@@ -8,6 +8,7 @@ from typing import Any, cast
 import pytest
 from pydantic_fixturegen.core import config as config_mod
 from pydantic_fixturegen.core.config import (
+    DEFAULT_CONFIG,
     AppConfig,
     ConfigError,
     JsonConfig,
@@ -239,6 +240,195 @@ def test_invalid_union_policy_raises(tmp_path: Path) -> None:
 def test_invalid_p_none_raises(tmp_path: Path) -> None:
     with pytest.raises(ConfigError):
         load_config(root=tmp_path, cli={"p_none": 2})
+
+
+def test_normalize_relations_accepts_mapping() -> None:
+    relations = config_mod._normalize_relations({"models.Order.user_id": "models.User.id"})
+    assert relations == (
+        config_mod.RelationLinkConfig(source="models.Order.user_id", target="models.User.id"),
+    )
+
+
+def test_normalize_relations_accepts_sequences() -> None:
+    relations = config_mod._normalize_relations(["models.Order.user_id=models.User.id"])
+    assert relations[0].target == "models.User.id"
+
+
+def test_normalize_relations_rejects_invalid_type() -> None:
+    with pytest.raises(ConfigError):
+        config_mod._normalize_relations(object())
+
+
+def test_normalize_emitters_merges_pytest_config() -> None:
+    emitters = config_mod._normalize_emitters({"pytest": {"style": "factory", "scope": "module"}})
+    assert emitters.pytest.style == "factory"
+    assert emitters.pytest.scope == "module"
+
+
+def test_normalize_emitters_validates_pytest_mapping() -> None:
+    with pytest.raises(ConfigError):
+        config_mod._normalize_emitters({"pytest": "inline"})
+
+
+def test_coerce_path_target_variations() -> None:
+    assert config_mod._coerce_path_target("POSIX", "paths.models.default_os") == "posix"
+    assert config_mod._coerce_path_target("Windows", "paths.models.default_os") == "windows"
+    assert config_mod._coerce_path_target("mac", "paths.models.default_os") == "mac"
+    with pytest.raises(ConfigError):
+        config_mod._coerce_path_target("beos", "paths.models.default_os")
+
+
+def test_coerce_indent_validates_non_negative() -> None:
+    assert config_mod._coerce_indent(2) == 2
+    with pytest.raises(ConfigError):
+        config_mod._coerce_indent(-1)
+
+
+def test_normalize_array_config_handles_sequences() -> None:
+    arrays = config_mod._normalize_array_config(
+        {"max_ndim": 2, "max_side": 3, "max_elements": 4, "dtypes": ["int", "float"]}
+    )
+    assert arrays.dtypes == ("int", "float")
+
+
+def test_normalize_array_config_requires_string_dtypes() -> None:
+    with pytest.raises(ConfigError):
+        config_mod._normalize_array_config({"dtypes": ["", 1]})
+    with pytest.raises(ConfigError):
+        config_mod._normalize_array_config({"max_ndim": "bad"})
+    with pytest.raises(ConfigError):
+        config_mod._normalize_array_config({"max_side": 0, "dtypes": ["int"]})
+    with pytest.raises(ConfigError):
+        config_mod._normalize_array_config({"dtypes": 123})
+
+
+def test_normalize_identifier_config_handles_sequences() -> None:
+    identifiers = config_mod._normalize_identifier_config(
+        {
+            "secret_str_length": 4,
+            "secret_bytes_length": 8,
+            "url_schemes": ["https", "ws"],
+            "mask_sensitive": False,
+            "uuid_version": 4,
+        }
+    )
+    assert identifiers.secret_str_length == 4
+    assert identifiers.url_schemes == ("https", "ws")
+
+
+def test_normalize_identifier_config_validates_lengths() -> None:
+    with pytest.raises(ConfigError):
+        config_mod._normalize_identifier_config({"secret_str_length": 0})
+    with pytest.raises(ConfigError):
+        config_mod._normalize_identifier_config("invalid")
+    with pytest.raises(ConfigError):
+        config_mod._normalize_identifier_config({"secret_bytes_length": "bad"})
+    with pytest.raises(ConfigError):
+        config_mod._normalize_identifier_config(
+            {
+                "secret_str_length": 1,
+                "secret_bytes_length": 1,
+                "url_schemes": [""],
+                "mask_sensitive": True,
+                "uuid_version": 1,
+                "url_include_path": True,
+            }
+        )
+    with pytest.raises(ConfigError):
+        config_mod._normalize_identifier_config(
+            {
+                "secret_str_length": 1,
+                "secret_bytes_length": 1,
+                "url_schemes": ["http"],
+                "mask_sensitive": "yes",
+                "uuid_version": 1,
+                "url_include_path": True,
+            }
+        )
+    with pytest.raises(ConfigError):
+        config_mod._normalize_identifier_config(
+            {
+                "secret_str_length": 1,
+                "secret_bytes_length": 1,
+                "url_schemes": ["http"],
+                "mask_sensitive": True,
+                "uuid_version": 2,
+                "url_include_path": True,
+            }
+        )
+
+
+def test_path_config_target_for_matches_pattern() -> None:
+    config = PathConfig(default_os="posix", model_targets=(("tests.unit.Dummy", "windows"),))
+    Dummy = type("Dummy", (), {})
+    Dummy.__module__ = "tests.unit"
+    assert config.target_for(Dummy) == "windows"
+    assert config.target_for(None) == "posix"
+
+
+def test_coerce_bool_value_handles_strings() -> None:
+    assert config_mod._coerce_bool_value("true", field_name="demo", default=False) is True
+    with pytest.raises(ConfigError):
+        config_mod._coerce_bool_value("unknown", field_name="demo", default=False)
+    assert config_mod._coerce_bool_value(0, field_name="demo", default=True) is False
+
+
+def test_coerce_non_negative_int_validates() -> None:
+    assert config_mod._coerce_non_negative_int(3, field_name="demo", default=1) == 3
+    with pytest.raises(ConfigError):
+        config_mod._coerce_non_negative_int(-1, field_name="demo", default=1)
+    with pytest.raises(ConfigError):
+        config_mod._coerce_non_negative_int(True, field_name="demo", default=1)
+    with pytest.raises(ConfigError):
+        config_mod._coerce_non_negative_int("bad", field_name="demo", default=1)
+
+
+def test_coerce_cycle_policy_and_rng_mode() -> None:
+    assert config_mod._coerce_cycle_policy(None, field_name="cycle") == DEFAULT_CONFIG.cycle_policy
+    assert config_mod._coerce_cycle_policy("REUSE", field_name="cycle") == "reuse"
+    with pytest.raises(ConfigError):
+        config_mod._coerce_cycle_policy("loop", field_name="cycle")
+    assert config_mod._coerce_rng_mode(None) == DEFAULT_CONFIG.rng_mode
+    assert config_mod._coerce_rng_mode("portable") == "portable"
+    with pytest.raises(ConfigError):
+        config_mod._coerce_rng_mode(123)
+    with pytest.raises(ConfigError):
+        config_mod._coerce_rng_mode("unknown")
+
+
+def test_normalize_sequence_variants() -> None:
+    assert config_mod._normalize_sequence("a, b") == ("a", "b")
+    assert config_mod._normalize_sequence(["x", "y"]) == ("x", "y")
+    with pytest.raises(ConfigError):
+        config_mod._normalize_sequence([1])
+
+
+def test_coerce_datetime_parses_variants() -> None:
+    parsed = config_mod._coerce_datetime("2024-01-02T01:02:03", "now")
+    assert parsed.tzinfo is not None
+    date_parsed = config_mod._coerce_datetime(datetime.date(2024, 1, 2), "now")
+    assert date_parsed.day == 2
+    assert config_mod._coerce_datetime(" none ", "now") is None
+    with pytest.raises(ConfigError):
+        config_mod._coerce_datetime("invalid", "now")
+
+
+def test_normalize_locale_policies_accepts_mapping() -> None:
+    policies = config_mod._normalize_locale_policies({"*.email": "en_US"})
+    assert policies[0].options["locale"] == "en_US"
+
+
+def test_normalize_field_policies_accepts_mappings() -> None:
+    policies = config_mod._normalize_field_policies(
+        {"*.email": {"p_none": "0.5", "enum_policy": "first", "union_policy": "first"}}
+    )
+    assert policies[0].options["p_none"] == 0.5
+    with pytest.raises(ConfigError):
+        config_mod._normalize_field_policies({"*.email": {"p_none": "bad"}})
+    with pytest.raises(ConfigError):
+        config_mod._normalize_field_policies({"*.email": {"enum_policy": "invalid"}})
+    with pytest.raises(ConfigError):
+        config_mod._normalize_field_policies({"*.email": {"union_policy": "invalid"}})
 
 
 def test_invalid_path_target_raises(tmp_path: Path) -> None:

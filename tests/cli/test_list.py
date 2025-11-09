@@ -4,7 +4,11 @@ import os
 import textwrap
 from pathlib import Path
 
+import pytest
+from pydantic_fixturegen.cli.list import _render_result, _resolve_method
 from pydantic_fixturegen.cli.list import app as list_app
+from pydantic_fixturegen.core.errors import DiscoveryError, UnsafeImportError
+from pydantic_fixturegen.core.introspect import IntrospectionResult
 from tests._cli import create_cli_runner
 
 runner = create_cli_runner()
@@ -198,6 +202,34 @@ def test_list_handles_relative_imports(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "lib.models.example_model.ExampleInputs [import]" in result.stdout
     assert "lib.models.example_model.ExampleRequest [import]" in result.stdout
+
+
+def test_render_result_handles_network_errors() -> None:
+    result = IntrospectionResult(models=[], warnings=[], errors=["Network unreachable"])
+    with pytest.raises(UnsafeImportError):
+        _render_result(result)
+
+
+def test_render_result_handles_generic_errors() -> None:
+    result = IntrospectionResult(models=[], warnings=[], errors=["Missing module"])
+    with pytest.raises(DiscoveryError):
+        _render_result(result)
+
+
+def test_render_result_emits_warning_and_empty_notice(capsys) -> None:
+    result = IntrospectionResult(models=[], warnings=["  caution  "], errors=[])
+    _render_result(result)
+    out, err = capsys.readouterr()
+    assert "warning" in err.lower()
+    assert "No models discovered." in out
+
+
+def test_resolve_method_switches() -> None:
+    assert _resolve_method(ast_mode=True, hybrid_mode=False) == "ast"
+    assert _resolve_method(ast_mode=False, hybrid_mode=True) == "hybrid"
+    assert _resolve_method(ast_mode=False, hybrid_mode=False) == "import"
+    with pytest.raises(DiscoveryError):
+        _resolve_method(ast_mode=True, hybrid_mode=True)
 
 
 def test_list_handles_relative_imports_from_package_directory(tmp_path: Path) -> None:

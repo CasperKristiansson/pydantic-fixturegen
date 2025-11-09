@@ -5,14 +5,13 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-
+from pydantic_fixturegen.core.errors import EmitError
 from pydantic_fixturegen.coverage.manifest import (
     CoverageManifest,
     _prepare_manifest_target,
     build_coverage_manifest,
     compare_manifests,
 )
-from pydantic_fixturegen.core.errors import EmitError
 
 
 def _write_model(tmp_path: Path) -> Path:

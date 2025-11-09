@@ -108,3 +108,79 @@ def test_anonymize_cli_requires_output(tmp_path: Path) -> None:
         ],
     )
     assert result.exit_code != 0
+
+
+def test_anonymize_cli_directory_output_and_budgets(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "first.json").write_text(
+        json.dumps([{"email": "one@example.com", "token": "abc"}]),
+        encoding="utf-8",
+    )
+    nested = input_dir / "nested"
+    nested.mkdir()
+    (nested / "second.json").write_text(
+        json.dumps([{"email": "two@example.com", "token": "def"}]),
+        encoding="utf-8",
+    )
+
+    rules_path = tmp_path / "rules.toml"
+    rules_path.write_text(
+        """
+[anonymize]
+salt = "demo"
+
+  [[anonymize.rules]]
+  pattern = "*.email"
+  strategy = "faker"
+  provider = "email"
+
+  [[anonymize.rules]]
+  pattern = "*.token"
+  strategy = "mask"
+  mask_char = "#"
+""",
+        encoding="utf-8",
+    )
+
+    output_dir = tmp_path / "out"
+    doctor_module = tmp_path / "models.py"
+    doctor_module.write_text(
+        """
+from pydantic import BaseModel
+
+
+class Entry(BaseModel):
+    email: str
+    token: str
+""",
+        encoding="utf-8",
+    )
+
+    runner = create_cli_runner()
+    result = runner.invoke(
+        cli_app,
+        [
+            "anonymize",
+            "--rules",
+            str(rules_path),
+            "--entity-field",
+            "email",
+            "--max-required-misses",
+            "1",
+            "--max-rule-failures",
+            "1",
+            "--doctor-target",
+            str(doctor_module),
+            str(input_dir),
+            str(output_dir),
+        ],
+    )
+    if result.exit_code != 0:  # pragma: no cover - diagnostic
+        print(result.stdout)
+    assert result.exit_code == 0
+
+    first_out = output_dir / "first.json"
+    assert first_out.exists()
+    payload = json.loads(first_out.read_text(encoding="utf-8"))
+    assert payload[0]["token"] == "###"

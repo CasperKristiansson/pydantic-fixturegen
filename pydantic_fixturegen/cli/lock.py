@@ -7,18 +7,16 @@ from pathlib import Path
 
 import typer
 
-from pydantic_fixturegen.cli.doctor import (
-    AST_OPTION as DOCTOR_AST_OPTION,
-    EXCLUDE_OPTION as DOCTOR_EXCLUDE_OPTION,
-    HYBRID_OPTION as DOCTOR_HYBRID_OPTION,
-    INCLUDE_OPTION as DOCTOR_INCLUDE_OPTION,
-    MEMORY_LIMIT_OPTION as DOCTOR_MEMORY_OPTION,
-    OPENAPI_OPTION as DOCTOR_OPENAPI_OPTION,
-    PATH_ARGUMENT as DOCTOR_PATH_ARGUMENT,
-    ROUTES_OPTION as DOCTOR_ROUTES_OPTION,
-    SCHEMA_OPTION as DOCTOR_SCHEMA_OPTION,
-    TIMEOUT_OPTION as DOCTOR_TIMEOUT_OPTION,
-)
+from pydantic_fixturegen.cli.doctor import AST_OPTION as DOCTOR_AST_OPTION
+from pydantic_fixturegen.cli.doctor import EXCLUDE_OPTION as DOCTOR_EXCLUDE_OPTION
+from pydantic_fixturegen.cli.doctor import HYBRID_OPTION as DOCTOR_HYBRID_OPTION
+from pydantic_fixturegen.cli.doctor import INCLUDE_OPTION as DOCTOR_INCLUDE_OPTION
+from pydantic_fixturegen.cli.doctor import MEMORY_LIMIT_OPTION as DOCTOR_MEMORY_OPTION
+from pydantic_fixturegen.cli.doctor import OPENAPI_OPTION as DOCTOR_OPENAPI_OPTION
+from pydantic_fixturegen.cli.doctor import PATH_ARGUMENT as DOCTOR_PATH_ARGUMENT
+from pydantic_fixturegen.cli.doctor import ROUTES_OPTION as DOCTOR_ROUTES_OPTION
+from pydantic_fixturegen.cli.doctor import SCHEMA_OPTION as DOCTOR_SCHEMA_OPTION
+from pydantic_fixturegen.cli.doctor import TIMEOUT_OPTION as DOCTOR_TIMEOUT_OPTION
 from pydantic_fixturegen.cli.gen._common import JSON_ERRORS_OPTION, render_cli_error
 from pydantic_fixturegen.core.errors import EmitError, PFGError
 from pydantic_fixturegen.coverage.manifest import (

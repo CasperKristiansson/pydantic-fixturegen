@@ -4,15 +4,18 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic_fixturegen.anonymize.pipeline import AnonymizeConfig, AnonymizeReport
 from pydantic_fixturegen.cli.anonymize import (
     FileMeta,
     _collect_input_files,
     _doctor_gap_summary,
     _read_records,
     _resolve_output_path,
+    _run_anonymization,
     _write_records,
 )
 from pydantic_fixturegen.core.errors import EmitError
+from pydantic_fixturegen.logging import get_logger
 
 
 def test_collect_input_files_behaviour(tmp_path: Path) -> None:
@@ -83,3 +86,49 @@ class Entry(BaseModel):
         memory_limit_mb=64,
     )
     assert "total_error_fields" in summary
+
+
+def test_run_anonymization_emits_doctor_summary(monkeypatch, tmp_path: Path) -> None:
+    input_file = tmp_path / "data.json"
+    input_file.write_text(json.dumps([{"email": "user@example.com"}]), encoding="utf-8")
+    output_dir = tmp_path / "out"
+
+    class DummyAnonymizer:
+        def __init__(self, config: AnonymizeConfig, logger) -> None:  # noqa: D401
+            self.config = config
+
+        def anonymize_records(self, records):
+            report = AnonymizeReport(
+                records_processed=len(records),
+                fields_anonymized=1,
+                strategy_counts={"mask": 1},
+                rule_matches={"*.email": 1},
+                rule_failures={},
+                required_rule_misses=0,
+                diffs=[],
+                doctor_summary=None,
+            )
+            return records, report
+
+    monkeypatch.setattr("pydantic_fixturegen.cli.anonymize.Anonymizer", DummyAnonymizer)
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.anonymize._doctor_gap_summary",
+        lambda *args, **kwargs: {"status": "ok"},
+    )
+
+    totals = _run_anonymization(
+        files=[input_file],
+        input_root=input_file,
+        output=output_dir,
+        config_path=tmp_path / "rules.toml",
+        config=AnonymizeConfig(rules=[]),
+        doctor_target=input_file,
+        doctor_include=None,
+        doctor_exclude=None,
+        doctor_timeout=1.0,
+        doctor_memory=64,
+        logger=get_logger(),
+    )
+
+    assert totals["files_processed"] == 1
+    assert totals["doctor_summary"]["status"] == "ok"
