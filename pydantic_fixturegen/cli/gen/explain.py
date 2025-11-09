@@ -300,10 +300,9 @@ def _strategy_to_payload(
     next_depth = None if remaining_depth is None else remaining_depth - 1
     summary_type = strategy.summary.type
     annotation = strategy.annotation
-    if (
-        summary_type == "model"
-        and isinstance(annotation, type)
-        and issubclass(annotation, BaseModel)
+    if isinstance(annotation, type) and (
+        (summary_type == "model" and issubclass(annotation, BaseModel))
+        or (strategy.provider_name == "model" and hasattr(annotation, "model_fields"))
     ):
         provider_payload["nested_model"] = _collect_model_report(
             annotation,
