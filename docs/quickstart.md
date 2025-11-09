@@ -272,6 +272,17 @@ pfg anonymize \
 - Privacy budgets fail the run when required rules never match or a strategy throws; the JSON report logs every replacement count, diff sample, and coverage summary from `pfg doctor` when you pass `--doctor-target`.
 - Need the functionality inside Python? `from pydantic_fixturegen.api import anonymize_from_rules` returns the sanitized payload plus the same report structure.
 
+## Step 10 — Enforce coverage with lockfiles
+
+```bash
+pfg lock --lockfile .pfg-lock.json ./models.py
+pfg verify --lockfile .pfg-lock.json ./models.py
+```
+
+- The lockfile records per-model coverage, provider assignments, and gap summaries pulled from `pfg doctor`. Commit it to your repo just like other lockfiles.
+- `pfg verify` recomputes coverage and fails when anything drifts; the unified diff in the failure output highlights exactly which model/field needs attention.
+- Run `pfg lock` after intentional schema changes (or add it to release scripts) so pull requests only contain meaningful coverage updates.
+
 ## Watch mode
 
 <a id="watch-mode"></a>

@@ -72,6 +72,12 @@
 - Doctor integration: pass `--doctor-target models.py` to pipeline sanitized data straight into `pfg doctor` gap detection; the resulting coverage snapshot is embedded in the report for auditing.
 - Python API helpers (`anonymize_payloads`, `anonymize_from_rules`) expose the exact pipeline inside applications or bespoke scripts without shelling out to the CLI.
 
+## Coverage lockfiles
+
+- `pfg lock` captures a manifest of every model/field discovered (coverage counts, provider labels, gap summaries) and writes it to `.pfg-lock.json` so CI can diff coverage just like dependencies.
+- `pfg verify` recomputes coverage and compares it against the lockfile, failing with a unified diff when coverage regresses or new fields appear without fresh fixtures/documentation.
+- Manifests store the discovery options (module vs schema vs OpenAPI) so teams can enforce budgets consistently across services; combine with `--json-errors` for machine-readable CI logs.
+
 ## Plugins and extensibility
 
 - Pluggy hooks: `pfg_register_providers`, `pfg_modify_strategy`, `pfg_emit_artifact`.

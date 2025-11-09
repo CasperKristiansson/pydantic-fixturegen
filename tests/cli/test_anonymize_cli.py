@@ -81,3 +81,30 @@ class Sample(BaseModel):
     assert report["files_processed"] == 1
     assert report["strategies"]["faker"] >= 2
     assert report["doctor_summary"]["total_error_fields"] >= 0
+
+
+def test_anonymize_cli_requires_output(tmp_path: Path) -> None:
+    data_path = tmp_path / "payload.json"
+    data_path.write_text("[]", encoding="utf-8")
+    rules_path = tmp_path / "rules.toml"
+    rules_path.write_text(
+        """
+[anonymize]
+
+  [[anonymize.rules]]
+  pattern = "*.id"
+  strategy = "hash"
+""",
+        encoding="utf-8",
+    )
+    runner = create_cli_runner()
+    result = runner.invoke(
+        cli_app,
+        [
+            "anonymize",
+            str(data_path),
+            "--rules",
+            str(rules_path),
+        ],
+    )
+    assert result.exit_code != 0

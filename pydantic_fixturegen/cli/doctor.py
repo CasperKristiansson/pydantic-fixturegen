@@ -25,7 +25,12 @@ from pydantic_fixturegen.core.providers import create_default_registry
 from pydantic_fixturegen.core.schema import FieldSummary, summarize_model_fields
 from pydantic_fixturegen.core.schema_ingest import SchemaIngester
 from pydantic_fixturegen.core.seed_freeze import canonical_module_name
-from pydantic_fixturegen.core.strategies import StrategyBuilder, StrategyResult, UnionStrategy
+from pydantic_fixturegen.core.strategies import (
+    Strategy,
+    StrategyBuilder,
+    StrategyResult,
+    UnionStrategy,
+)
 from pydantic_fixturegen.plugins.loader import get_plugin_manager
 
 from .gen._common import (
@@ -105,12 +110,22 @@ FAIL_ON_GAPS_OPTION = typer.Option(
 app = typer.Typer(invoke_without_command=True, subcommand_metavar="")
 
 
+@dataclass(slots=True)
+class FieldReport:
+    name: str
+    type_name: str
+    provider: str | None
+    covered: bool
+    gaps: list[GapInfo] = field(default_factory=list)
+
+
 @dataclass
 class ModelReport:
     model: type[BaseModel]
     coverage: tuple[int, int]
     issues: list[str]
     gaps: list[FieldGap] = field(default_factory=list)
+    fields: list[FieldReport] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -262,7 +277,7 @@ def _prepare_doctor_target(
     return Path(path_arg), []
 
 
-def _execute_doctor(
+def _run_doctor_analysis(
     *,
     target: str,
     include: str | None,
@@ -271,8 +286,7 @@ def _execute_doctor(
     hybrid_mode: bool,
     timeout: float,
     memory_limit_mb: int,
-    render: bool = True,
-) -> GapSummary:
+) -> tuple[list[ModelReport], GapSummary]:
     path = Path(target)
     if not path.exists():
         raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
@@ -301,7 +315,7 @@ def _execute_doctor(
     if not discovery.models:
         typer.echo("No models discovered.")
         empty_summary = GapSummary(summaries=[], total_error_fields=0, total_warning_fields=0)
-        return empty_summary
+        return [], empty_summary
 
     registry = create_default_registry(load_plugins=True)
     builder = StrategyBuilder(registry, plugin_manager=get_plugin_manager())
@@ -318,6 +332,29 @@ def _execute_doctor(
         all_gaps.extend(model_report.gaps)
 
     gap_summary = _summarize_gaps(all_gaps)
+    return reports, gap_summary
+
+
+def _execute_doctor(
+    *,
+    target: str,
+    include: str | None,
+    exclude: str | None,
+    ast_mode: bool,
+    hybrid_mode: bool,
+    timeout: float,
+    memory_limit_mb: int,
+    render: bool = True,
+) -> GapSummary:
+    reports, gap_summary = _run_doctor_analysis(
+        target=target,
+        include=include,
+        exclude=exclude,
+        ast_mode=ast_mode,
+        hybrid_mode=hybrid_mode,
+        timeout=timeout,
+        memory_limit_mb=memory_limit_mb,
+    )
     if render:
         _render_report(reports, gap_summary)
     return gap_summary
@@ -328,6 +365,7 @@ def _analyse_model(model: type[BaseModel], builder: StrategyBuilder) -> ModelRep
     covered_fields = 0
     issues: list[str] = []
     field_gaps: list[FieldGap] = []
+    field_reports: list[FieldReport] = []
 
     summaries = summarize_model_fields(model)
 
@@ -345,18 +383,20 @@ def _analyse_model(model: type[BaseModel], builder: StrategyBuilder) -> ModelRep
         except ValueError as exc:
             message = str(exc)
             issues.append(f"{model.__name__}.{field_name}: [error] {message}")
-            field_gaps.append(
-                FieldGap(
-                    model=model,
-                    field=field_name,
-                    info=GapInfo(
-                        type_name=summary.type,
-                        reason=message,
-                        remediation=(
-                            "Register a custom provider or configure an override for this field."
-                        ),
-                        severity="error",
-                    ),
+            gap_info = GapInfo(
+                type_name=summary.type,
+                reason=message,
+                remediation="Register a custom provider or configure an override for this field.",
+                severity="error",
+            )
+            field_gaps.append(FieldGap(model=model, field=field_name, info=gap_info))
+            field_reports.append(
+                FieldReport(
+                    name=field_name,
+                    type_name=summary.type,
+                    provider=None,
+                    covered=False,
+                    gaps=[gap_info],
                 )
             )
             continue
@@ -368,12 +408,22 @@ def _analyse_model(model: type[BaseModel], builder: StrategyBuilder) -> ModelRep
             severity_label = "warning" if gap_info.severity == "warning" else "error"
             issues.append(f"{model.__name__}.{field_name}: [{severity_label}] {gap_info.reason}")
             field_gaps.append(FieldGap(model=model, field=field_name, info=gap_info))
+        field_reports.append(
+            FieldReport(
+                name=field_name,
+                type_name=summary.type,
+                provider=_strategy_provider_label(strategy),
+                covered=covered,
+                gaps=list(gap_infos),
+            )
+        )
 
     return ModelReport(
         model=model,
         coverage=(covered_fields, total_fields),
         issues=issues,
         gaps=field_gaps,
+        fields=field_reports,
     )
 
 
@@ -444,8 +494,19 @@ def _strategy_status(summary: FieldSummary, strategy: StrategyResult) -> tuple[b
                 remediation="Define a provider for this shape or narrow the field annotation.",
                 severity="warning",
             )
-        )
+    )
     return True, gaps
+
+
+def _strategy_provider_label(strategy: StrategyResult) -> str | None:
+    if isinstance(strategy, UnionStrategy):
+        return f"union:{strategy.policy}"
+    if isinstance(strategy, Strategy):
+        if strategy.provider_name:
+            return strategy.provider_name
+        if strategy.summary.type in {"model", "dataclass"}:
+            return strategy.summary.type
+    return None
 
 
 def _resolve_annotation_origin(annotation: Any | None) -> Any | None:
@@ -532,4 +593,4 @@ def _render_report(reports: list[ModelReport], gap_summary: GapSummary) -> None:
     typer.echo("")
 
 
-__all__ = ["app", "get_plugin_manager"]
+__all__ = ["app", "get_plugin_manager", "ModelReport", "FieldReport", "_run_doctor_analysis"]

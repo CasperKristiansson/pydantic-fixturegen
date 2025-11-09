@@ -166,6 +166,29 @@ pfg anonymize \
 - Budgets: `--max-required-misses` and `--max-rule-failures` override the thresholds defined in the rules file/profile so CI can fail fast when sensitive fields slip through unchanged.
 - Input/output flexibility: accept JSON arrays, standalone objects, JSONL/NDJSON streams, or directory trees (mirrored to the output directory). Every writer preserves determinism, so running the command twice with the same salt/entity key yields identical sanitized payloads.
 
+## `pfg lock`
+
+```bash
+pfg lock \
+  --lockfile .pfg-lock.json \
+  --include app.User \
+  ./models.py
+```
+
+- Generates a deterministic coverage manifest (defaults to `.pfg-lock.json`) that records discovery options, coverage ratios, provider assignments, and gap summaries pulled from `pfg doctor`.
+- Re-run `pfg lock` after intentional model changes; use `--force` to overwrite even when nothing changed. Supports the same discovery flags as `pfg doctor` (`--schema`, `--openapi`, `--route`, etc.).
+- Because `pfg` proxies commands through the root Typer app, place options before the positional module argument as shown above.
+
+## `pfg verify`
+
+```bash
+pfg verify --lockfile .pfg-lock.json ./models.py
+```
+
+- Recomputes the manifest with the current codebase and compares it to the stored lockfile (ignoring timestamps). Exit code `30` indicates drift and prints a unified diff of the JSON payload.
+- Pair `pfg lock` with `pfg verify` in CI or pre-commit hooks to block merges when coverage regresses or new models land without regenerated fixtures.
+- Pass options before the positional module argument to keep the root proxy satisfied.
+
 ## `pfg diff`
 
 ```bash

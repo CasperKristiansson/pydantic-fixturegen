@@ -113,6 +113,16 @@ _proxy(
     "Inspect models for coverage and risks.",
 )
 _proxy(
+    "lock",
+    "pydantic_fixturegen.cli.lock:app",
+    "Generate coverage lockfiles for CI verification.",
+)
+_proxy(
+    "verify",
+    "pydantic_fixturegen.cli.verify:app",
+    "Compare current coverage against the stored lockfile.",
+)
+_proxy(
     "explain",
     "pydantic_fixturegen.cli.gen.explain:app",
     "Explain generation strategies per model field.",
