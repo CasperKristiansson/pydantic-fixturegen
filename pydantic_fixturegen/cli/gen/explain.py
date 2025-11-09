@@ -463,6 +463,9 @@ def _resolve_nested_model_type(
     candidate = annotation
     if not isinstance(candidate, type):
         candidate = strategy.summary.annotation
+    resolved = _resolve_runtime_type(candidate)
+    if resolved is not None:
+        candidate = resolved
     if not isinstance(candidate, type):
         return None
     try:
