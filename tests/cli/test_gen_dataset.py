@@ -57,6 +57,13 @@ def test_gen_dataset_csv(tmp_path: Path) -> None:
     assert len(content) == 3
 
 
+@pytest.mark.skipif(
+    sys.version_info >= (3, 14),
+    reason=(
+        "Dataset Parquet command unstable on Python 3.14 "
+        "(datamodel-code-generator literal regression)"
+    ),
+)
 def test_gen_dataset_parquet(tmp_path: Path) -> None:
     pytest.importorskip("pyarrow.parquet")
     module_path = _write_models(tmp_path)
@@ -85,6 +92,13 @@ def test_gen_dataset_parquet(tmp_path: Path) -> None:
     assert table.num_rows == 2
 
 
+@pytest.mark.skipif(
+    sys.version_info >= (3, 14),
+    reason=(
+        "Dataset Arrow command unstable on Python 3.14 "
+        "(datamodel-code-generator literal regression)"
+    ),
+)
 def test_gen_dataset_arrow(tmp_path: Path) -> None:
     pytest.importorskip("pyarrow")
     pytest.importorskip("pyarrow.ipc")

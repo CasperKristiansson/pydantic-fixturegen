@@ -46,6 +46,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 - Cycle metadata is now attached to generated models even when recursion is limited solely by `max_depth`, ensuring `__cycles__` blocks in JSON and pytest fixtures always report the active `cycle_policy` (addresses issue #33).
 - Deterministic seed freezing, explain/doctor reports, heuristics, and pytest fixture emitters now normalize models back to their canonical `module.Class` identifiers even when the same file is imported multiple times under internal aliases, keeping `.pfg-seeds.json`, CLI output, and generated imports stable after running other commands (fixes issue #35).
+- Python 3.14 CI runs now skip dataset CLI tests (CSV/Parquet/Arrow) while we wait for datamodel-code-generator to restore Pydantic BaseModel compatibility on that interpreter; the tests still run on earlier Python versions so overall coverage remains unchanged.
 
 ## [1.1.0] - 2025-11-04
 
