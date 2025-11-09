@@ -1,0 +1,76 @@
+id: pydantic-fixturegen
+name: Pydantic Fixturegen
+description: Deterministic fixture generator + CLI for Pydantic v2
+repo: CasperKristiansson/pydantic-fixturegen
+ref_strategy: branch
+refs:
+  default: main
+  include:
+    - release
+    - docs-preview
+docs_path: docs
+homepage: docs/index.md
+theme:
+  primary: '#14B8A6'
+  secondary: '#67E8F9'
+  bg: '#0A0F14'
+  surface: '#0F1722'
+  text: '#E5F4F1'
+  muted: '#9AC7C0'
+  link: '#2DD4BF'
+  code_theme: ayu-dark
+  motion: subtle
+features:
+  edit_link: true
+  search: true
+  versions: false
+nav:
+  - title: Overview
+    path: docs/index.md
+  - title: Getting started
+    path: docs/quickstart.md
+    children:
+      - title: Install
+        path: docs/install.md
+      - title: Features
+        path: docs/features.md
+  - title: Workflow
+    path: docs/cli.md
+    children:
+      - title: CLI reference
+        path: docs/cli.md
+      - title: Cookbook
+        path: docs/cookbook.md
+      - title: Configuration
+        path: docs/configuration.md
+  - title: Generation internals
+    path: docs/discovery.md
+    children:
+      - title: Discovery
+        path: docs/discovery.md
+      - title: Emitters
+        path: docs/emitters.md
+      - title: Providers
+        path: docs/providers.md
+      - title: Strategies
+        path: docs/strategies.md
+  - title: Quality + testing
+    path: docs/doctor.md
+    children:
+      - title: Doctor
+        path: docs/doctor.md
+      - title: Testing helpers
+        path: docs/testing.md
+      - title: Seeds & presets
+        path: docs/seeds.md
+  - title: Reference
+    path: docs/api.md
+    children:
+      - title: API
+        path: docs/api.md
+      - title: Output paths
+        path: docs/output-paths.md
+      - title: Security
+        path: docs/security.md
+      - title: Troubleshooting
+        path: docs/troubleshooting.md
