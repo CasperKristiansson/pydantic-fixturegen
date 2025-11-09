@@ -225,6 +225,13 @@ def _collect_model_report(
             )
         except ValueError as exc:
             field_report["error"] = str(exc)
+            field_report["strategy"] = _fallback_strategy_payload(
+                field_name,
+                summary,
+                builder=builder,
+                max_depth=max_depth,
+                visited=visited,
+            )
         else:
             field_report["strategy"] = _strategy_to_payload(
                 strategy,
@@ -402,6 +409,42 @@ def _collect_dataclass_report(
 
     visited.remove(cls)
     return report
+
+
+def _fallback_strategy_payload(
+    field_name: str,
+    summary: FieldSummary,
+    *,
+    builder: StrategyBuilder,
+    max_depth: int | None,
+    visited: set[type[Any]],
+) -> dict[str, Any] | None:
+    annotation = summary.annotation
+    payload: dict[str, Any] = {
+        "kind": "provider",
+        "field": field_name,
+        "provider": "unknown",
+        "p_none": 1.0 if summary.is_optional else 0.0,
+        "summary_type": summary.type,
+        "annotation": _describe_annotation(annotation),
+    }
+
+    remaining = None if max_depth is None else max_depth - 1
+    if summary.type == "model" and isinstance(annotation, type) and annotation not in visited:
+        payload["nested_model"] = _collect_model_report(
+            annotation,
+            builder=builder,
+            max_depth=remaining,
+            visited=visited,
+        )
+    elif summary.type == "dataclass" and isinstance(annotation, type):
+        payload["nested_model"] = _collect_dataclass_report(
+            annotation,
+            builder=builder,
+            max_depth=remaining,
+            visited=visited,
+        )
+    return payload
 
 
 def _resolve_nested_model_type(
