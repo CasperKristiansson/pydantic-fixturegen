@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -25,6 +26,12 @@ class User(BaseModel):
     return module_path
 
 
+@pytest.mark.skipif(
+    sys.version_info >= (3, 14),
+    reason=(
+        "Dataset CSV command unstable on Python 3.14 (datamodel-code-generator literal regression)"
+    ),
+)
 def test_gen_dataset_csv(tmp_path: Path) -> None:
     module_path = _write_models(tmp_path)
     output_path = tmp_path / "users.csv"
