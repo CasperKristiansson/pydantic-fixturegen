@@ -8,6 +8,7 @@ import json
 import keyword
 import re
 import sys
+import warnings
 from collections import OrderedDict
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
@@ -128,7 +129,15 @@ class SchemaIngester:
         try:
             with _ensure_pydantic_compatibility():
                 sys.modules.pop("datamodel_code_generator", None)
-                dcg = importlib.import_module("datamodel_code_generator")
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore",
+                        message=(
+                            "Core Pydantic V1 functionality isn't compatible with Python 3.14 "
+                            "or greater."
+                        ),
+                    )
+                    dcg = importlib.import_module("datamodel_code_generator")
                 file_type = (
                     dcg.InputFileType.OpenAPI
                     if kind is SchemaKind.OPENAPI
