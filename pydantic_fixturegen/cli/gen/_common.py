@@ -41,6 +41,7 @@ __all__ = [
     "parse_override_entries",
     "parse_relation_links",
     "evaluate_type_expression",
+    "get_cached_module",
 ]
 
 
@@ -405,6 +406,10 @@ def _import_module_by_path(module_name: str, path: Path) -> ModuleType:
     _annotate_canonical_names(module, module_name)
     _module_cache[module_name] = module
     return module
+
+
+def get_cached_module(module_name: str) -> ModuleType | None:
+    return _module_cache.get(module_name)
 
 
 def _annotate_canonical_names(module: ModuleType, canonical_name: str) -> None:

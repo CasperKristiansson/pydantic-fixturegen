@@ -7,6 +7,7 @@ import decimal
 import enum
 import importlib
 import json
+import sys
 import types
 import warnings
 from collections.abc import Mapping
@@ -34,6 +35,7 @@ from ._common import (
     JSON_ERRORS_OPTION,
     clear_module_cache,
     discover_models,
+    get_cached_module,
     load_model_class,
     render_cli_error,
     split_patterns,
@@ -527,8 +529,65 @@ def _resolve_field_annotation_type(
         if forward is not None:
             candidate = forward
     if not isinstance(candidate, type) or candidate is Any:
+        cached = _resolve_annotation_via_cache(
+            candidate,
+            field_name=field_name,
+            parent_model=parent_model,
+        )
+        if cached is not None:
+            candidate = cached
+    if not isinstance(candidate, type) or candidate is Any:
         return None
     return candidate
+
+
+def _resolve_annotation_via_cache(
+    annotation: Any,
+    *,
+    field_name: str,
+    parent_model: type[BaseModel],
+) -> type[Any] | None:
+    module_name, target_name = _extract_reference(annotation, parent_model, field_name)
+    search_modules: list[str] = []
+    if module_name:
+        search_modules.append(module_name)
+    parent_module = getattr(parent_model, "__module__", None)
+    if parent_module:
+        search_modules.append(parent_module)
+    for name in search_modules:
+        module = get_cached_module(name) or sys.modules.get(name)
+        if module is None:
+            continue
+        attr = module
+        parts = (target_name or "").split(".")
+        for part in parts:
+            if not part:
+                continue
+            attr = getattr(attr, part, None)
+            if attr is None:
+                break
+        else:
+            if isinstance(attr, type):
+                return attr
+    return None
+
+
+def _extract_reference(
+    annotation: Any,
+    parent_model: type[BaseModel],
+    field_name: str,
+) -> tuple[str | None, str | None]:
+    if isinstance(annotation, ForwardRef):
+        module_name = getattr(annotation, "__forward_module__", None)
+        target = annotation.__forward_arg__
+        return module_name, target
+    if isinstance(annotation, str):
+        if "." in annotation:
+            module_name, _, target = annotation.rpartition(".")
+            return module_name, target
+        return parent_model.__module__, annotation
+    module_name = getattr(parent_model, "__module__", None)
+    return module_name, field_name
 
 
 def _summary_to_payload(summary: FieldSummary) -> dict[str, Any]:
