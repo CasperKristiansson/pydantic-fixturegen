@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 import dataclasses as _dataclasses
 import decimal
+import importlib
 import ipaddress
 import math
 import pathlib
@@ -12,7 +13,11 @@ import types
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Literal, Union, get_args, get_origin
 
-from pydantic import BaseModel, SecretBytes, SecretStr
+from pydantic import BaseModel
+try:  # pragma: no cover - module location stable but guarded
+    from pydantic.types import SecretBytes, SecretStr
+except ImportError:  # pragma: no cover - fallback to top-level exports
+    from pydantic import SecretBytes, SecretStr  # type: ignore
 
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
@@ -225,8 +230,8 @@ class _HypothesisStrategyExporter:
 
     def _secret_strategy(self, summary: FieldSummary) -> HypothesisSearchStrategy[Any]:
         if summary.type == "secret-str":
-            return self._string_strategy(summary).map(lambda value: SecretStr(value))
-        return self._bytes_strategy(summary).map(lambda value: SecretBytes(value))
+            return self._string_strategy(summary).map(_build_secret_str)
+        return self._bytes_strategy(summary).map(_build_secret_bytes)
 
     def _path_strategy(self, summary: FieldSummary) -> HypothesisSearchStrategy[pathlib.Path]:
         min_size, max_size = 1, max(1, self._collection_bounds[1] or 3)
@@ -398,3 +403,21 @@ class _HypothesisStrategyExporter:
         if constraints.lt is not None:
             return math.nextafter(constraints.lt, -math.inf)
         return constraints.le
+
+
+def _build_secret_str(value: str) -> Any:
+    secret_cls = getattr(importlib.import_module("pydantic"), "SecretStr")
+    result = secret_cls(value)
+    if not isinstance(result, secret_cls) and hasattr(result, "get_secret_value"):
+        secret_value = result.get_secret_value()
+        result = secret_cls(secret_value)
+    return result
+
+
+def _build_secret_bytes(value: bytes) -> Any:
+    secret_cls = getattr(importlib.import_module("pydantic"), "SecretBytes")
+    result = secret_cls(value)
+    if not isinstance(result, secret_cls) and hasattr(result, "get_secret_value"):
+        secret_value = result.get_secret_value()
+        result = secret_cls(secret_value)
+    return result
