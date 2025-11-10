@@ -8,6 +8,7 @@ from typing import Any
 
 import typer
 
+from pydantic_fixturegen._warnings import apply_warning_filters
 from pydantic_fixturegen.api._runtime import generate_json_artifacts
 from pydantic_fixturegen.api.models import JsonGenerationResult
 from pydantic_fixturegen.core.config import ConfigError
@@ -214,6 +215,7 @@ def register(app: typer.Typer) -> None:
         override_entries: list[str] | None = cli_common.OVERRIDES_OPTION,
         schema: Path | None = SCHEMA_OPTION,
     ) -> None:
+        apply_warning_filters()
         logger = get_logger()
 
         if schema is not None and type_expr is not None:
