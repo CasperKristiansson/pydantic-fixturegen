@@ -6,6 +6,10 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 from pydantic_fixturegen.polyfactory_support import discovery
+from pydantic_fixturegen.polyfactory_support.discovery import (
+    _env_flag,
+    _polyfactory_supports_pydantic,
+)
 
 
 class SampleModel(BaseModel):
@@ -102,3 +106,28 @@ def test_discover_polyfactory_bindings_handles_missing_dependency(
         logger=DummyLogger(),
     )
     assert bindings == []
+
+
+def test_env_flag_truthy(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PFG_TEST_FLAG", "Yes")
+    try:
+        assert _env_flag("PFG_TEST_FLAG") is True
+    finally:
+        monkeypatch.delenv("PFG_TEST_FLAG", raising=False)
+
+
+def test_polyfactory_supports_pydantic_true() -> None:
+    class FriendlyFactory:
+        """Factory stub that allows subclassing."""
+
+    assert _polyfactory_supports_pydantic(FriendlyFactory) is True
+
+
+def test_polyfactory_supports_pydantic_false() -> None:
+    class HostileFactory:
+        def __init_subclass__(cls, **kwargs: Any) -> None:  # noqa: D401 - short helper
+            """Raise whenever a subclass is created to simulate polyfactory rejecting models."""
+
+            raise RuntimeError("fail subclassing")
+
+    assert _polyfactory_supports_pydantic(HostileFactory) is False

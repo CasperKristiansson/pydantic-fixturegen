@@ -5,20 +5,29 @@ from __future__ import annotations
 import dataclasses
 import dataclasses as _dataclasses
 import decimal
-import importlib
 import ipaddress
 import math
 import pathlib
 import types
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Literal, Union, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Literal, Union, cast, get_args, get_origin
 
 from pydantic import BaseModel
+
+try:  # pragma: no cover - fallback for environments missing direct re-export
+    from pydantic import SecretBytes as _SecretBytesType
+    from pydantic import SecretStr as _SecretStrType
+except ImportError:  # pragma: no cover - defensive fallback for exotic layouts
+    from pydantic.types import SecretBytes as _SecretBytesType
+    from pydantic.types import SecretStr as _SecretStrType
 
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
 from pydantic_fixturegen.core.seed import RNGModeLiteral
 from pydantic_fixturegen.core.strategies import Strategy, StrategyResult, UnionStrategy
+
+_SECRET_STR_CLS: type[Any] = cast(type[Any], _SecretStrType)
+_SECRET_BYTES_CLS: type[Any] = cast(type[Any], _SecretBytesType)
 
 # isort: off
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -38,9 +47,6 @@ _UNION_TYPES: set[Any] = {Union}
 UnionType = getattr(types, "UnionType", None)
 if UnionType is not None:  # pragma: no cover - py < 3.10 fallback
     _UNION_TYPES.add(UnionType)
-
-_SECRET_STR_CLS = None
-_SECRET_BYTES_CLS = None
 
 
 def strategy_for(
@@ -406,7 +412,9 @@ class _HypothesisStrategyExporter:
 
 def _build_secret_str(value: str) -> Any:
     result = _SECRET_STR_CLS(value)
-    if not isinstance(result, _SECRET_STR_CLS) and hasattr(result, "get_secret_value"):
+    if not isinstance(result, _SECRET_STR_CLS) and hasattr(
+        result, "get_secret_value"
+    ):  # pragma: no cover - defensive fallback
         secret_value = result.get_secret_value()
         result = _SECRET_STR_CLS(secret_value)
     return result
@@ -414,23 +422,9 @@ def _build_secret_str(value: str) -> Any:
 
 def _build_secret_bytes(value: bytes) -> Any:
     result = _SECRET_BYTES_CLS(value)
-    if not isinstance(result, _SECRET_BYTES_CLS) and hasattr(result, "get_secret_value"):
+    if not isinstance(result, _SECRET_BYTES_CLS) and hasattr(
+        result, "get_secret_value"
+    ):  # pragma: no cover - defensive fallback
         secret_value = result.get_secret_value()
         result = _SECRET_BYTES_CLS(secret_value)
     return result
-
-
-def _secret_class(attr: str) -> type[Any]:
-    for module_name in ("pydantic", "pydantic.types"):
-        try:
-            module = importlib.import_module(module_name)
-        except ImportError:  # pragma: no cover - optional dependency layout
-            continue
-        candidate = getattr(module, attr, None)
-        if isinstance(candidate, type):
-            return candidate
-    raise RuntimeError(f"Unable to locate {attr} in pydantic modules.")
-
-
-_SECRET_STR_CLS = _secret_class("SecretStr")
-_SECRET_BYTES_CLS = _secret_class("SecretBytes")
