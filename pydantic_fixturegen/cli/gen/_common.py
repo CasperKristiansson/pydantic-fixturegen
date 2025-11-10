@@ -263,6 +263,13 @@ def render_cli_error(error: PFGError, *, json_errors: bool, exit_app: bool = Tru
         typer.echo(json.dumps(payload, indent=2))
     else:
         typer.secho(f"{error.kind}: {error}", err=True, fg=typer.colors.RED)
+        if error.details:
+            try:
+                detail_text = json.dumps(error.details, indent=2, default=str)
+            except Exception:  # pragma: no cover - defensive
+                detail_text = str(error.details)
+            typer.secho("details:", err=True, fg=typer.colors.YELLOW)
+            typer.echo(detail_text, err=True)
         if error.hint:
             typer.secho(f"hint: {error.hint}", err=True, fg=typer.colors.YELLOW)
     if exit_app:
