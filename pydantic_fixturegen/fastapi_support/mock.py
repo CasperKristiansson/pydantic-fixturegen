@@ -59,6 +59,10 @@ def _build_response_factory(
     shape: PayloadShape,
 ) -> Callable[[], Any]:
     if model is None:
+        if shape == "list":
+            return lambda: []
+        if shape == "dict":
+            return lambda: {}
         return lambda: {"ok": True}
 
     def factory() -> Any:
