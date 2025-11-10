@@ -10,6 +10,7 @@ import json
 import sys
 import typing
 import uuid as _uuid
+import warnings
 from collections.abc import Mapping, Sequence
 from contextlib import suppress
 from pathlib import Path
@@ -406,7 +407,16 @@ def _import_module_by_path(module_name: str, path: Path) -> ModuleType:
 
     module = importlib.util.module_from_spec(spec)
     try:
-        spec.loader.exec_module(module)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=(
+                    r"The `__get_pydantic_core_schema__` method of the `BaseModel` "
+                    r"class is deprecated\."
+                ),
+                category=DeprecationWarning,
+            )
+            spec.loader.exec_module(module)
     except Exception as exc:  # pragma: no cover - surface to caller
         raise RuntimeError(f"Error importing module {path}: {exc}") from exc
 
