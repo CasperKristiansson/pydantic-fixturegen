@@ -420,7 +420,7 @@ def _build_secret_bytes(value: bytes) -> Any:
 
 
 def _secret_class(attr: str) -> type[Any]:
-    for module_name in ("pydantic.types", "pydantic"):
+    for module_name in ("pydantic", "pydantic.types"):
         try:
             module = importlib.import_module(module_name)
         except ImportError:  # pragma: no cover - optional dependency layout
