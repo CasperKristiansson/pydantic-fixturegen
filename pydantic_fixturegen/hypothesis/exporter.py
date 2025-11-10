@@ -10,8 +10,8 @@ import ipaddress
 import math
 import pathlib
 import string
-import sys
 import types
+import warnings
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Literal, Union, get_args, get_origin
 
@@ -416,24 +416,36 @@ _SECRET_MODULE_NAMES: tuple[str, ...]
 _module_names: list[str] = [
     "pydantic",
     "pydantic.types",
+    "pydantic.v1",
+    "pydantic.v1.types",
+    "pydantic_core._pydantic_core",
 ]
-if sys.version_info < (3, 14):  # pragma: no cover - version-specific import guard
-    _module_names.extend(
-        [
-            "pydantic.v1.types",
-            "pydantic.v1",
-        ]
-    )
-_module_names.append("pydantic_core._pydantic_core")
 _SECRET_MODULE_NAMES = tuple(_module_names)
+
+
+def _import_secret_module(module_name: str) -> types.ModuleType | None:
+    try:
+        if module_name.startswith("pydantic.v1"):
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message=(
+                        "Core Pydantic V1 functionality isn't compatible with "
+                        "Python 3.14 or greater."
+                    ),
+                    category=UserWarning,
+                )
+                return importlib.import_module(module_name)
+        return importlib.import_module(module_name)
+    except ImportError:  # pragma: no cover - optional dependency layout
+        return None
 
 
 def _secret_classes(attr: str) -> tuple[type[Any], ...]:
     classes: list[type[Any]] = []
     for module_name in _SECRET_MODULE_NAMES:
-        try:
-            module = importlib.import_module(module_name)
-        except ImportError:  # pragma: no cover - optional dependency layout
+        module = _import_secret_module(module_name)
+        if module is None:
             continue
         candidate = getattr(module, attr, None)
         if isinstance(candidate, type) and candidate not in classes:
@@ -451,9 +463,8 @@ _SECRET_BYTES_CLS: type[Any] = _SECRET_BYTES_BASES[0]
 
 def _pin_secret_alias(attr: str, cls: type[Any]) -> None:
     for module_name in _SECRET_MODULE_NAMES:
-        try:
-            module = importlib.import_module(module_name)
-        except ImportError:  # pragma: no cover - optional dependency layout
+        module = _import_secret_module(module_name)
+        if module is None:
             continue
         current = getattr(module, attr, None)
         if current is not cls:
