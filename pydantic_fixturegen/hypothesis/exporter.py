@@ -14,10 +14,6 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Literal, Union, get_args, get_origin
 
 from pydantic import BaseModel
-try:  # pragma: no cover - module location stable but guarded
-    from pydantic.types import SecretBytes, SecretStr
-except ImportError:  # pragma: no cover - fallback to top-level exports
-    from pydantic import SecretBytes, SecretStr  # type: ignore
 
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
@@ -406,7 +402,7 @@ class _HypothesisStrategyExporter:
 
 
 def _build_secret_str(value: str) -> Any:
-    secret_cls = getattr(importlib.import_module("pydantic"), "SecretStr")
+    secret_cls = _secret_class("SecretStr")
     result = secret_cls(value)
     if not isinstance(result, secret_cls) and hasattr(result, "get_secret_value"):
         secret_value = result.get_secret_value()
@@ -415,9 +411,21 @@ def _build_secret_str(value: str) -> Any:
 
 
 def _build_secret_bytes(value: bytes) -> Any:
-    secret_cls = getattr(importlib.import_module("pydantic"), "SecretBytes")
+    secret_cls = _secret_class("SecretBytes")
     result = secret_cls(value)
     if not isinstance(result, secret_cls) and hasattr(result, "get_secret_value"):
         secret_value = result.get_secret_value()
         result = secret_cls(secret_value)
     return result
+
+
+def _secret_class(attr: str) -> type[Any]:
+    for module_name in ("pydantic.types", "pydantic"):
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError:  # pragma: no cover - optional dependency layout
+            continue
+        candidate = getattr(module, attr, None)
+        if isinstance(candidate, type):
+            return candidate
+    raise RuntimeError(f"Unable to locate {attr} in pydantic modules.")
