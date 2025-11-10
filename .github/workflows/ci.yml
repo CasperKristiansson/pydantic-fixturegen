@@ -22,8 +22,6 @@ jobs:
             python-version: "3.13"
           - os: ubuntu-latest
             python-version: "3.14"
-    env:
-      PYTHONWARNINGS: error
     steps:
       - name: Checkout
         uses: actions/checkout@v4

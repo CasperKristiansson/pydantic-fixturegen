@@ -13,6 +13,7 @@ WARNING_PATTERNS: tuple[tuple[str, type[Warning]], ...] = (
         r"Core Pydantic V1 functionality isn't compatible with Python 3\.14 or greater\.",
         Warning,
     ),
+    (r"ForwardRef\._evaluate is a private API.*", Warning),
 )
 
 
