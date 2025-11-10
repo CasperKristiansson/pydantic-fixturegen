@@ -301,20 +301,15 @@ def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None
             return extra_type_id, None, None
         if dataclasses_module.is_dataclass(annotation):
             return "dataclass", None, None
-        email_type = getattr(pydantic, "EmailStr", None)
-        if email_type is not None and issubclass(annotation, email_type):
+        if _matches_pydantic_type(annotation, "EmailStr"):
             return "email", None, None
-        any_url_type = getattr(pydantic, "AnyUrl", None)
-        if any_url_type is not None and issubclass(annotation, any_url_type):
+        if _matches_pydantic_type(annotation, "AnyUrl"):
             return "url", None, None
-        ip_address_type = getattr(pydantic, "IPvAnyAddress", None)
-        if ip_address_type is not None and issubclass(annotation, ip_address_type):
+        if _matches_pydantic_type(annotation, "IPvAnyAddress"):
             return "ip-address", None, None
-        ip_interface_type = getattr(pydantic, "IPvAnyInterface", None)
-        if ip_interface_type is not None and issubclass(annotation, ip_interface_type):
+        if _matches_pydantic_type(annotation, "IPvAnyInterface"):
             return "ip-interface", None, None
-        ip_network_type = getattr(pydantic, "IPvAnyNetwork", None)
-        if ip_network_type is not None and issubclass(annotation, ip_network_type):
+        if _matches_pydantic_type(annotation, "IPvAnyNetwork"):
             return "ip-network", None, None
         path_match = _match_path_annotation(annotation)
         if path_match is not None:
@@ -387,6 +382,19 @@ def _resolve_forward_ref(target: str) -> Any | None:
     if isinstance(candidate, type):
         return candidate
     return None
+
+
+def _matches_pydantic_type(annotation: type[Any], attr: str) -> bool:
+    candidate = getattr(pydantic, attr, None)
+    if isinstance(candidate, type):
+        try:
+            if issubclass(annotation, candidate):
+                return True
+        except TypeError:
+            pass
+    module = getattr(annotation, "__module__", "")
+    name = getattr(annotation, "__name__", "")
+    return module.startswith("pydantic") and name == attr
 
 
 def _looks_like_pydantic_model(annotation: Any) -> bool:
