@@ -11,7 +11,7 @@ import random
 from collections.abc import Callable, Iterable, Mapping, Sized
 from dataclasses import dataclass, field, is_dataclass
 from dataclasses import fields as dataclass_fields
-from typing import Any, get_type_hints
+from typing import Any, cast, get_type_hints
 
 from faker import Faker
 from pydantic import BaseModel, ValidationError
@@ -456,8 +456,8 @@ class InstanceGenerator:
             return None
 
         report_model: type[BaseModel] | None = None
-        if isinstance(model_type, type) and issubclass(model_type, BaseModel):
-            report_model = model_type
+        if self._is_pydantic_model_type(model_type):
+            report_model = cast(type[BaseModel], model_type)
             self._constraint_reporter.begin_model(report_model)
 
         delegate = self._delegated_models.get(model_type)
@@ -527,9 +527,7 @@ class InstanceGenerator:
 
         try:
             instance: Any | None = None
-            if (isinstance(model_type, type) and issubclass(model_type, BaseModel)) or is_dataclass(
-                model_type
-            ):
+            if self._is_pydantic_model_type(model_type) or is_dataclass(model_type):
                 instance = model_type(**values)
         except ValidationError as exc:
             self._record_validator_failure(
@@ -993,8 +991,18 @@ class InstanceGenerator:
             return copy.deepcopy(instance)
 
     def _build_stub_instance(self, model_type: type[Any]) -> Any | None:
-        if isinstance(model_type, type) and issubclass(model_type, BaseModel):
-            return model_type.model_construct()
+        if self._is_pydantic_model_type(model_type):
+            construct = getattr(model_type, "model_construct", None)
+            if callable(construct):
+                try:
+                    return construct()
+                except Exception:
+                    pass
+            try:
+                defaults = {name: None for name in self._model_field_names(model_type)}
+                return model_type(**defaults)
+            except Exception:
+                return None
         if dataclasses.is_dataclass(model_type):
             values: dict[str, Any] = {}
             for field in dataclasses.fields(model_type):
@@ -1012,7 +1020,7 @@ class InstanceGenerator:
     ) -> Any | None:
         if not entry.partial_values:
             return None
-        if isinstance(model_type, type) and issubclass(model_type, BaseModel):
+        if self._is_pydantic_model_type(model_type):
             try:
                 return model_type.model_construct(**entry.partial_values)
             except Exception:  # pragma: no cover - defensive fallback
@@ -1030,9 +1038,9 @@ class InstanceGenerator:
         path: str,
         instance: Any,
     ) -> None:
-        if not isinstance(model_type, type) or not issubclass(model_type, BaseModel):
+        if not self._is_pydantic_model_type(model_type):
             return
-        if not isinstance(instance, BaseModel):
+        if not self._is_pydantic_instance(instance):
             return
         bucket = self._reuse_pool.setdefault(model_type, [])
         if bucket:
@@ -1198,7 +1206,7 @@ class InstanceGenerator:
         if cached is not None:
             return cached
 
-        if isinstance(model_type, type) and issubclass(model_type, BaseModel):
+        if self._is_pydantic_model_type(model_type):
             strategies = dict(self.builder.build_model_strategies(model_type))
         elif is_dataclass(model_type):
             strategies = self._build_dataclass_strategies(model_type)
@@ -1302,6 +1310,33 @@ class InstanceGenerator:
                 data[key] = value
         self._last_generation_failure = data
 
+    @staticmethod
+    def _is_pydantic_model_type(model_type: Any) -> bool:
+        if not isinstance(model_type, type):
+            return False
+        try:
+            if issubclass(model_type, BaseModel):
+                return True
+        except TypeError:
+            pass
+        return hasattr(model_type, "model_fields") or hasattr(model_type, "__fields__")
+
+    @staticmethod
+    def _is_pydantic_instance(value: Any) -> bool:
+        if isinstance(value, BaseModel):
+            return True
+        return hasattr(value, "model_dump") or hasattr(value, "__fields__")
+
+    @staticmethod
+    def _model_field_names(model_type: type[Any]) -> list[str]:
+        fields = getattr(model_type, "model_fields", None)
+        if isinstance(fields, Mapping):
+            return list(fields.keys())
+        legacy = getattr(model_type, "__fields__", None)
+        if isinstance(legacy, Mapping):
+            return list(legacy.keys())
+        return []
+
     def _serialize_value(self, value: Any, depth: int = 0) -> Any:
         if value is None or isinstance(value, (bool, int, float, str)):
             return value
@@ -1368,10 +1403,7 @@ class InstanceGenerator:
     def _is_model_like(annotation: Any) -> bool:
         if not isinstance(annotation, type):
             return False
-        try:
-            return issubclass(annotation, BaseModel) or is_dataclass(annotation)
-        except TypeError:
-            return False
+        return InstanceGenerator._is_pydantic_model_type(annotation) or is_dataclass(annotation)
 
     def _call_strategy_provider(
         self,
