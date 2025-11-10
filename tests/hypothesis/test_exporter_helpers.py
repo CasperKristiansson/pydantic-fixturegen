@@ -23,7 +23,11 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
 from pydantic import BaseModel, SecretBytes, SecretStr
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
 from pydantic_fixturegen.core.strategies import Strategy, UnionStrategy
-from pydantic_fixturegen.hypothesis.exporter import _HypothesisStrategyExporter, strategy_for
+from pydantic_fixturegen.hypothesis.exporter import (
+    _HypothesisStrategyExporter,
+    _instantiate_secret,
+    strategy_for,
+)
 
 
 class _DummyGenerator:
@@ -102,6 +106,26 @@ def test_secret_and_path_strategies_generate_expected_wrappers() -> None:
     assert isinstance(str_value, SecretStr)
     assert isinstance(bytes_value, SecretBytes)
     assert path_value.suffix in {".json", ".txt", ".log"}
+
+
+def test_instantiate_secret_rewraps_proxy_objects() -> None:
+    class _Proxy:
+        def __init__(self, payload: Any) -> None:
+            self.payload = payload
+
+        def get_secret_value(self) -> Any:
+            return self.payload
+
+    class _BrokenSecret(SecretStr):  # type: ignore[misc] - shim used for coverage
+        def __new__(cls, secret_value: Any) -> Any:
+            return _Proxy(secret_value)
+
+        def __init__(self, secret_value: Any) -> None:
+            super().__init__(secret_value)
+
+    repaired = _instantiate_secret(_BrokenSecret, "probe")
+    assert isinstance(repaired, _BrokenSecret)
+    assert repaired.get_secret_value() == "probe"
 
 
 def test_collection_and_mapping_strategies_respect_bounds() -> None:

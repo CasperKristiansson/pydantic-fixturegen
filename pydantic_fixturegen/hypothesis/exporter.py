@@ -10,8 +10,8 @@ import ipaddress
 import math
 import pathlib
 import types
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Literal, Union, get_args, get_origin
+from collections.abc import Callable, Mapping
+from typing import TYPE_CHECKING, Any, Literal, Union, cast, get_args, get_origin
 
 from pydantic import BaseModel
 
@@ -402,23 +402,11 @@ class _HypothesisStrategyExporter:
 
 
 def _build_secret_str(value: str) -> Any:
-    result = _SECRET_STR_CLS(value)
-    if not isinstance(result, _SECRET_STR_CLS) and hasattr(
-        result, "get_secret_value"
-    ):  # pragma: no cover - defensive fallback
-        secret_value = result.get_secret_value()
-        result = _SECRET_STR_CLS(secret_value)
-    return result
+    return _instantiate_secret(_SECRET_STR_CLS, value)
 
 
 def _build_secret_bytes(value: bytes) -> Any:
-    result = _SECRET_BYTES_CLS(value)
-    if not isinstance(result, _SECRET_BYTES_CLS) and hasattr(
-        result, "get_secret_value"
-    ):  # pragma: no cover - defensive fallback
-        secret_value = result.get_secret_value()
-        result = _SECRET_BYTES_CLS(secret_value)
-    return result
+    return _instantiate_secret(_SECRET_BYTES_CLS, value)
 
 
 def _secret_class(attr: str) -> type[Any]:
@@ -441,3 +429,17 @@ def _secret_class(attr: str) -> type[Any]:
 
 _SECRET_STR_CLS: type[Any] = _secret_class("SecretStr")
 _SECRET_BYTES_CLS: type[Any] = _secret_class("SecretBytes")
+
+
+def _instantiate_secret(cls: type[Any], value: Any) -> Any:
+    result = cls(value)
+    if isinstance(result, cls):
+        return result
+    secret_value = result.get_secret_value() if hasattr(result, "get_secret_value") else value
+    proxy = object.__new__(cls)
+    initializer = cast(Callable[[Any, Any], None], cls.__init__)
+    try:
+        initializer(proxy, secret_value)
+    except Exception:  # pragma: no cover - defensive fallback
+        return result
+    return proxy
