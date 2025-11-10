@@ -39,6 +39,9 @@ UnionType = getattr(types, "UnionType", None)
 if UnionType is not None:  # pragma: no cover - py < 3.10 fallback
     _UNION_TYPES.add(UnionType)
 
+_SECRET_STR_CLS = None
+_SECRET_BYTES_CLS = None
+
 
 def strategy_for(
     model: type[BaseModel],
@@ -402,20 +405,18 @@ class _HypothesisStrategyExporter:
 
 
 def _build_secret_str(value: str) -> Any:
-    secret_cls = _secret_class("SecretStr")
-    result = secret_cls(value)
-    if not isinstance(result, secret_cls) and hasattr(result, "get_secret_value"):
+    result = _SECRET_STR_CLS(value)
+    if not isinstance(result, _SECRET_STR_CLS) and hasattr(result, "get_secret_value"):
         secret_value = result.get_secret_value()
-        result = secret_cls(secret_value)
+        result = _SECRET_STR_CLS(secret_value)
     return result
 
 
 def _build_secret_bytes(value: bytes) -> Any:
-    secret_cls = _secret_class("SecretBytes")
-    result = secret_cls(value)
-    if not isinstance(result, secret_cls) and hasattr(result, "get_secret_value"):
+    result = _SECRET_BYTES_CLS(value)
+    if not isinstance(result, _SECRET_BYTES_CLS) and hasattr(result, "get_secret_value"):
         secret_value = result.get_secret_value()
-        result = secret_cls(secret_value)
+        result = _SECRET_BYTES_CLS(secret_value)
     return result
 
 
@@ -429,3 +430,7 @@ def _secret_class(attr: str) -> type[Any]:
         if isinstance(candidate, type):
             return candidate
     raise RuntimeError(f"Unable to locate {attr} in pydantic modules.")
+
+
+_SECRET_STR_CLS = _secret_class("SecretStr")
+_SECRET_BYTES_CLS = _secret_class("SecretBytes")
