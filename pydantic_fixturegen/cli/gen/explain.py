@@ -558,7 +558,7 @@ def _resolve_annotation_via_cache(
         module = get_cached_module(name) or sys.modules.get(name)
         if module is None:
             continue
-        attr = module
+        attr: Any = module
         parts = (target_name or "").split(".")
         for part in parts:
             if not part:
