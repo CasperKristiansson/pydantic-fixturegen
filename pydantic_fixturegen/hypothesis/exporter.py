@@ -14,20 +14,10 @@ from typing import TYPE_CHECKING, Any, Literal, Union, cast, get_args, get_origi
 
 from pydantic import BaseModel
 
-try:  # pragma: no cover - fallback for environments missing direct re-export
-    from pydantic import SecretBytes as _SecretBytesType
-    from pydantic import SecretStr as _SecretStrType
-except ImportError:  # pragma: no cover - defensive fallback for exotic layouts
-    from pydantic.types import SecretBytes as _SecretBytesType
-    from pydantic.types import SecretStr as _SecretStrType
-
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
 from pydantic_fixturegen.core.seed import RNGModeLiteral
 from pydantic_fixturegen.core.strategies import Strategy, StrategyResult, UnionStrategy
-
-_SECRET_STR_CLS: type[Any] = cast(type[Any], _SecretStrType)
-_SECRET_BYTES_CLS: type[Any] = cast(type[Any], _SecretBytesType)
 
 # isort: off
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -411,20 +401,26 @@ class _HypothesisStrategyExporter:
 
 
 def _build_secret_str(value: str) -> Any:
-    result = _SECRET_STR_CLS(value)
-    if not isinstance(result, _SECRET_STR_CLS) and hasattr(
+    from pydantic import SecretStr as _RuntimeSecretStr
+
+    secret_cls = cast(type[Any], _RuntimeSecretStr)
+    result = secret_cls(value)
+    if not isinstance(result, secret_cls) and hasattr(
         result, "get_secret_value"
     ):  # pragma: no cover - defensive fallback
         secret_value = result.get_secret_value()
-        result = _SECRET_STR_CLS(secret_value)
+        result = secret_cls(secret_value)
     return result
 
 
 def _build_secret_bytes(value: bytes) -> Any:
-    result = _SECRET_BYTES_CLS(value)
-    if not isinstance(result, _SECRET_BYTES_CLS) and hasattr(
+    from pydantic import SecretBytes as _RuntimeSecretBytes
+
+    secret_cls = cast(type[Any], _RuntimeSecretBytes)
+    result = secret_cls(value)
+    if not isinstance(result, secret_cls) and hasattr(
         result, "get_secret_value"
     ):  # pragma: no cover - defensive fallback
         secret_value = result.get_secret_value()
-        result = _SECRET_BYTES_CLS(secret_value)
+        result = secret_cls(secret_value)
     return result
