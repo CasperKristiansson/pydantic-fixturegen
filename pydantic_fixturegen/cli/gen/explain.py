@@ -458,6 +458,9 @@ def _fallback_strategy_payload(
         trace=trace,
     )
     if isinstance(candidate_type, type) and issubclass(candidate_type, BaseModel):
+        payload["provider"] = "model"
+        payload["summary_type"] = "model"
+        payload["annotation"] = _describe_type(candidate_type)
         payload["nested_model"] = _collect_model_report(
             candidate_type,
             builder=builder,
@@ -465,6 +468,9 @@ def _fallback_strategy_payload(
             visited=visited,
         )
     elif summary.type == "dataclass" and isinstance(candidate_type, type):
+        payload["provider"] = "dataclass"
+        payload["summary_type"] = "dataclass"
+        payload["annotation"] = _describe_type(candidate_type)
         payload["nested_model"] = _collect_dataclass_report(
             candidate_type,
             builder=builder,
