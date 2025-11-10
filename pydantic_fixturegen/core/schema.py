@@ -11,7 +11,7 @@ import types
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Annotated, Any, ForwardRef, Union, get_args, get_origin
+from typing import Annotated, Any, Union, get_args, get_origin
 
 import annotated_types
 import pydantic
@@ -352,8 +352,9 @@ def _unwrap_annotation(annotation: Any) -> Any:
     origin = get_origin(annotation)
     if origin is Annotated:
         return _unwrap_annotation(get_args(annotation)[0])
-    if isinstance(annotation, ForwardRef):
-        resolved = _resolve_forward_ref(annotation)
+    forward_arg = getattr(annotation, "__forward_arg__", None)
+    if isinstance(forward_arg, str):
+        resolved = _resolve_forward_ref(forward_arg)
         if resolved is not None:
             return resolved
     return annotation
@@ -377,10 +378,7 @@ def _match_path_annotation(annotation: type[Any]) -> tuple[str, str | None, Any 
     return None
 
 
-def _resolve_forward_ref(annotation: ForwardRef) -> Any | None:
-    target = getattr(annotation, "__forward_arg__", None)
-    if not isinstance(target, str):
-        return None
+def _resolve_forward_ref(target: str) -> Any | None:
     candidate = getattr(pydantic, target, None)
     if isinstance(candidate, type):
         return candidate
