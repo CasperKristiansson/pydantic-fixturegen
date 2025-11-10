@@ -9,6 +9,15 @@ from types import SimpleNamespace
 from typing import Any, Literal
 
 import pytest
+from pydantic import BaseModel, SecretBytes, SecretStr
+from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
+from pydantic_fixturegen.core.strategies import Strategy, UnionStrategy
+from pydantic_fixturegen.hypothesis.exporter import (
+    _HypothesisStrategyExporter,
+    _instantiate_secret,
+    _SecretStrShim,
+    strategy_for,
+)
 
 try:  # pragma: no cover - optional dependency
     from hypothesis.errors import HypothesisDeprecationWarning, NonInteractiveExampleWarning
@@ -19,15 +28,6 @@ try:  # pragma: no cover - optional dependency
     WARNING_TYPES = (NonInteractiveExampleWarning, HypothesisDeprecationWarning)
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
     pytest.skip("hypothesis is not installed", allow_module_level=True)
-
-from pydantic import BaseModel, SecretBytes, SecretStr
-from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
-from pydantic_fixturegen.core.strategies import Strategy, UnionStrategy
-from pydantic_fixturegen.hypothesis.exporter import (
-    _HypothesisStrategyExporter,
-    _instantiate_secret,
-    strategy_for,
-)
 
 
 class _DummyGenerator:
@@ -123,8 +123,8 @@ def test_instantiate_secret_rewraps_proxy_objects() -> None:
         def __init__(self, secret_value: Any) -> None:
             super().__init__(secret_value)
 
-    repaired = _instantiate_secret(_BrokenSecret, "probe")
-    assert isinstance(repaired, _BrokenSecret)
+    repaired = _instantiate_secret(_BrokenSecret, "probe", _SecretStrShim)
+    assert isinstance(repaired, SecretStr)
     assert repaired.get_secret_value() == "probe"
 
 

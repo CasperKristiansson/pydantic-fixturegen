@@ -9,9 +9,10 @@ import importlib
 import ipaddress
 import math
 import pathlib
+import string
 import types
-from collections.abc import Callable, Mapping
-from typing import TYPE_CHECKING, Any, Literal, Union, cast, get_args, get_origin
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, Literal, Union, get_args, get_origin
 
 import pydantic
 from pydantic import BaseModel
@@ -232,7 +233,8 @@ class _HypothesisStrategyExporter:
 
     def _path_strategy(self, summary: FieldSummary) -> HypothesisSearchStrategy[pathlib.Path]:
         min_size, max_size = 1, max(1, self._collection_bounds[1] or 3)
-        segment = st.text(min_size=1, max_size=8).filter(lambda value: value not in {"", "."})
+        alphabet = string.ascii_lowercase + string.digits + "_-"
+        segment = st.text(alphabet=alphabet, min_size=1, max_size=8)
         base = st.lists(segment, min_size=min_size, max_size=max_size).map(
             lambda parts: pathlib.Path("/").joinpath(*parts)
         )
@@ -403,11 +405,11 @@ class _HypothesisStrategyExporter:
 
 
 def _build_secret_str(value: str) -> Any:
-    return _instantiate_secret(_SECRET_STR_CLS, value)
+    return _instantiate_secret(_SECRET_STR_CLS, value, _SecretStrShim)
 
 
 def _build_secret_bytes(value: bytes) -> Any:
-    return _instantiate_secret(_SECRET_BYTES_CLS, value)
+    return _instantiate_secret(_SECRET_BYTES_CLS, value, _SecretBytesShim)
 
 
 def _secret_class(attr: str) -> type[Any]:
@@ -442,18 +444,33 @@ _pin_secret_alias("SecretStr", _SECRET_STR_CLS)
 _pin_secret_alias("SecretBytes", _SECRET_BYTES_CLS)
 
 
-def _instantiate_secret(cls: type[Any], value: Any) -> Any:
+class _SecretStrShim(_SECRET_STR_CLS):  # type: ignore[misc]
+    def __new__(cls, secret_value: Any) -> Any:
+        instance = object.__new__(cls)
+        object.__setattr__(instance, "_secret_value", secret_value)
+        return instance
+
+    def __init__(self, secret_value: Any) -> None:
+        pass
+
+
+class _SecretBytesShim(_SECRET_BYTES_CLS):  # type: ignore[misc]
+    def __new__(cls, secret_value: Any) -> Any:
+        instance = object.__new__(cls)
+        object.__setattr__(instance, "_secret_value", secret_value)
+        return instance
+
+    def __init__(self, secret_value: Any) -> None:
+        pass
+
+
+def _instantiate_secret(
+    cls: type[Any],
+    value: Any,
+    shim_cls: type[Any],
+) -> Any:
     result = cls(value)
     if isinstance(result, cls):
         return result
     secret_value = result.get_secret_value() if hasattr(result, "get_secret_value") else value
-    proxy = object.__new__(cls)
-    initializer = cast(Callable[[Any, Any], None], cls.__init__)
-    try:
-        initializer(proxy, secret_value)
-    except Exception:  # pragma: no cover - defensive fallback
-        try:
-            object.__setattr__(proxy, "_secret_value", secret_value)
-        except Exception:
-            return result
-    return proxy
+    return shim_cls(secret_value)
