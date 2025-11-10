@@ -13,5 +13,5 @@ __version__ = get_tool_version()
 warnings.filterwarnings(
     "ignore",
     message=(r"The `__get_pydantic_core_schema__` method of the `BaseModel` class is deprecated\."),
-    category=DeprecationWarning,
+    category=Warning,
 )
