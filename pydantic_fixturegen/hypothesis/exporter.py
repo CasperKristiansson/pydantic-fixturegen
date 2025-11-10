@@ -10,8 +10,8 @@ import ipaddress
 import math
 import pathlib
 import string
-import types
 import sys
+import types
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Literal, Union, get_args, get_origin
 
