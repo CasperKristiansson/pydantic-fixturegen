@@ -357,6 +357,10 @@ def _unwrap_annotation(annotation: Any) -> Any:
         resolved = _resolve_forward_ref(forward_arg)
         if resolved is not None:
             return resolved
+    if isinstance(annotation, str):
+        candidate = getattr(pydantic, annotation, None)
+        if isinstance(candidate, type):
+            return candidate
     return annotation
 
 
