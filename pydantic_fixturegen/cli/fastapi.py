@@ -8,6 +8,7 @@ from typing import cast
 
 import typer
 
+from pydantic_fixturegen._warnings import apply_warning_filters
 from pydantic_fixturegen.core.errors import DiscoveryError
 from pydantic_fixturegen.fastapi_support import FastAPISmokeSuite, build_mock_app
 
@@ -44,6 +45,7 @@ def fastapi_smoke(
     seed: int | None = SEED_OPTION,
     dependency_override: list[str] | None = DEPENDENCY_OVERRIDE_OPTION,
 ) -> None:
+    apply_warning_filters()
     suite = FastAPISmokeSuite(
         target=target,
         seed=seed,
@@ -63,6 +65,7 @@ def fastapi_serve(
     seed: int | None = SEED_OPTION,
     dependency_override: list[str] | None = DEPENDENCY_OVERRIDE_OPTION,
 ) -> None:
+    apply_warning_filters()
     overrides = _resolve_dependency_overrides(list(dependency_override or ()))
     mock_app = build_mock_app(target=target, seed=seed, dependency_overrides=overrides)
     try:
