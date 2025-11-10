@@ -86,31 +86,31 @@ scope = "module"
 
 ## Top-level keys
 
-| Key                     | Type                          | Default    | Description                                                                                                                                   |
-| ----------------------- | ----------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `preset`                | `str \| null`                 | `null`     | Named preset applied before other config. See [presets](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/presets.md). |
-| `profile`               | `str \| null`                 | `null`     | Profile applied ahead of other settings (`pii-safe`, `realistic`, `edge`, `adversarial`).                                                     |
-| `seed`                  | `int \| str \| null`          | `null`     | Global seed. Provide an explicit value for reproducible outputs.                                                                              |
-| `locale`                | `str`                         | `en_US`    | Faker locale used when generating data.                                                                                                       |
-| `include`               | `list[str]`                   | `[]`       | Glob patterns of fully-qualified model names to include by default.                                                                           |
-| `exclude`               | `list[str]`                   | `[]`       | Glob patterns to exclude.                                                                                                                     |
-| `p_none`                | `float \| null`               | `null`     | Baseline probability of returning `None` for optional fields.                                                                                 |
-| `union_policy`          | `first \| random \| weighted` | `first`    | Strategy for selecting branches of `typing.Union`.                                                                                            |
-| `enum_policy`           | `first \| random`             | `first`    | Strategy for selecting enum members.                                                                                                          |
-| `max_depth`             | `int`                         | `5`        | Maximum recursion depth before the cycle policy takes effect.                                                                                 |
-| `cycle_policy`          | `reuse \| stub \| null`       | `reuse`    | How recursive references are resolved once depth or cycles are detected.                                                                      |
-| `rng_mode`              | `portable \| legacy`          | `portable` | RNG implementation: portable SplitMix64 for cross-platform determinism or the legacy CPython RNG.                                             |
-| `now`                   | `datetime \| null`            | `null`     | Anchor timestamp used for temporal values.                                                                                                    |
-| `overrides`             | `dict[str, dict[str, Any]]`   | `{}`       | Per-model overrides keyed by fully-qualified model name.                                                                                      |
-| `field_policies`        | `dict[str, FieldPolicy]`      | `{}`       | Pattern-based overrides for specific fields.                                                                                                  |
-| `locales`               | `dict[str, str]`              | `{}`       | Pattern-based Faker locale overrides for models or fields.                                                                                    |
-| `emitters`              | object                        | see below  | Configure emitters such as pytest fixtures.                                                                                                   |
-| `json`                  | object                        | see below  | Configure JSON emitters (shared by JSON/JSONL).                                                                                               |
-| `paths`                 | object                        | see below  | Configure filesystem path providers (OS-specific generation).                                                                                 |
-| `numbers`               | object                        | see below  | Control numeric distributions for ints/floats/decimals.                                                                                       |
-| `heuristics`            | object                        | see below  | Enable or disable heuristic provider mapping.                                                                                                 |
-| `respect_validators`    | `bool`                        | `false`    | Retry instance generation when model/dataclass validators raise errors.                                                                       |
-| `validator_max_retries` | `int`                         | `2`        | Additional attempts made per instance when `respect_validators` is enabled.                                                                   |
+| Key                     | Type                        | Default    | Description                                                                                                                                   |
+| ----------------------- | --------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `preset`                | `str \ null`                | `null`     | Named preset applied before other config. See [presets](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/presets.md). |
+| `profile`               | `str \ null`                | `null`     | Profile applied ahead of other settings (`pii-safe`, `realistic`, `edge`, `adversarial`).                                                     |
+| `seed`                  | `int \ str \ null`          | `null`     | Global seed. Provide an explicit value for reproducible outputs.                                                                              |
+| `locale`                | `str`                       | `en_US`    | Faker locale used when generating data.                                                                                                       |
+| `include`               | `list[str]`                 | `[]`       | Glob patterns of fully-qualified model names to include by default.                                                                           |
+| `exclude`               | `list[str]`                 | `[]`       | Glob patterns to exclude.                                                                                                                     |
+| `p_none`                | `float \ null`              | `null`     | Baseline probability of returning `None` for optional fields.                                                                                 |
+| `union_policy`          | `first \ random \ weighted` | `first`    | Strategy for selecting branches of `typing.Union`.                                                                                            |
+| `enum_policy`           | `first \ random`            | `first`    | Strategy for selecting enum members.                                                                                                          |
+| `max_depth`             | `int`                       | `5`        | Maximum recursion depth before the cycle policy takes effect.                                                                                 |
+| `cycle_policy`          | `reuse \ stub \ null`       | `reuse`    | How recursive references are resolved once depth or cycles are detected.                                                                      |
+| `rng_mode`              | `portable \ legacy`         | `portable` | RNG implementation: portable SplitMix64 for cross-platform determinism or the legacy CPython RNG.                                             |
+| `now`                   | `datetime \ null`           | `null`     | Anchor timestamp used for temporal values.                                                                                                    |
+| `overrides`             | `dict[str, dict[str, Any]]` | `{}`       | Per-model overrides keyed by fully-qualified model name.                                                                                      |
+| `field_policies`        | `dict[str, FieldPolicy]`    | `{}`       | Pattern-based overrides for specific fields.                                                                                                  |
+| `locales`               | `dict[str, str]`            | `{}`       | Pattern-based Faker locale overrides for models or fields.                                                                                    |
+| `emitters`              | object                      | see below  | Configure emitters such as pytest fixtures.                                                                                                   |
+| `json`                  | object                      | see below  | Configure JSON emitters (shared by JSON/JSONL).                                                                                               |
+| `paths`                 | object                      | see below  | Configure filesystem path providers (OS-specific generation).                                                                                 |
+| `numbers`               | object                      | see below  | Control numeric distributions for ints/floats/decimals.                                                                                       |
+| `heuristics`            | object                      | see below  | Enable or disable heuristic provider mapping.                                                                                                 |
+| `respect_validators`    | `bool`                      | `false`    | Retry instance generation when model/dataclass validators raise errors.                                                                       |
+| `validator_max_retries` | `int`                       | `2`        | Additional attempts made per instance when `respect_validators` is enabled.                                                                   |
 
 ### Validator retries
 
