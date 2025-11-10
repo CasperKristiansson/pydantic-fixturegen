@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import hashlib
+import warnings as _warnings
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
@@ -1097,6 +1098,13 @@ def generate_fixtures_artifacts(
     from ..cli.gen import _common as cli_common
 
     logger = logger or get_logger()
+    _warnings.filterwarnings(
+        "ignore",
+        message=(
+            r"The `__get_pydantic_core_schema__` method of the `BaseModel` class is deprecated\."
+        ),
+        category=Warning,
+    )
 
     path = Path(target)
     if not path.exists():
