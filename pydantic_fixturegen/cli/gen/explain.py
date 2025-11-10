@@ -9,6 +9,7 @@ import importlib
 import json
 import types
 from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, ForwardRef, Union, cast, get_args, get_origin, get_type_hints
@@ -473,6 +474,14 @@ def _resolve_nested_model_type(
             candidate = parent_field.annotation
     if not isinstance(candidate, type) or candidate is Any:
         candidate = strategy.summary.annotation
+    if not isinstance(candidate, type) or candidate is Any:
+        type_hints: Mapping[str, Any] | None = None
+        with suppress(Exception):
+            type_hints = get_type_hints(parent_model, include_extras=True)
+        if type_hints:
+            hinted = type_hints.get(strategy.field_name)
+            if hinted is not None:
+                candidate = hinted
     resolved = _resolve_runtime_type(candidate)
     if resolved is not None:
         candidate = resolved
