@@ -169,7 +169,7 @@ def test_gen_json_prefers_polyfactory_factories(
             "PFG_POLYFACTORY__PREFER_DELEGATION": "true",
         },
     )
-    assert result.exit_code == 0, result.stdout
+    assert result.exit_code == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload[0]["name"] == "delegated"
 
