@@ -11,14 +11,14 @@ refs:
 docs_path: docs
 homepage: docs/index.md
 theme:
-  primary: "#14B8A6"
-  secondary: "#67E8F9"
-  bg: "#0A0F14"
-  surface: "#0F1722"
-  text: "#E5F4F1"
-  muted: "#9AC7C0"
-  link: "#2DD4BF"
-  code_theme: ayu-dark
+  primary: "#1D4ED8"
+  secondary: "#1D4ED8"
+  bg: "#FFFFFF"
+  surface: "#F5F7FB"
+  text: "#0B0F14"
+  muted: "#6B7280"
+  link: "#1D4ED8"
+  code_theme: kitgrid-light
   motion: subtle
 features:
   edit_link: true
