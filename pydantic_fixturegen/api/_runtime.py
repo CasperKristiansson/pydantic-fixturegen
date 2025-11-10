@@ -353,6 +353,9 @@ def _build_model_artifact_plan(
             failure = getattr(generator, "validator_failure_details", None)
             if failure:
                 details["validator_failure"] = failure
+            gen_failure = getattr(generator, "generation_failure_details", None)
+            if gen_failure:
+                details["generation_failure"] = gen_failure
             summary_snapshot = _summarize_constraint_report(generator.constraint_report)
             if summary_snapshot:
                 details["constraint_summary"] = summary_snapshot

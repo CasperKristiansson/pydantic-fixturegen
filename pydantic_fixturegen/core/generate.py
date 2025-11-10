@@ -311,10 +311,15 @@ class InstanceGenerator:
         self._cycle_events: list[CycleEvent] = []
         self._reuse_pool: dict[type[Any], list[tuple[str, BaseModel]]] = {}
         self._delegated_models: dict[type[Any], ModelDelegate] = {}
+        self._last_generation_failure: dict[str, Any] | None = None
 
     @property
     def constraint_report(self) -> ConstraintReporter:
         return self._constraint_reporter
+
+    @property
+    def generation_failure_details(self) -> dict[str, Any] | None:
+        return self._last_generation_failure
 
     # ------------------------------------------------------------------ public API
     def generate_one(self, model: type[BaseModel]) -> BaseModel | None:
@@ -368,6 +373,7 @@ class InstanceGenerator:
             max_attempts = max(1, self.config.validator_max_retries + 1)
 
         last_failure: dict[str, Any] | None = None
+        self._last_generation_failure = None
         for attempt_index in range(max_attempts):
             if self._validator_retry_enabled:
                 self._activate_validator_retry(model, attempt_index)
@@ -432,13 +438,21 @@ class InstanceGenerator:
             )
 
         if not self._consume_object():
+            self._note_generation_failure("object_budget_exhausted", path=path_label)
             return None
 
         entry = self._make_path_entry(model_type, via_field, path=path_label)
         self._path_stack.append(entry)
         try:
             strategies = self._get_model_strategies(model_type)
-        except TypeError:
+        except TypeError as exc:
+            self._note_generation_failure(
+                "strategy_error",
+                path=path_label,
+                error=str(exc),
+                model=self._describe_model(model_type),
+            )
+            self._path_stack.pop()
             return None
 
         report_model: type[BaseModel] | None = None
@@ -549,6 +563,7 @@ class InstanceGenerator:
             return None
 
         if instance is None:
+            self._note_generation_failure("constructor_returned_none", path=path_label)
             if report_model is not None:
                 self._constraint_reporter.finish_model(report_model, success=False)
             return None
@@ -596,6 +611,11 @@ class InstanceGenerator:
             return None
 
         if instance is None:
+            self._note_generation_failure(
+                "delegate_returned_none",
+                path=path_label,
+                delegate=getattr(delegate, "__qualname__", repr(delegate)),
+            )
             if report_model is not None:
                 self._constraint_reporter.finish_model(report_model, success=False)
             return None
@@ -950,6 +970,14 @@ class InstanceGenerator:
                 fallback=fallback,
             )
         )
+        if value is None:
+            self._note_generation_failure(
+                "cycle_resolution_null",
+                path=path,
+                policy=policy,
+                cycle_reason=reason,
+                ref_path=ref_path,
+            )
         return value
 
     def _clone_reusable_instance(self, model_type: type[Any]) -> BaseModel | None:
@@ -1256,6 +1284,23 @@ class InstanceGenerator:
             "errors": list(errors),
             "values": snapshot,
         }
+
+    def _note_generation_failure(
+        self,
+        reason: str,
+        *,
+        path: str | None = None,
+        **context: Any,
+    ) -> None:
+        data: dict[str, Any] = {"reason": reason}
+        if path:
+            data["path"] = path
+        elif self._path_stack:
+            data["path"] = self._path_stack[-1].full
+        for key, value in context.items():
+            if value is not None:
+                data[key] = value
+        self._last_generation_failure = data
 
     def _serialize_value(self, value: Any, depth: int = 0) -> Any:
         if value is None or isinstance(value, (bool, int, float, str)):
