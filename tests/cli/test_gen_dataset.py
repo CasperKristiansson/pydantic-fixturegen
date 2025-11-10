@@ -44,9 +44,7 @@ def test_gen_dataset_csv(tmp_path: Path) -> None:
         ],
     )
 
-    assert result.exit_code == 0, (
-        f"stdout:\n{result.stdout}\n\nstderr:\n{result.stderr}"
-    )
+    assert result.exit_code == 0, f"stdout:\n{result.stdout}\n\nstderr:\n{result.stderr}"
     content = output_path.read_text(encoding="utf-8").strip().splitlines()
     assert content[0] == "id,name,__cycles__"
     assert len(content) == 3
