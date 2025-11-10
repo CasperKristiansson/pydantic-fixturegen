@@ -29,8 +29,6 @@ All helpers return dataclasses defined in `pydantic_fixturegen.api.models`. Ever
 
 Because these are dataclasses you can `dataclasses.asdict(result)` for logging or JSON serialization.
 
----
-
 ## Generation helpers
 
 ### `generate_json`
@@ -56,16 +54,16 @@ result: JsonGenerationResult = generate_json(
 )
 ```
 
-| Parameter                                              | Type          | Notes                                                                                                                                   |
-| ------------------------------------------------------ | ------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `target`                                               | `str          | Path                                                                                                                                    | None`                                                                            | Module file that exports Pydantic models. Set to `None` when using `type_annotation`. |
-| `out`                                                  | `str          | Path`                                                                                                                                   | Templated `OutputTemplate` path (`{model}`, `{case_index}`, `{timestamp}` etc.). |
-| `count`, `jsonl`, `indent`, `use_orjson`, `shard_size` | Scalars       | Match the CLI flags (`--n`, `--jsonl`, `--indent`, `--orjson`, `--shard-size`).                                                         |
-| `include` / `exclude`                                  | sequence      | Fully-qualified model globs.                                                                                                            |
-| `seed`, `preset`, `profile`                            | scalars       | Deterministic knobs identical to the CLI.                                                                                               |
-| `freeze_seeds`, `freeze_seeds_file`                    | bool / path   | Manage per-model seeds via `.pfg-seeds.json`.                                                                                           |
-| `now`                                                  | ISO timestamp | Overrides the deterministic “current time” anchor.                                                                                      |
-| `type_annotation`, `type_label`                        | any           | Generate data for arbitrary type expressions (mirrors `pfg gen json --type`). Cannot be combined with relation helpers or freeze files. |
+| Parameter                                              | Type                | Notes                                                                                                                                   |
+| ------------------------------------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `target`                                               | `str`/`Path`/`None` | Module file that exports Pydantic models. Set to `None` when using `type_annotation`.                                                   |
+| `out`                                                  | `str`/`Path`        | Templated `OutputTemplate` path (`{model}`, `{case_index}`, `{timestamp}` etc.).                                                        |
+| `count`, `jsonl`, `indent`, `use_orjson`, `shard_size` | Scalars             | Match the CLI flags (`--n`, `--jsonl`, `--indent`, `--orjson`, `--shard-size`).                                                         |
+| `include` / `exclude`                                  | sequence            | Fully-qualified model globs.                                                                                                            |
+| `seed`, `preset`, `profile`                            | scalars             | Deterministic knobs identical to the CLI.                                                                                               |
+| `freeze_seeds`, `freeze_seeds_file`                    | bool / path         | Manage per-model seeds via `.pfg-seeds.json`.                                                                                           |
+| `now`                                                  | ISO timestamp       | Overrides the deterministic “current time” anchor.                                                                                      |
+| `type_annotation`, `type_label`                        | any                 | Generate data for arbitrary type expressions (mirrors `pfg gen json --type`). Cannot be combined with relation helpers or freeze files. |
 
 Return fields: `paths` (tuple of written files), `base_output`, `model` (when exactly one model was emitted), `config`, `warnings`.
 
@@ -94,13 +92,13 @@ dataset: DatasetGenerationResult = generate_dataset(
 )
 ```
 
-| Parameter                                     | Type                | Notes                                                                         |
-| --------------------------------------------- | ------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `format`                                      | `str`               | `"csv"`, `"parquet"`, or `"arrow"`. Requires the `dataset` extra for PyArrow. |
-| `compression`                                 | `str                | None`                                                                         | `"gzip"` for CSV, `"snappy"`, `"zstd"`, `"brotli"`, `"lz4"` for columnar formats. |
-| `relations`                                   | `Mapping[str, str]` | Equivalent to CLI `--link`.                                                   |
-| `respect_validators`, `validator_max_retries` | bool/int            | Enforce model validators with bounded retries.                                |
-| `max_depth`, `cycle_policy`, `rng_mode`       | scalars             | Mirror CLI recursion + RNG controls.                                          |
+| Parameter                                     | Type                | Notes                                                                             |
+| --------------------------------------------- | ------------------- | --------------------------------------------------------------------------------- |
+| `format`                                      | `str`               | `"csv"`, `"parquet"`, or `"arrow"`. Requires the `dataset` extra for PyArrow.     |
+| `compression`                                 | `str`/`None`        | `"gzip"` for CSV, `"snappy"`, `"zstd"`, `"brotli"`, `"lz4"` for columnar formats. |
+| `relations`                                   | `Mapping[str, str]` | Equivalent to CLI `--link`.                                                       |
+| `respect_validators`, `validator_max_retries` | bool/int            | Enforce model validators with bounded retries.                                    |
+| `max_depth`, `cycle_policy`, `rng_mode`       | scalars             | Mirror CLI recursion + RNG controls.                                              |
 
 The result mirrors `JsonGenerationResult` but includes dataset-specific metadata about shard counts and `format`.
 
@@ -147,8 +145,6 @@ schema = generate_schema(
 
 Writes JSON Schema files atomically. `include`, `exclude`, and `profile` behave like the CLI. Useful for embedding schema generation into build scripts or documentation tooling.
 
----
-
 ## Anonymizer helpers
 
 ### `anonymize_payloads`
@@ -193,8 +189,6 @@ anonymize_from_rules(
 
 - Mirrors `pfg anonymize` behaviour: accepts files or directories, mirrors structure under `destination`, writes optional JSON reports, and can pipe sanitized output into `pfg doctor` automatically.
 - Use when you want the CLI ergonomics but need to call from Python (e.g., inside a custom build step or notebook).
-
----
 
 ## Tips
 
