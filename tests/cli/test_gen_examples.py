@@ -64,7 +64,7 @@ def test_gen_examples_injects_payloads(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     updated = yaml.safe_load(out_path.read_text(encoding="utf-8"))
     example = updated["components"]["schemas"]["User"].get("example")
-    assert example
+    assert example, f"Example missing; CLI output:\n{result.output}"
     assert set(example.keys()) >= {"id", "name"}
 
 
