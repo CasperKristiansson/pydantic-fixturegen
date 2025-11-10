@@ -9,10 +9,13 @@ import typer
 from typer.main import get_command
 
 import pydantic_fixturegen.cli._typer_compat  # noqa: F401
+from pydantic_fixturegen._warnings import apply_warning_filters
 from pydantic_fixturegen.cli import anonymize as anonymize_cli
 from pydantic_fixturegen.cli import fastapi as fastapi_cli
 from pydantic_fixturegen.cli import schema as schema_cli
 from pydantic_fixturegen.logging import DEFAULT_VERBOSITY_INDEX, LOG_LEVEL_ORDER, get_logger
+
+apply_warning_filters()
 
 
 def _load_typer(import_path: str) -> typer.Typer:

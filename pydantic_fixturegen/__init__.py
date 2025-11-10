@@ -2,22 +2,11 @@
 
 from __future__ import annotations
 
-import warnings
-
+from ._warnings import apply_warning_filters
 from .core.version import get_tool_version
 
 __all__ = ["__version__", "get_tool_version"]
 
 __version__ = get_tool_version()
 
-warnings.filterwarnings(
-    "ignore",
-    message=(r"The `__get_pydantic_core_schema__` method of the `BaseModel` class is deprecated\."),
-    category=Warning,
-)
-
-warnings.filterwarnings(
-    "ignore",
-    message=(r"Core Pydantic V1 functionality isn't compatible with Python 3\.14 or greater\."),
-    category=Warning,
-)
+apply_warning_filters()
