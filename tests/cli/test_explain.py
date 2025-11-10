@@ -146,8 +146,12 @@ def test_explain_json_mode(tmp_path: Path) -> None:
     assert heuristic["rule"] == "string-email"
     assert heuristic["provider_type"] == "email"
     assert "profile" in fields
-    assert fields["profile"]["strategy"]["kind"] == "provider"
-    profile_nested = fields["profile"]["strategy"]["nested_model"]
+    profile_strategy = fields["profile"]["strategy"]
+    assert profile_strategy["kind"] == "provider"
+    assert (
+        "nested_model" in profile_strategy
+    ), f"profile strategy missing nested_model: {json.dumps(profile_strategy, indent=2)}"
+    profile_nested = profile_strategy["nested_model"]
     address_field = next(field for field in profile_nested["fields"] if field["name"] == "address")
     address_strategy = address_field["strategy"]
     address_nested = address_strategy["nested_model"]
