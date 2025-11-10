@@ -72,22 +72,22 @@ hatch run pfg --help
 
 ## Extras matrix
 
-| Extra            | Provides                                      | Ideal for                                  |
-| ---------------- | --------------------------------------------- | ------------------------------------------ |
-| `regex`          | `rstr` for regex-based string providers       | Models with `Field(regex=...)` constraints |
-| `orjson`         | Fast JSON encoder                             | Large JSON/JSONL dumps                     |
-| `hypothesis`     | Property-based strategy exporter (`strategy_for`, `pfg gen strategies`) | Generative testing combos                  |
-| `watch`          | Live regeneration via `watchfiles`            | Watch mode in CI or local loops            |
-| `numpy`          | Deterministic NumPy array providers           | Models embedding `numpy.ndarray` fields    |
-| `fastapi`        | FastAPI + Uvicorn                             | Smoke tests and mock servers               |
-| `polyfactory`    | Polyfactory                                   | Delegating to existing `ModelFactory` classes |
-| `sqlmodel`       | SQLModel + SQLAlchemy                         | SQL database seeding via CLI/fixtures       |
-| `beanie`         | Beanie + Motor                                | MongoDB seeding                             |
-| `seed`           | SQLModel + SQLAlchemy + Beanie + Motor        | Enable all seeding workflows                |
-| `dataset`        | PyArrow                                       | CSV/Parquet/Arrow dataset emission         |
-| `openapi`        | `datamodel-code-generator` + PyYAML           | JSON Schema / OpenAPI ingestion workflows  |
-| `all`            | Every runtime extra                           | One-shot enablement                        |
-| `all-dev`        | Runtime extras + mypy, Ruff, pytest, pytest-cov | Local development stacks                  |
+| Extra         | Provides                                                                | Ideal for                                     |
+| ------------- | ----------------------------------------------------------------------- | --------------------------------------------- |
+| `regex`       | `rstr` for regex-based string providers                                 | Models with `Field(regex=...)` constraints    |
+| `orjson`      | Fast JSON encoder                                                       | Large JSON/JSONL dumps                        |
+| `hypothesis`  | Property-based strategy exporter (`strategy_for`, `pfg gen strategies`) | Generative testing combos                     |
+| `watch`       | Live regeneration via `watchfiles`                                      | Watch mode in CI or local loops               |
+| `numpy`       | Deterministic NumPy array providers                                     | Models embedding `numpy.ndarray` fields       |
+| `fastapi`     | FastAPI + Uvicorn                                                       | Smoke tests and mock servers                  |
+| `polyfactory` | Polyfactory                                                             | Delegating to existing `ModelFactory` classes |
+| `sqlmodel`    | SQLModel + SQLAlchemy                                                   | SQL database seeding via CLI/fixtures         |
+| `beanie`      | Beanie + Motor                                                          | MongoDB seeding                               |
+| `seed`        | SQLModel + SQLAlchemy + Beanie + Motor                                  | Enable all seeding workflows                  |
+| `dataset`     | PyArrow                                                                 | CSV/Parquet/Arrow dataset emission            |
+| `openapi`     | `datamodel-code-generator` + PyYAML                                     | JSON Schema / OpenAPI ingestion workflows     |
+| `all`         | Every runtime extra                                                     | One-shot enablement                           |
+| `all-dev`     | Runtime extras + mypy, Ruff, pytest, pytest-cov                         | Local development stacks                      |
 
 ## Verify the CLI
 

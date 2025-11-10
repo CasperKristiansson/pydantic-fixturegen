@@ -467,19 +467,23 @@ def _resolve_nested_model_type(
     parent_model: type[BaseModel],
 ) -> type[BaseModel] | None:
     candidate = annotation
-    if not isinstance(candidate, type):
+    if not isinstance(candidate, type) or candidate is Any:
+        parent_field = parent_model.model_fields.get(strategy.field_name)
+        if parent_field is not None:
+            candidate = parent_field.annotation
+    if not isinstance(candidate, type) or candidate is Any:
         candidate = strategy.summary.annotation
     resolved = _resolve_runtime_type(candidate)
     if resolved is not None:
         candidate = resolved
-    if not isinstance(candidate, type):
+    if not isinstance(candidate, type) or candidate is Any:
         forward = _resolve_forward_reference(candidate, parent_model)
         if forward is not None:
             candidate = forward
-    if not isinstance(candidate, type):
+    if not isinstance(candidate, type) or candidate is Any:
         return None
     try:
-        if summary_type == "model" and issubclass(candidate, BaseModel):
+        if issubclass(candidate, BaseModel):
             return candidate
     except TypeError:
         return None

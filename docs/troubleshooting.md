@@ -4,13 +4,13 @@
 
 ## Error taxonomy
 
-| Code | Meaning                                  | Fix                                                         |
-| ---- | ---------------------------------------- | ----------------------------------------------------------- |
-| `0`  | Success                                  | No action needed.                                           |
-| `20` | Structured discovery/config error        | Inspect JSON payload (`--json-errors`) for `kind` and `detail`. |
-| `40` | Sandbox timeout                          | Increase `--timeout` or optimise imports.                   |
-| `41` | Sandbox memory limit (platform dependent) | Raise `--memory-limit-mb` or refactor heavy imports.       |
-| `2`  | `pfg doctor --fail-on-gaps` threshold hit | Add providers or relax the fail threshold.                  |
+| Code | Meaning                                   | Fix                                                             |
+| ---- | ----------------------------------------- | --------------------------------------------------------------- |
+| `0`  | Success                                   | No action needed.                                               |
+| `20` | Structured discovery/config error         | Inspect JSON payload (`--json-errors`) for `kind` and `detail`. |
+| `40` | Sandbox timeout                           | Increase `--timeout` or optimise imports.                       |
+| `41` | Sandbox memory limit (platform dependent) | Raise `--memory-limit-mb` or refactor heavy imports.            |
+| `2`  | `pfg doctor --fail-on-gaps` threshold hit | Add providers or relax the fail threshold.                      |
 
 ## Common issues
 

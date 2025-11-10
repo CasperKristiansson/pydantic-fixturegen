@@ -60,6 +60,10 @@ class SimpleModel(BaseModel):
     value: int
 
 
+class ModelWithSimple(BaseModel):
+    simple: SimpleModel
+
+
 @dataclasses.dataclass
 class ModelCarrier:
     model: SimpleModel
@@ -403,6 +407,7 @@ def test_strategy_to_payload_union_truncated() -> None:
         builder=builder,
         remaining_depth=0,
         visited=set(),
+        parent_model=UnionModel,
     )
 
     assert payload["kind"] == "union"
@@ -419,6 +424,7 @@ def test_strategy_to_payload_nested_dataclass() -> None:
         builder=builder,
         remaining_depth=1,
         visited=set(),
+        parent_model=WrapperModel,
     )
 
     nested = payload.get("nested_model")
@@ -446,11 +452,70 @@ def test_strategy_to_payload_includes_provider_metadata() -> None:
         builder=builder,
         remaining_depth=None,
         visited=set(),
+        parent_model=SimpleModel,
     )
 
     assert payload["enum_values"] == ["x", "y"]
     assert payload["enum_policy"] == "random"
     assert payload["provider_kwargs"] == {"min_length": 2}
+
+
+def test_strategy_to_payload_detects_model_without_summary_type() -> None:
+    summary = FieldSummary(
+        type="any",
+        constraints=FieldConstraints(),
+        annotation=SimpleModel,
+    )
+    strategy = Strategy(
+        field_name="simple",
+        summary=summary,
+        annotation=SimpleModel,
+        provider_ref=None,
+        provider_name="string",
+        provider_kwargs={},
+        p_none=0.0,
+    )
+    builder = StrategyBuilder(create_default_registry(load_plugins=False))
+
+    payload = explain_mod._strategy_to_payload(
+        strategy,
+        builder=builder,
+        remaining_depth=1,
+        visited=set(),
+        parent_model=ModelWithSimple,
+    )
+
+    nested = payload.get("nested_model")
+    assert nested and nested["name"] == "SimpleModel"
+
+
+def test_strategy_to_payload_uses_parent_model_annotation() -> None:
+    summary = FieldSummary(
+        type="any",
+        constraints=FieldConstraints(),
+        annotation=Any,
+    )
+    strategy = Strategy(
+        field_name="simple",
+        summary=summary,
+        annotation=Any,
+        provider_ref=None,
+        provider_name="string",
+        provider_kwargs={},
+        p_none=0.0,
+    )
+    builder = StrategyBuilder(create_default_registry(load_plugins=False))
+
+    payload = explain_mod._strategy_to_payload(
+        strategy,
+        builder=builder,
+        remaining_depth=1,
+        visited=set(),
+        parent_model=ModelWithSimple,
+    )
+
+    nested = payload.get("nested_model")
+    assert nested and nested["name"] == "SimpleModel"
 
 
 def test_render_field_text_handles_error_and_truncation(

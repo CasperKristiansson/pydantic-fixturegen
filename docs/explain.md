@@ -43,10 +43,10 @@ Sample payload:
 ```json
 {
   "provider": "union",
-  "policies": {"p_none": 0.25},
+  "policies": { "p_none": 0.25 },
   "children": [
-    {"provider": "string_provider", "weight": 0.75},
-    {"provider": "none", "weight": 0.25}
+    { "provider": "string_provider", "weight": 0.75 },
+    { "provider": "none", "weight": 0.25 }
   ]
 }
 ```

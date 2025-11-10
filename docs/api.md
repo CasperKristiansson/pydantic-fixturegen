@@ -56,16 +56,16 @@ result: JsonGenerationResult = generate_json(
 )
 ```
 
-| Parameter | Type | Notes |
-| --------- | ---- | ----- |
-| `target` | `str | Path | None` | Module file that exports Pydantic models. Set to `None` when using `type_annotation`. |
-| `out` | `str | Path` | Templated `OutputTemplate` path (`{model}`, `{case_index}`, `{timestamp}` etc.). |
-| `count`, `jsonl`, `indent`, `use_orjson`, `shard_size` | Scalars | Match the CLI flags (`--n`, `--jsonl`, `--indent`, `--orjson`, `--shard-size`). |
-| `include` / `exclude` | sequence | Fully-qualified model globs. |
-| `seed`, `preset`, `profile` | scalars | Deterministic knobs identical to the CLI. |
-| `freeze_seeds`, `freeze_seeds_file` | bool / path | Manage per-model seeds via `.pfg-seeds.json`. |
-| `now` | ISO timestamp | Overrides the deterministic “current time” anchor. |
-| `type_annotation`, `type_label` | any | Generate data for arbitrary type expressions (mirrors `pfg gen json --type`). Cannot be combined with relation helpers or freeze files. |
+| Parameter                                              | Type          | Notes                                                                                                                                   |
+| ------------------------------------------------------ | ------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `target`                                               | `str          | Path                                                                                                                                    | None`                                                                            | Module file that exports Pydantic models. Set to `None` when using `type_annotation`. |
+| `out`                                                  | `str          | Path`                                                                                                                                   | Templated `OutputTemplate` path (`{model}`, `{case_index}`, `{timestamp}` etc.). |
+| `count`, `jsonl`, `indent`, `use_orjson`, `shard_size` | Scalars       | Match the CLI flags (`--n`, `--jsonl`, `--indent`, `--orjson`, `--shard-size`).                                                         |
+| `include` / `exclude`                                  | sequence      | Fully-qualified model globs.                                                                                                            |
+| `seed`, `preset`, `profile`                            | scalars       | Deterministic knobs identical to the CLI.                                                                                               |
+| `freeze_seeds`, `freeze_seeds_file`                    | bool / path   | Manage per-model seeds via `.pfg-seeds.json`.                                                                                           |
+| `now`                                                  | ISO timestamp | Overrides the deterministic “current time” anchor.                                                                                      |
+| `type_annotation`, `type_label`                        | any           | Generate data for arbitrary type expressions (mirrors `pfg gen json --type`). Cannot be combined with relation helpers or freeze files. |
 
 Return fields: `paths` (tuple of written files), `base_output`, `model` (when exactly one model was emitted), `config`, `warnings`.
 
@@ -94,13 +94,13 @@ dataset: DatasetGenerationResult = generate_dataset(
 )
 ```
 
-| Parameter | Type | Notes |
-| --------- | ---- | ----- |
-| `format` | `str` | `"csv"`, `"parquet"`, or `"arrow"`. Requires the `dataset` extra for PyArrow. |
-| `compression` | `str | None` | `"gzip"` for CSV, `"snappy"`, `"zstd"`, `"brotli"`, `"lz4"` for columnar formats. |
-| `relations` | `Mapping[str, str]` | Equivalent to CLI `--link`. |
-| `respect_validators`, `validator_max_retries` | bool/int | Enforce model validators with bounded retries. |
-| `max_depth`, `cycle_policy`, `rng_mode` | scalars | Mirror CLI recursion + RNG controls. |
+| Parameter                                     | Type                | Notes                                                                         |
+| --------------------------------------------- | ------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `format`                                      | `str`               | `"csv"`, `"parquet"`, or `"arrow"`. Requires the `dataset` extra for PyArrow. |
+| `compression`                                 | `str                | None`                                                                         | `"gzip"` for CSV, `"snappy"`, `"zstd"`, `"brotli"`, `"lz4"` for columnar formats. |
+| `relations`                                   | `Mapping[str, str]` | Equivalent to CLI `--link`.                                                   |
+| `respect_validators`, `validator_max_retries` | bool/int            | Enforce model validators with bounded retries.                                |
+| `max_depth`, `cycle_policy`, `rng_mode`       | scalars             | Mirror CLI recursion + RNG controls.                                          |
 
 The result mirrors `JsonGenerationResult` but includes dataset-specific metadata about shard counts and `format`.
 
@@ -123,13 +123,13 @@ fixtures = generate_fixtures(
 )
 ```
 
-| Parameter | Notes |
-| --------- | ----- |
-| `style` | `"functions"`, `"factory"`, or `"class"`. Mirrors CLI `--style`. |
-| `scope` | Pytest scope string (`"function"`, `"module"`, `"session"`). |
-| `cases` | Number of parametrized cases per fixture. |
-| `return_type` | `"model"` or `"dict"`. |
-| `p_none` | Overrides optional field probability. |
+| Parameter     | Notes                                                            |
+| ------------- | ---------------------------------------------------------------- |
+| `style`       | `"functions"`, `"factory"`, or `"class"`. Mirrors CLI `--style`. |
+| `scope`       | Pytest scope string (`"function"`, `"module"`, `"session"`).     |
+| `cases`       | Number of parametrized cases per fixture.                        |
+| `return_type` | `"model"` or `"dict"`.                                           |
+| `p_none`      | Overrides optional field probability.                            |
 
 Return values include `path` (written module), `metadata` (banner extras like digest, seed, style), and the resolved `style/scope/return_type/cases`.
 
@@ -168,13 +168,13 @@ sanitized = anonymize_payloads(
 )
 ```
 
-| Parameter | Notes |
-| --------- | ----- |
-| `payloads` | Iterable of dicts or JSON strings. Use `anonymize_from_rules` when you want the CLI-style file/directory behaviour. |
-| `rules_path` | TOML/YAML/JSON rules file describing matchers + strategies. |
-| `profile` | Optional preset layering (e.g., `pii-safe`, `realistic`). |
-| `salt`, `entity_field` | Control deterministic hashing / pseudonyms. |
-| `max_required_misses`, `max_rule_failures` | Override privacy budgets. |
+| Parameter                                  | Notes                                                                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `payloads`                                 | Iterable of dicts or JSON strings. Use `anonymize_from_rules` when you want the CLI-style file/directory behaviour. |
+| `rules_path`                               | TOML/YAML/JSON rules file describing matchers + strategies.                                                         |
+| `profile`                                  | Optional preset layering (e.g., `pii-safe`, `realistic`).                                                           |
+| `salt`, `entity_field`                     | Control deterministic hashing / pseudonyms.                                                                         |
+| `max_required_misses`, `max_rule_failures` | Override privacy budgets.                                                                                           |
 
 Returns a generator of sanitized payloads (same shape as input). Combine with the CLI to reuse reporting/diffing features.
 

@@ -4,7 +4,7 @@
 
 ## Available presets
 
-| Name           | Behaviour                                                                                  |
+| Name           | Behaviour                                                                                   |
 | -------------- | ------------------------------------------------------------------------------------------- |
 | `boundary`     | Randomises unions/enums, sets `p_none` ≈ 0.35, keeps JSON pretty-printed.                   |
 | `boundary-max` | Aggressive edge exploration with `p_none` ≈ 0.6, compact JSON (`indent=0`), and shard bias. |

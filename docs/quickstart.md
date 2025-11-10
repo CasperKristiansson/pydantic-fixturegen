@@ -11,7 +11,7 @@ pfg --version
 ```
 
 - Add extras that match your stack (`openapi` for schema ingestion, `fastapi` for smoke/mock commands, `dataset` for CSV/Parquet/Arrow, `polyfactory` if you already have ModelFactory classes, `seed` for SQLModel + Beanie).
-- Run `pfg --help` once to ensure the entry point is on your PATH. All CLI examples assume a POSIX shell; on Windows, swap `\` for ``^`` when you wrap long commands.
+- Run `pfg --help` once to ensure the entry point is on your PATH. All CLI examples assume a POSIX shell; on Windows, swap `\` for `^` when you wrap long commands.
 
 ## 1. Scaffold a model module
 

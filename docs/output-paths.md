@@ -4,11 +4,11 @@
 
 ## Supported placeholders
 
-| Placeholder   | Description                                                                       |
-| ------------- | --------------------------------------------------------------------------------- |
-| `{model}`     | Model class name (or `combined` for aggregate files).                             |
-| `{case_index}` | 1-based index of the emitted shard or fixture case.                              |
-| `{timestamp}` | UTC execution timestamp (defaults to `%Y%m%dT%H%M%S`). Supports `strftime` specs. |
+| Placeholder    | Description                                                                       |
+| -------------- | --------------------------------------------------------------------------------- |
+| `{model}`      | Model class name (or `combined` for aggregate files).                             |
+| `{case_index}` | 1-based index of the emitted shard or fixture case.                               |
+| `{timestamp}`  | UTC execution timestamp (defaults to `%Y%m%dT%H%M%S`). Supports `strftime` specs. |
 
 Examples:
 

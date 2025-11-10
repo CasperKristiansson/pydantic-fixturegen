@@ -4,15 +4,15 @@ Compare popular fixture generators side-by-side, understand where pydantic-fixtu
 
 ## Detailed comparison
 
-| Capability | **pydantic-fixturegen** | **Polyfactory** | **Pydantic-Factories** | **factory_boy** |
-| ---------- | ----------------------- | --------------- | ---------------------- | --------------- |
-| Deterministic seeds | Cascaded seeds across `random`, Faker, NumPy, PyArrow, SplitMix64 portable RNG, optional freeze files | Faker-only seeds; Python RNG drift between interpreters | Faker-only seeds; no freeze file | Manual or per-factory seeding |
-| Outputs | JSON/JSONL, tabular datasets (CSV/Parquet/Arrow), pytest fixtures, schema emitters, Hypothesis strategies, anonymized payloads | Python objects or dicts; JSON via `.dict()` | Python objects/dicts | ORM models/objects |
-| CLI & automation | Full CLI suite (`list`, `gen`, `diff`, `check`, `doctor`, `explain`, `snapshot`, `lock`, `verify`) plus watch mode and JSON logging | Python API only | Python API only | Python API only |
-| Sandboxing & CI | Safe-import jail w/ timeout + memory caps, network/file system guards, `pfg snapshot verify` for CI | No sandbox; factories run in-process | No sandbox | No sandbox |
-| Plugin/extension story | Pluggy hooks (`pfg_register_providers`, `pfg_modify_strategy`, `pfg_emit_artifact`), custom heuristics/providers, CLI extras | Sub-class factories; limited extension beyond overriding Faker providers | Sub-class factories | Sub-class factories + Faker overrides |
-| Schema/OpenAPI | Ingest JSON Schema/OpenAPI (via datamodel-code-generator), explain gaps, inject generated examples | N/A | N/A | N/A |
-| FastAPI/seeders | Mock server, smoke tests, dataset emitters, SQLModel/Beanie seeders, Polyfactory delegation | Core factories only (excellent delegation target) | Core factories only | ORM factories only |
+| Capability             | **pydantic-fixturegen**                                                                                                             | **Polyfactory**                                                          | **Pydantic-Factories**           | **factory_boy**                       |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------- | ------------------------------------- |
+| Deterministic seeds    | Cascaded seeds across `random`, Faker, NumPy, PyArrow, SplitMix64 portable RNG, optional freeze files                               | Faker-only seeds; Python RNG drift between interpreters                  | Faker-only seeds; no freeze file | Manual or per-factory seeding         |
+| Outputs                | JSON/JSONL, tabular datasets (CSV/Parquet/Arrow), pytest fixtures, schema emitters, Hypothesis strategies, anonymized payloads      | Python objects or dicts; JSON via `.dict()`                              | Python objects/dicts             | ORM models/objects                    |
+| CLI & automation       | Full CLI suite (`list`, `gen`, `diff`, `check`, `doctor`, `explain`, `snapshot`, `lock`, `verify`) plus watch mode and JSON logging | Python API only                                                          | Python API only                  | Python API only                       |
+| Sandboxing & CI        | Safe-import jail w/ timeout + memory caps, network/file system guards, `pfg snapshot verify` for CI                                 | No sandbox; factories run in-process                                     | No sandbox                       | No sandbox                            |
+| Plugin/extension story | Pluggy hooks (`pfg_register_providers`, `pfg_modify_strategy`, `pfg_emit_artifact`), custom heuristics/providers, CLI extras        | Sub-class factories; limited extension beyond overriding Faker providers | Sub-class factories              | Sub-class factories + Faker overrides |
+| Schema/OpenAPI         | Ingest JSON Schema/OpenAPI (via datamodel-code-generator), explain gaps, inject generated examples                                  | N/A                                                                      | N/A                              | N/A                                   |
+| FastAPI/seeders        | Mock server, smoke tests, dataset emitters, SQLModel/Beanie seeders, Polyfactory delegation                                         | Core factories only (excellent delegation target)                        | Core factories only              | ORM factories only                    |
 
 **TL;DR:** use Polyfactory or Pydantic-Factories when you want hand-authored class-based factories, and fixturegen when you need deterministic project-wide artefacts, CLIs, or schema integrations.
 
@@ -66,11 +66,11 @@ pfg gen dataset marketing/models.py --preset marketing-demo --format parquet --c
 
 ### Faker-only factories → providers & heuristics
 
-| Old approach | Fixturegen equivalent |
-| ------------ | -------------------- |
-| Faker seeding via `Faker.seed(123)` | `pfg gen ... --seed 123 --rng-mode portable` |
-| Hard-coded email domains | Configure `[identifiers].email_domain = "example.org"` or add a field policy |
-| Custom relationship wiring | Declare `--link models.Order.user_id=models.User.id` or set `[relations]` |
+| Old approach                        | Fixturegen equivalent                                                        |
+| ----------------------------------- | ---------------------------------------------------------------------------- |
+| Faker seeding via `Faker.seed(123)` | `pfg gen ... --seed 123 --rng-mode portable`                                 |
+| Hard-coded email domains            | Configure `[identifiers].email_domain = "example.org"` or add a field policy |
+| Custom relationship wiring          | Declare `--link models.Order.user_id=models.User.id` or set `[relations]`    |
 
 Once the deterministic config exists, you can reuse it everywhere: CLI, FastAPI mock server, anonymizer, or pytest plugin.
 

@@ -14,21 +14,21 @@ You can append `-- --help` after any proxy command to view native Typer help bec
 
 ## Command map (cheat sheet)
 
-| Command | Purpose |
-| ------- | ------- |
-| `pfg list` | Discover models via AST/safe-import hybrids. |
+| Command                                            | Purpose                                                              |
+| -------------------------------------------------- | -------------------------------------------------------------------- |
+| `pfg list`                                         | Discover models via AST/safe-import hybrids.                         |
 | `pfg gen json` / `dataset` / `fixtures` / `schema` | Emit JSON/JSONL, CSV/Parquet/Arrow, pytest fixtures, or JSON Schema. |
-| `pfg gen seed sqlmodel|beanie` | Populate SQLModel/SQLAlchemy or Beanie/MongoDB databases. |
-| `pfg gen examples` | Inject deterministic examples into OpenAPI specs. |
-| `pfg gen strategies` | Export Hypothesis strategies wired to `strategy_for`. |
-| `pfg gen explain` | Visualise generation plans (tree or JSON). |
-| `pfg gen polyfactory` | Scaffold Polyfactory classes that delegate to fixturegen. |
-| `pfg fastapi smoke` / `serve` | Generate FastAPI smoke tests or launch a deterministic mock server. |
-| `pfg anonymize` | Rewrite JSON/JSONL payloads via rule-driven strategies. |
-| `pfg diff` / `check` / `doctor` | Compare artefacts, validate configs, audit coverage. |
-| `pfg snapshot verify/write` | Verify or refresh stored snapshots outside pytest. |
-| `pfg lock` / `verify` | Record and enforce coverage manifests in CI. |
-| `pfg init` / `plugin` | Scaffold config files or custom pluggy providers. |
+| `pfg gen seed sqlmodel/beanie`                     | Populate SQLModel/SQLAlchemy or Beanie/MongoDB databases.            |
+| `pfg gen examples`                                 | Inject deterministic examples into OpenAPI specs.                    |
+| `pfg gen strategies`                               | Export Hypothesis strategies wired to `strategy_for`.                |
+| `pfg gen explain`                                  | Visualise generation plans (tree or JSON).                           |
+| `pfg gen polyfactory`                              | Scaffold Polyfactory classes that delegate to fixturegen.            |
+| `pfg fastapi smoke` / `serve`                      | Generate FastAPI smoke tests or launch a deterministic mock server.  |
+| `pfg anonymize`                                    | Rewrite JSON/JSONL payloads via rule-driven strategies.              |
+| `pfg diff` / `check` / `doctor`                    | Compare artefacts, validate configs, audit coverage.                 |
+| `pfg snapshot verify/write`                        | Verify or refresh stored snapshots outside pytest.                   |
+| `pfg lock` / `verify`                              | Record and enforce coverage manifests in CI.                         |
+| `pfg init` / `plugin`                              | Scaffold config files or custom pluggy providers.                    |
 
 ## `pfg list`
 
@@ -277,10 +277,10 @@ pfg verify --lockfile .pfg-lock.json ./models.py
 
 ## `pfg snapshot`
 
-| Subcommand | Purpose |
-| ---------- | ------- |
+| Subcommand            | Purpose                                                                                                      |
+| --------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `pfg snapshot verify` | Regenerate artifacts in-memory and fail with exit code `30` when drift is detected (without updating files). |
-| `pfg snapshot write`  | Regenerate artifacts and refresh on-disk snapshots using the same deterministic pipeline. |
+| `pfg snapshot write`  | Regenerate artifacts and refresh on-disk snapshots using the same deterministic pipeline.                    |
 
 ```bash
 pfg snapshot verify ./models.py \

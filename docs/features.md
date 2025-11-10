@@ -61,7 +61,7 @@
 
 - Snapshot coverage is available everywhere: inside pytest via the `pfg_snapshot` fixture and from the CLI via `pfg snapshot verify`/`pfg snapshot write`, which wrap `pfg diff` so you can fail CI or refresh artifacts without bespoke scripts.
 - When [`pytest-regressions`](https://pytest-regressions.readthedocs.io/) is present, the fixture automatically honours `--force-regen` (regenerate + fail) and `--regen-all` (regenerate + pass), keeping your existing snapshot workflow intact while still using fixturegen’s deterministic builders.
-- `pfg diff` and the snapshot runner annotate mismatches with useful hints: field additions/removals in JSON payloads, `$defs` churn inside schemas, fixture header drift (seed/style/model digest), and the top constraint failures encountered while regenerating. You see *why* an artifact changed before digging into the raw diff.
+- `pfg diff` and the snapshot runner annotate mismatches with useful hints: field additions/removals in JSON payloads, `$defs` churn inside schemas, fixture header drift (seed/style/model digest), and the top constraint failures encountered while regenerating. You see _why_ an artifact changed before digging into the raw diff.
 
 ## Emitters
 

@@ -14,14 +14,14 @@
 
 ### Key options
 
-| Option           | Effect                                              |
-| ---------------- | --------------------------------------------------- |
-| `--n`            | Number of records to emit.                          |
-| `--jsonl`        | Emit newline-delimited JSON.                        |
+| Option           | Effect                                               |
+| ---------------- | ---------------------------------------------------- |
+| `--n`            | Number of records to emit.                           |
+| `--jsonl`        | Emit newline-delimited JSON.                         |
 | `--indent`       | Pretty-print JSON arrays and enable metadata banner. |
-| `--shard-size`   | Split records across multiple files.                |
-| `--orjson`       | Toggle the optional `orjson` encoder.               |
-| `--freeze-seeds` | Maintain per-model seeds in `.pfg-seeds.json`.      |
+| `--shard-size`   | Split records across multiple files.                 |
+| `--orjson`       | Toggle the optional `orjson` encoder.                |
+| `--freeze-seeds` | Maintain per-model seeds in `.pfg-seeds.json`.       |
 
 ## Pytest fixture emitter
 
