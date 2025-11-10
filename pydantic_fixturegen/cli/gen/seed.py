@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 
 import typer
 
+from pydantic_fixturegen._warnings import apply_warning_filters
 from pydantic_fixturegen.api._runtime import (
     ModelArtifactPlan,
     _build_model_artifact_plan,
@@ -228,6 +229,7 @@ def seed_sqlmodel(  # noqa: PLR0913
     echo: bool = ECHO_OPTION,
     allow_url: list[str] = SQLMODEL_ALLOW_URL_OPTION,
 ) -> None:
+    apply_warning_filters()
     logger = get_logger()
     from pydantic_fixturegen.orm.sqlalchemy import SQLAlchemySeeder
 
@@ -311,6 +313,7 @@ def seed_beanie(  # noqa: PLR0913
     dry_run: bool = DRY_RUN_OPTION,
     allow_url: list[str] = BEANIE_ALLOW_URL_OPTION,
 ) -> None:
+    apply_warning_filters()
     logger = get_logger()
     from pydantic_fixturegen.orm.beanie import BeanieSeeder
 
