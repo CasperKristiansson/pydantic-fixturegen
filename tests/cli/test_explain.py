@@ -148,9 +148,9 @@ def test_explain_json_mode(tmp_path: Path) -> None:
     assert "profile" in fields
     profile_strategy = fields["profile"]["strategy"]
     assert profile_strategy["kind"] == "provider"
-    assert (
-        "nested_model" in profile_strategy
-    ), f"profile strategy missing nested_model: {json.dumps(profile_strategy, indent=2)}"
+    assert "nested_model" in profile_strategy, (
+        f"profile strategy missing nested_model: {json.dumps(profile_strategy, indent=2)}"
+    )
     profile_nested = profile_strategy["nested_model"]
     address_field = next(field for field in profile_nested["fields"] if field["name"] == "address")
     address_strategy = address_field["strategy"]
