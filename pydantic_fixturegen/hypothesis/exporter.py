@@ -471,10 +471,6 @@ def _pin_secret_alias(attr: str, cls: type[Any]) -> None:
             setattr(module, attr, cls)
 
 
-_pin_secret_alias("SecretStr", _SECRET_STR_CLS)
-_pin_secret_alias("SecretBytes", _SECRET_BYTES_CLS)
-
-
 class _SecretStrShim(*_SECRET_STR_BASES):  # type: ignore[misc]
     def __new__(cls, secret_value: Any) -> Any:
         instance = object.__new__(cls)
@@ -497,3 +493,7 @@ class _SecretBytesShim(*_SECRET_BYTES_BASES):  # type: ignore[misc]
 
 _SecretStrShim.__module__ = _SECRET_STR_CLS.__module__
 _SecretBytesShim.__module__ = _SECRET_BYTES_CLS.__module__
+
+
+_pin_secret_alias("SecretStr", _SecretStrShim)
+_pin_secret_alias("SecretBytes", _SecretBytesShim)
