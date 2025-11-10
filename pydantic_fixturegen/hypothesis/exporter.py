@@ -13,6 +13,7 @@ import types
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, Literal, Union, cast, get_args, get_origin
 
+import pydantic
 from pydantic import BaseModel
 
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
@@ -429,6 +430,16 @@ def _secret_class(attr: str) -> type[Any]:
 
 _SECRET_STR_CLS: type[Any] = _secret_class("SecretStr")
 _SECRET_BYTES_CLS: type[Any] = _secret_class("SecretBytes")
+
+
+def _pin_secret_alias(attr: str, cls: type[Any]) -> None:
+    current = getattr(pydantic, attr, None)
+    if current is not cls:
+        setattr(pydantic, attr, cls)
+
+
+_pin_secret_alias("SecretStr", _SECRET_STR_CLS)
+_pin_secret_alias("SecretBytes", _SECRET_BYTES_CLS)
 
 
 def _instantiate_secret(cls: type[Any], value: Any) -> Any:
