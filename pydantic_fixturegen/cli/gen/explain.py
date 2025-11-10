@@ -476,6 +476,10 @@ def _resolve_nested_model_type(
     if not isinstance(candidate, type) or candidate is Any:
         candidate = strategy.summary.annotation
     if not isinstance(candidate, type) or candidate is Any:
+        raw = getattr(parent_model, "__annotations__", {}).get(strategy.field_name)
+        if raw is not None:
+            candidate = raw
+    if not isinstance(candidate, type) or candidate is Any:
         type_hints: Mapping[str, Any] | None = None
         with suppress(Exception), warnings.catch_warnings():
             warnings.simplefilter("ignore")
