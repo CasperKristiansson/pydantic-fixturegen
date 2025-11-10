@@ -405,11 +405,11 @@ class _HypothesisStrategyExporter:
 
 
 def _build_secret_str(value: str) -> Any:
-    return _instantiate_secret(_SECRET_STR_CLS, value, _SecretStrShim)
+    return _SecretStrShim(value)
 
 
 def _build_secret_bytes(value: bytes) -> Any:
-    return _instantiate_secret(_SECRET_BYTES_CLS, value, _SecretBytesShim)
+    return _SecretBytesShim(value)
 
 
 _SECRET_MODULE_NAMES: tuple[str, ...]
@@ -486,15 +486,3 @@ class _SecretBytesShim(*_SECRET_BYTES_BASES):  # type: ignore[misc]
 
 _SecretStrShim.__module__ = _SECRET_STR_CLS.__module__
 _SecretBytesShim.__module__ = _SECRET_BYTES_CLS.__module__
-
-
-def _instantiate_secret(
-    cls: type[Any],
-    value: Any,
-    shim_cls: type[Any],
-) -> Any:
-    result = cls(value)
-    if isinstance(result, cls):
-        return result
-    secret_value = result.get_secret_value() if hasattr(result, "get_secret_value") else value
-    return shim_cls(secret_value)
