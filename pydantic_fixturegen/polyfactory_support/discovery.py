@@ -14,6 +14,23 @@ from pydantic import BaseModel
 
 from ..logging import Logger
 
+
+def _polyfactory_supports_pydantic(factory_cls: type[Any]) -> bool:
+    class _PolyfactoryProbeModel(BaseModel):
+        probe_field: int = 1
+
+    try:
+        probe_factory = type(
+            "_PolyfactoryProbeFactory",
+            (factory_cls,),
+            {"__model__": _PolyfactoryProbeModel, "__check_model__": False},
+        )
+        _ = probe_factory
+    except Exception:
+        return False
+    return True
+
+
 POLYFACTORY_MODEL_FACTORY: type[Any] | None
 POLYFACTORY_UNAVAILABLE_REASON: str | None = None
 try:  # pragma: no cover - runtime import with graceful fallback
@@ -23,19 +40,11 @@ try:  # pragma: no cover - runtime import with graceful fallback
 except Exception:  # pragma: no cover - optional dependency missing
     POLYFACTORY_MODEL_FACTORY = None
 else:
-    try:
-
-        class _PolyfactoryProbeModel(BaseModel):
-            probe_field: int = 1
-
-        class _PolyfactoryProbeFactory(_RuntimeModelFactory[_PolyfactoryProbeModel]):
-            __model__ = _PolyfactoryProbeModel
-            __check_model__ = False
-
-        _ = _PolyfactoryProbeFactory
-    except Exception as exc:  # pragma: no cover - defensive
+    if not _polyfactory_supports_pydantic(_RuntimeModelFactory):
         POLYFACTORY_MODEL_FACTORY = None
-        POLYFACTORY_UNAVAILABLE_REASON = f"polyfactory incompatibility: {exc}"
+        POLYFACTORY_UNAVAILABLE_REASON = (
+            "polyfactory incompatibility: ModelFactory rejected Pydantic BaseModel types."
+        )
     else:
         POLYFACTORY_MODEL_FACTORY = _RuntimeModelFactory
         POLYFACTORY_UNAVAILABLE_REASON = None
