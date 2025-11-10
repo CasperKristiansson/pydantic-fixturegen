@@ -452,5 +452,8 @@ def _instantiate_secret(cls: type[Any], value: Any) -> Any:
     try:
         initializer(proxy, secret_value)
     except Exception:  # pragma: no cover - defensive fallback
-        return result
+        try:
+            object.__setattr__(proxy, "_secret_value", secret_value)
+        except Exception:
+            return result
     return proxy
