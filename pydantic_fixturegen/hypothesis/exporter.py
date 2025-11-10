@@ -5,12 +5,13 @@ from __future__ import annotations
 import dataclasses
 import dataclasses as _dataclasses
 import decimal
+import importlib
 import ipaddress
 import math
 import pathlib
 import types
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Literal, Union, cast, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Literal, Union, get_args, get_origin
 
 from pydantic import BaseModel
 
@@ -401,26 +402,42 @@ class _HypothesisStrategyExporter:
 
 
 def _build_secret_str(value: str) -> Any:
-    from pydantic import SecretStr as _RuntimeSecretStr
-
-    secret_cls = cast(type[Any], _RuntimeSecretStr)
-    result = secret_cls(value)
-    if not isinstance(result, secret_cls) and hasattr(
+    result = _SECRET_STR_CLS(value)
+    if not isinstance(result, _SECRET_STR_CLS) and hasattr(
         result, "get_secret_value"
     ):  # pragma: no cover - defensive fallback
         secret_value = result.get_secret_value()
-        result = secret_cls(secret_value)
+        result = _SECRET_STR_CLS(secret_value)
     return result
 
 
 def _build_secret_bytes(value: bytes) -> Any:
-    from pydantic import SecretBytes as _RuntimeSecretBytes
-
-    secret_cls = cast(type[Any], _RuntimeSecretBytes)
-    result = secret_cls(value)
-    if not isinstance(result, secret_cls) and hasattr(
+    result = _SECRET_BYTES_CLS(value)
+    if not isinstance(result, _SECRET_BYTES_CLS) and hasattr(
         result, "get_secret_value"
     ):  # pragma: no cover - defensive fallback
         secret_value = result.get_secret_value()
-        result = secret_cls(secret_value)
+        result = _SECRET_BYTES_CLS(secret_value)
     return result
+
+
+def _secret_class(attr: str) -> type[Any]:
+    module_candidates = (
+        "pydantic",
+        "pydantic.types",
+        "pydantic.v1",
+        "pydantic.v1.types",
+    )
+    for module_name in module_candidates:
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError:  # pragma: no cover - optional dependency layout
+            continue
+        candidate = getattr(module, attr, None)
+        if isinstance(candidate, type):
+            return candidate
+    raise RuntimeError(f"Unable to locate {attr} in Pydantic modules.")
+
+
+_SECRET_STR_CLS: type[Any] = _secret_class("SecretStr")
+_SECRET_BYTES_CLS: type[Any] = _secret_class("SecretBytes")
