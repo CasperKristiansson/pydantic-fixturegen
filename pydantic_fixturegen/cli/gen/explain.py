@@ -322,11 +322,13 @@ def _strategy_to_payload(
     next_depth = None if remaining_depth is None else remaining_depth - 1
     summary_type = strategy.summary.type
     annotation = strategy.annotation
+    resolution_trace: list[str] = []
     target_model = _resolve_nested_model_type(
         annotation,
         strategy,
         summary_type,
         parent_model=parent_model,
+        trace=resolution_trace,
     )
     if target_model is not None:
         provider_payload["nested_model"] = _collect_model_report(
@@ -342,6 +344,8 @@ def _strategy_to_payload(
             max_depth=next_depth,
             visited=visited,
         )
+    elif resolution_trace:
+        provider_payload["resolution_trace"] = resolution_trace
     return provider_payload
 
 
@@ -445,11 +449,13 @@ def _fallback_strategy_payload(
     }
 
     remaining = None if max_depth is None else max_depth - 1
+    trace: list[str] = []
     candidate_type = _resolve_field_annotation_type(
         annotation,
         field_name=field_name,
         parent_model=parent_model,
         summary_annotation=summary.annotation,
+        trace=trace,
     )
     if isinstance(candidate_type, type) and issubclass(candidate_type, BaseModel):
         payload["nested_model"] = _collect_model_report(
@@ -465,6 +471,8 @@ def _fallback_strategy_payload(
             max_depth=remaining,
             visited=visited,
         )
+    elif trace:
+        payload["resolution_trace"] = trace
     return payload
 
 
@@ -474,12 +482,14 @@ def _resolve_nested_model_type(
     summary_type: str,
     *,
     parent_model: type[BaseModel],
+    trace: list[str] | None = None,
 ) -> type[BaseModel] | None:
     candidate = _resolve_field_annotation_type(
         annotation,
         field_name=strategy.field_name,
         parent_model=parent_model,
         summary_annotation=strategy.summary.annotation,
+        trace=trace,
     )
     if candidate is None:
         return None
@@ -500,18 +510,31 @@ def _resolve_field_annotation_type(
     field_name: str,
     parent_model: type[BaseModel],
     summary_annotation: Any,
+    trace: list[str] | None = None,
 ) -> type[Any] | None:
+    def _record(message: str) -> None:
+        if trace is not None:
+            trace.append(message)
+
+    def _describe(value: Any) -> str:
+        desc = _describe_annotation(value)
+        return desc if desc is not None else repr(value)
+
     candidate = annotation
+    _record(f"initial={_describe(candidate)}")
     if not isinstance(candidate, type) or candidate is Any:
         parent_field = parent_model.model_fields.get(field_name)
         if parent_field is not None:
             candidate = parent_field.annotation
+            _record(f"parent_field={_describe(candidate)}")
     if not isinstance(candidate, type) or candidate is Any:
         candidate = summary_annotation
+        _record(f"summary_annotation={_describe(candidate)}")
     if not isinstance(candidate, type) or candidate is Any:
         raw = getattr(parent_model, "__annotations__", {}).get(field_name)
         if raw is not None:
             candidate = raw
+            _record(f"class_annotation={_describe(candidate)}")
     if not isinstance(candidate, type) or candidate is Any:
         type_hints: Mapping[str, Any] | None = None
         with suppress(Exception), warnings.catch_warnings():
@@ -521,23 +544,30 @@ def _resolve_field_annotation_type(
             hinted = type_hints.get(field_name)
             if hinted is not None:
                 candidate = hinted
+                _record(f"type_hint={_describe(candidate)}")
     resolved = _resolve_runtime_type(candidate)
     if resolved is not None:
         candidate = resolved
+        _record(f"runtime_type={_describe_type(candidate)}")
     if not isinstance(candidate, type) or candidate is Any:
         forward = _resolve_forward_reference(candidate, parent_model)
         if forward is not None:
             candidate = forward
+            _record(f"forward_ref={_describe_type(candidate)}")
     if not isinstance(candidate, type) or candidate is Any:
         cached = _resolve_annotation_via_cache(
             candidate,
             field_name=field_name,
             parent_model=parent_model,
+            trace=trace,
         )
         if cached is not None:
             candidate = cached
+            _record(f"cache_resolved={_describe_type(candidate)}")
     if not isinstance(candidate, type) or candidate is Any:
+        _record("resolution_failed")
         return None
+    _record(f"resolved={_describe_type(candidate)}")
     return candidate
 
 
@@ -546,8 +576,14 @@ def _resolve_annotation_via_cache(
     *,
     field_name: str,
     parent_model: type[BaseModel],
+    trace: list[str] | None = None,
 ) -> type[Any] | None:
+    def _record(message: str) -> None:
+        if trace is not None:
+            trace.append(message)
+
     module_name, target_name = _extract_reference(annotation, parent_model, field_name)
+    _record(f"cache_lookup module={module_name} target={target_name}")
     search_modules: list[str] = []
     if module_name:
         search_modules.append(module_name)
@@ -557,6 +593,7 @@ def _resolve_annotation_via_cache(
     for name in search_modules:
         module = get_cached_module(name) or sys.modules.get(name)
         if module is None:
+            _record(f"cache_module_missing name={name}")
             continue
         attr: Any = module
         parts = (target_name or "").split(".")
@@ -565,10 +602,13 @@ def _resolve_annotation_via_cache(
                 continue
             attr = getattr(attr, part, None)
             if attr is None:
+                _record(f"cache_attr_missing name={name} part={part}")
                 break
         else:
             if isinstance(attr, type):
+                _record(f"cache_hit name={name} resolved={_describe_type(attr)}")
                 return attr
+    _record("cache_miss")
     return None
 
 
