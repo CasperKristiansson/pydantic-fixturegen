@@ -8,6 +8,7 @@ import enum
 import importlib
 import json
 import types
+import warnings
 from collections.abc import Mapping
 from contextlib import suppress
 from dataclasses import dataclass
@@ -476,7 +477,8 @@ def _resolve_nested_model_type(
         candidate = strategy.summary.annotation
     if not isinstance(candidate, type) or candidate is Any:
         type_hints: Mapping[str, Any] | None = None
-        with suppress(Exception):
+        with suppress(Exception), warnings.catch_warnings():
+            warnings.simplefilter("ignore")
             type_hints = get_type_hints(parent_model, include_extras=True)
         if type_hints:
             hinted = type_hints.get(strategy.field_name)
