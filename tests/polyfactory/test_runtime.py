@@ -10,8 +10,15 @@ from pydantic_fixturegen.polyfactory_support import (
     attach_polyfactory_bindings,
     discover_polyfactory_bindings,
 )
+from pydantic_fixturegen.polyfactory_support.discovery import (
+    POLYFACTORY_MODEL_FACTORY,
+    POLYFACTORY_UNAVAILABLE_REASON,
+)
 
 polyfactory = pytest.importorskip("polyfactory")
+if POLYFACTORY_MODEL_FACTORY is None:
+    reason = POLYFACTORY_UNAVAILABLE_REASON or "polyfactory unavailable"
+    pytest.skip(reason)
 polyfactory_factories = pytest.importorskip("polyfactory.factories.pydantic_factory")
 ModelFactory = polyfactory_factories.ModelFactory
 

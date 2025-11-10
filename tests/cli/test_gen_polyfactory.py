@@ -11,6 +11,10 @@ import pytest
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.core.errors import DiscoveryError
 from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult
+from pydantic_fixturegen.polyfactory_support.discovery import (
+    POLYFACTORY_MODEL_FACTORY,
+    POLYFACTORY_UNAVAILABLE_REASON,
+)
 from tests._cli import create_cli_runner
 
 runner = create_cli_runner()
@@ -30,6 +34,9 @@ def _suppress_polyfactory_cli_exit(monkeypatch):
 
 def test_gen_polyfactory_exports_factories(tmp_path: Path) -> None:
     pytest.importorskip("polyfactory")
+    if POLYFACTORY_MODEL_FACTORY is None:
+        reason = POLYFACTORY_UNAVAILABLE_REASON or "polyfactory unavailable"
+        pytest.skip(reason)
 
     module_path = tmp_path / "models.py"
     module_path.write_text(

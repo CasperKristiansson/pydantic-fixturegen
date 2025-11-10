@@ -13,6 +13,10 @@ from pydantic_fixturegen.cli.gen import json as json_mod
 from pydantic_fixturegen.core.config import ConfigError
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError, WatchError
 from pydantic_fixturegen.core.path_template import OutputTemplate
+from pydantic_fixturegen.polyfactory_support.discovery import (
+    POLYFACTORY_MODEL_FACTORY,
+    POLYFACTORY_UNAVAILABLE_REASON,
+)
 from tests._cli import create_cli_runner
 
 runner = create_cli_runner()
@@ -124,6 +128,9 @@ def test_gen_json_prefers_polyfactory_factories(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     pytest.importorskip("polyfactory")
+    if POLYFACTORY_MODEL_FACTORY is None:
+        reason = POLYFACTORY_UNAVAILABLE_REASON or "polyfactory unavailable"
+        pytest.skip(reason)
     monkeypatch.setenv("PFG_POLYFACTORY__ENABLED", "true")
     monkeypatch.setenv("PFG_POLYFACTORY__PREFER_DELEGATION", "true")
     module_path = tmp_path / "models.py"

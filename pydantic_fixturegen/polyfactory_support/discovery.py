@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from ..logging import Logger
 
 POLYFACTORY_MODEL_FACTORY: type[Any] | None
+POLYFACTORY_UNAVAILABLE_REASON: str | None = None
 try:  # pragma: no cover - runtime import with graceful fallback
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -22,7 +23,22 @@ try:  # pragma: no cover - runtime import with graceful fallback
 except Exception:  # pragma: no cover - optional dependency missing
     POLYFACTORY_MODEL_FACTORY = None
 else:
-    POLYFACTORY_MODEL_FACTORY = _RuntimeModelFactory
+    try:
+
+        class _PolyfactoryProbeModel(BaseModel):
+            probe_field: int = 1
+
+        class _PolyfactoryProbeFactory(_RuntimeModelFactory[_PolyfactoryProbeModel]):
+            __model__ = _PolyfactoryProbeModel
+            __check_model__ = False
+
+        _ = _PolyfactoryProbeFactory
+    except Exception as exc:  # pragma: no cover - defensive
+        POLYFACTORY_MODEL_FACTORY = None
+        POLYFACTORY_UNAVAILABLE_REASON = f"polyfactory incompatibility: {exc}"
+    else:
+        POLYFACTORY_MODEL_FACTORY = _RuntimeModelFactory
+        POLYFACTORY_UNAVAILABLE_REASON = None
 
 
 @dataclass(slots=True)
@@ -151,4 +167,9 @@ def _bindings_from_module(module: ModuleType) -> list[PolyfactoryBinding]:
     return bindings
 
 
-__all__ = ["PolyfactoryBinding", "discover_polyfactory_bindings"]
+__all__ = [
+    "PolyfactoryBinding",
+    "discover_polyfactory_bindings",
+    "POLYFACTORY_MODEL_FACTORY",
+    "POLYFACTORY_UNAVAILABLE_REASON",
+]
