@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pydantic-fixturegen"
-version = "1.1.0"
+version = "1.2.0"
 description = "Deterministic fixture generator for Pydantic models."
 requires-python = ">=3.10"
 readme = "README.md"

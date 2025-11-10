@@ -17,3 +17,4 @@ htmlcov/
 dist
 .pfg-cache
 .hypothesis
+.env
