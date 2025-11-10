@@ -15,3 +15,9 @@ warnings.filterwarnings(
     message=(r"The `__get_pydantic_core_schema__` method of the `BaseModel` class is deprecated\."),
     category=Warning,
 )
+
+warnings.filterwarnings(
+    "ignore",
+    message=(r"Core Pydantic V1 functionality isn't compatible with Python 3\.14 or greater\."),
+    category=Warning,
+)
