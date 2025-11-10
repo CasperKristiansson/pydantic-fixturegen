@@ -70,6 +70,8 @@ def iter_route_specs(app: Any) -> Iterable[FastAPIRouteSpec]:
                 continue
             request_model, request_shape = _extract_payload(route.body_field)
             response_model, response_shape = _extract_payload(route.secure_cloned_response_field)
+            if response_model is None and getattr(route, "response_model", None) is not None:
+                response_model, response_shape = _normalize_model(route.response_model)
             yield FastAPIRouteSpec(
                 path=route.path,
                 method=method.upper(),
