@@ -55,6 +55,12 @@ def _exporter() -> _HypothesisStrategyExporter:
     return _HypothesisStrategyExporter(generator=_DummyGenerator(), profile="typical")
 
 
+def _describe_type(value: Any) -> str:
+    type_ = type(value)
+    mro = ", ".join(f"{cls.__module__}.{cls.__qualname__}" for cls in type_.__mro__)
+    return f"{type_.__module__}.{type_.__qualname__} (mro={mro})"
+
+
 def _summary(
     type_id: str,
     *,
@@ -102,8 +108,14 @@ def test_secret_and_path_strategies_generate_expected_wrappers() -> None:
 
     from pydantic import SecretBytes, SecretStr  # local import keeps optional dependency lazy
 
-    assert isinstance(str_value, SecretStr)
-    assert isinstance(bytes_value, SecretBytes)
+    assert isinstance(
+        str_value,
+        SecretStr,
+    ), f"secret-str strategy produced {_describe_type(str_value)}"
+    assert isinstance(
+        bytes_value,
+        SecretBytes,
+    ), f"secret-bytes strategy produced {_describe_type(bytes_value)}"
     assert path_value.suffix in {".json", ".txt", ".log"}
 
 

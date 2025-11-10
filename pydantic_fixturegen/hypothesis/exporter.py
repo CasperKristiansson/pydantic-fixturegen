@@ -11,10 +11,10 @@ import math
 import pathlib
 import string
 import types
+import sys
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Literal, Union, get_args, get_origin
 
-import pydantic
 from pydantic import BaseModel
 
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
@@ -405,46 +405,66 @@ class _HypothesisStrategyExporter:
 
 
 def _build_secret_str(value: str) -> Any:
-    return _SecretStrShim(value)
+    return _instantiate_secret(_SECRET_STR_CLS, value, _SecretStrShim)
 
 
 def _build_secret_bytes(value: bytes) -> Any:
-    return _SecretBytesShim(value)
+    return _instantiate_secret(_SECRET_BYTES_CLS, value, _SecretBytesShim)
 
 
-def _secret_class(attr: str) -> type[Any]:
-    module_candidates = (
-        "pydantic",
-        "pydantic.types",
-        "pydantic.v1",
-        "pydantic.v1.types",
+_SECRET_MODULE_NAMES: tuple[str, ...]
+_module_names: list[str] = [
+    "pydantic.types",
+    "pydantic",
+]
+if sys.version_info < (3, 14):  # pragma: no cover - version-specific import guard
+    _module_names.extend(
+        [
+            "pydantic.v1.types",
+            "pydantic.v1",
+        ]
     )
-    for module_name in module_candidates:
+_module_names.append("pydantic_core._pydantic_core")
+_SECRET_MODULE_NAMES = tuple(_module_names)
+
+
+def _secret_classes(attr: str) -> tuple[type[Any], ...]:
+    classes: list[type[Any]] = []
+    for module_name in _SECRET_MODULE_NAMES:
         try:
             module = importlib.import_module(module_name)
         except ImportError:  # pragma: no cover - optional dependency layout
             continue
         candidate = getattr(module, attr, None)
-        if isinstance(candidate, type):
-            return candidate
-    raise RuntimeError(f"Unable to locate {attr} in Pydantic modules.")
+        if isinstance(candidate, type) and candidate not in classes:
+            classes.append(candidate)
+    if not classes:
+        raise RuntimeError(f"Unable to locate {attr} in Pydantic modules.")
+    return tuple(classes)
 
 
-_SECRET_STR_CLS: type[Any] = _secret_class("SecretStr")
-_SECRET_BYTES_CLS: type[Any] = _secret_class("SecretBytes")
+_SECRET_STR_BASES = _secret_classes("SecretStr")
+_SECRET_BYTES_BASES = _secret_classes("SecretBytes")
+_SECRET_STR_CLS: type[Any] = _SECRET_STR_BASES[0]
+_SECRET_BYTES_CLS: type[Any] = _SECRET_BYTES_BASES[0]
 
 
 def _pin_secret_alias(attr: str, cls: type[Any]) -> None:
-    current = getattr(pydantic, attr, None)
-    if current is not cls:
-        setattr(pydantic, attr, cls)
+    for module_name in _SECRET_MODULE_NAMES:
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError:  # pragma: no cover - optional dependency layout
+            continue
+        current = getattr(module, attr, None)
+        if current is not cls:
+            setattr(module, attr, cls)
 
 
 _pin_secret_alias("SecretStr", _SECRET_STR_CLS)
 _pin_secret_alias("SecretBytes", _SECRET_BYTES_CLS)
 
 
-class _SecretStrShim(_SECRET_STR_CLS):  # type: ignore[misc]
+class _SecretStrShim(*_SECRET_STR_BASES):  # type: ignore[misc]
     def __new__(cls, secret_value: Any) -> Any:
         instance = object.__new__(cls)
         object.__setattr__(instance, "_secret_value", secret_value)
@@ -454,7 +474,7 @@ class _SecretStrShim(_SECRET_STR_CLS):  # type: ignore[misc]
         pass
 
 
-class _SecretBytesShim(_SECRET_BYTES_CLS):  # type: ignore[misc]
+class _SecretBytesShim(*_SECRET_BYTES_BASES):  # type: ignore[misc]
     def __new__(cls, secret_value: Any) -> Any:
         instance = object.__new__(cls)
         object.__setattr__(instance, "_secret_value", secret_value)
@@ -462,3 +482,19 @@ class _SecretBytesShim(_SECRET_BYTES_CLS):  # type: ignore[misc]
 
     def __init__(self, secret_value: Any) -> None:
         pass
+
+
+_SecretStrShim.__module__ = _SECRET_STR_CLS.__module__
+_SecretBytesShim.__module__ = _SECRET_BYTES_CLS.__module__
+
+
+def _instantiate_secret(
+    cls: type[Any],
+    value: Any,
+    shim_cls: type[Any],
+) -> Any:
+    result = cls(value)
+    if isinstance(result, cls):
+        return result
+    secret_value = result.get_secret_value() if hasattr(result, "get_secret_value") else value
+    return shim_cls(secret_value)
