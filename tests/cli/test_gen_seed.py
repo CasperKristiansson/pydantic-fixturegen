@@ -144,7 +144,7 @@ def test_gen_seed_beanie_inserts_documents(tmp_path: Path, monkeypatch: pytest.M
         ],
     )
 
-    assert result.exit_code == 0, result.stdout
+    assert result.exit_code == 0, f"stdout:\n{result.stdout}\n\nstderr:\n{result.stderr}"
 
     async def _fetch() -> int:
         database = fake_client["mockdb"]
