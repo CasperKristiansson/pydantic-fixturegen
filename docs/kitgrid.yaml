@@ -41,78 +41,78 @@ nav:
     children:
       - title: CLI reference
         path: docs/cli.md
-      - title: Command guides
-        path: docs/commands/index.md
-        children:
-          - title: Discovery & auditing
-            path: docs/commands/pfg-list.md
-            children:
-              - title: pfg list
-                path: docs/commands/pfg-list.md
-              - title: pfg doctor
-                path: docs/commands/pfg-doctor.md
-              - title: pfg check
-                path: docs/commands/pfg-check.md
-          - title: Generation
-            path: docs/commands/pfg-gen-json.md
-            children:
-              - title: pfg gen json
-                path: docs/commands/pfg-gen-json.md
-              - title: pfg gen dataset
-                path: docs/commands/pfg-gen-dataset.md
-              - title: pfg gen fixtures
-                path: docs/commands/pfg-gen-fixtures.md
-              - title: pfg gen schema
-                path: docs/commands/pfg-gen-schema.md
-              - title: pfg gen examples
-                path: docs/commands/pfg-gen-examples.md
-              - title: pfg gen openapi
-                path: docs/commands/pfg-gen-openapi.md
-              - title: pfg gen strategies
-                path: docs/commands/pfg-gen-strategies.md
-              - title: pfg gen polyfactory
-                path: docs/commands/pfg-gen-polyfactory.md
-              - title: pfg gen explain
-                path: docs/commands/pfg-gen-explain.md
-              - title: pfg gen seed sqlmodel
-                path: docs/commands/pfg-gen-seed-sqlmodel.md
-              - title: pfg gen seed beanie
-                path: docs/commands/pfg-gen-seed-beanie.md
-          - title: Integrations & sanitization
-            path: docs/commands/pfg-anonymize.md
-            children:
-              - title: pfg anonymize
-                path: docs/commands/pfg-anonymize.md
-              - title: pfg fastapi smoke
-                path: docs/commands/pfg-fastapi-smoke.md
-              - title: pfg fastapi serve
-                path: docs/commands/pfg-fastapi-serve.md
-          - title: Pipelines & CI
-            path: docs/commands/pfg-diff.md
-            children:
-              - title: pfg diff
-                path: docs/commands/pfg-diff.md
-              - title: pfg snapshot verify
-                path: docs/commands/pfg-snapshot-verify.md
-              - title: pfg snapshot write
-                path: docs/commands/pfg-snapshot-write.md
-              - title: pfg lock
-                path: docs/commands/pfg-lock.md
-              - title: pfg verify
-                path: docs/commands/pfg-verify.md
-          - title: Project setup
-            path: docs/commands/pfg-init.md
-            children:
-              - title: pfg init
-                path: docs/commands/pfg-init.md
-              - title: pfg plugin
-                path: docs/commands/pfg-plugin.md
-              - title: pfg schema config
-                path: docs/commands/pfg-schema-config.md
       - title: Cookbook
         path: docs/cookbook.md
       - title: Configuration
         path: docs/configuration.md
+  - title: Command guides
+    path: docs/commands/index.md
+    children:
+      - title: Discovery & auditing
+        path: docs/commands/pfg-list.md
+        children:
+          - title: pfg list
+            path: docs/commands/pfg-list.md
+          - title: pfg doctor
+            path: docs/commands/pfg-doctor.md
+          - title: pfg check
+            path: docs/commands/pfg-check.md
+      - title: Generation
+        path: docs/commands/pfg-gen-json.md
+        children:
+          - title: pfg gen json
+            path: docs/commands/pfg-gen-json.md
+          - title: pfg gen dataset
+            path: docs/commands/pfg-gen-dataset.md
+          - title: pfg gen fixtures
+            path: docs/commands/pfg-gen-fixtures.md
+          - title: pfg gen schema
+            path: docs/commands/pfg-gen-schema.md
+          - title: pfg gen examples
+            path: docs/commands/pfg-gen-examples.md
+          - title: pfg gen openapi
+            path: docs/commands/pfg-gen-openapi.md
+          - title: pfg gen strategies
+            path: docs/commands/pfg-gen-strategies.md
+          - title: pfg gen polyfactory
+            path: docs/commands/pfg-gen-polyfactory.md
+          - title: pfg gen explain
+            path: docs/commands/pfg-gen-explain.md
+          - title: pfg gen seed sqlmodel
+            path: docs/commands/pfg-gen-seed-sqlmodel.md
+          - title: pfg gen seed beanie
+            path: docs/commands/pfg-gen-seed-beanie.md
+      - title: Integrations & sanitization
+        path: docs/commands/pfg-anonymize.md
+        children:
+          - title: pfg anonymize
+            path: docs/commands/pfg-anonymize.md
+          - title: pfg fastapi smoke
+            path: docs/commands/pfg-fastapi-smoke.md
+          - title: pfg fastapi serve
+            path: docs/commands/pfg-fastapi-serve.md
+      - title: Pipelines & CI
+        path: docs/commands/pfg-diff.md
+        children:
+          - title: pfg diff
+            path: docs/commands/pfg-diff.md
+          - title: pfg snapshot verify
+            path: docs/commands/pfg-snapshot-verify.md
+          - title: pfg snapshot write
+            path: docs/commands/pfg-snapshot-write.md
+          - title: pfg lock
+            path: docs/commands/pfg-lock.md
+          - title: pfg verify
+            path: docs/commands/pfg-verify.md
+      - title: Project setup
+        path: docs/commands/pfg-init.md
+        children:
+          - title: pfg init
+            path: docs/commands/pfg-init.md
+          - title: pfg plugin
+            path: docs/commands/pfg-plugin.md
+          - title: pfg schema config
+            path: docs/commands/pfg-schema-config.md
   - title: Generation internals
     path: docs/discovery.md
     children:
