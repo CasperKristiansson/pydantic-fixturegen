@@ -127,10 +127,10 @@ These values apply to both `pfg gen json` and JSONL emission. CLI flags `--inden
 
 ### Pytest emitter settings
 
-| Key     | Type                            | Default     | Description              |
-| ------- | ------------------------------- | ----------- | ------------------------ |
-| `style` | `functions \| factory \| class` | `functions` | Fixture style structure. |
-| `scope` | `function \| module \| session` | `function`  | Default fixture scope.   |
+| Key     | Type                          | Default     | Description              |
+| ------- | ----------------------------- | ----------- | ------------------------ |
+| `style` | `functions \ factory \ class` | `functions` | Fixture style structure. |
+| `scope` | `function \ module \ session` | `function`  | Default fixture scope.   |
 
 Change these values to adjust generated module ergonomics. CLI flags `--style` and `--scope` override them.
 
@@ -153,7 +153,7 @@ Install the optional `pydantic-fixturegen[numpy]` extra to enable array provider
 | `secret_bytes_length` | `int`       | `16`        | Default length for generated `SecretBytes` values.                              |
 | `url_schemes`         | `list[str]` | `["https"]` | Allowed URL schemes used by the identifier provider.                            |
 | `url_include_path`    | `bool`      | `true`      | Include a deterministic path segment when generating URLs.                      |
-| `uuid_version`        | `1 \| 4`    | `4`         | UUID version emitted by the `uuid` provider.                                    |
+| `uuid_version`        | `1 \ 4`     | `4`         | UUID version emitted by the `uuid` provider.                                    |
 | `mask_sensitive`      | `bool`      | `false`     | Mask identifiers with reserved example domains, IPs, and card numbers.          |
 
 Identifier settings apply to `EmailStr`, `HttpUrl`/`AnyUrl`, secret strings/bytes, payment cards, and IP address fields. Values are chosen via the seeded RNG so fixtures remain reproducible across runs.
@@ -164,10 +164,10 @@ Identifier settings apply to `EmailStr`, `HttpUrl`/`AnyUrl`, secret strings/byte
 
 ### Cycle handling
 
-| Key            | Type                    | Default | Description                                                 |
-| -------------- | ----------------------- | ------- | ----------------------------------------------------------- |
-| `max_depth`    | `int`                   | `5`     | Maximum recursion depth before the cycle policy is applied. |
-| `cycle_policy` | `reuse \| stub \| null` | `reuse` | Controls how recursive or cyclic references are resolved.   |
+| Key            | Type                  | Default | Description                                                 |
+| -------------- | --------------------- | ------- | ----------------------------------------------------------- |
+| `max_depth`    | `int`                 | `5`     | Maximum recursion depth before the cycle policy is applied. |
+| `cycle_policy` | `reuse \ stub \ null` | `reuse` | Controls how recursive or cyclic references are resolved.   |
 
 - `reuse` clones an existing instance of the same model (deterministically) so downstream consumers still receive populated data. If no exemplar exists yet, fixturegen falls back to a stub.
 - `stub` emits a minimal instance produced via `model_construct()` / dataclass defaults so schemas remain intact without pretending real data exists.
@@ -190,21 +190,21 @@ When enabled, the engine inspects field names, aliases, constraints, and `Annota
 
 ### Number distribution settings
 
-| Key                      | Type                               | Default     | Description                                                                                    |
-| ------------------------ | ---------------------------------- | ----------- | ---------------------------------------------------------------------------------------------- |
-| `distribution`           | `"uniform" \| "normal" \| "spike"` | `"uniform"` | Base distribution applied to ints/floats/decimals.                                             |
-| `normal_stddev_fraction` | `float`                            | `0.25`      | When `distribution="normal"`, standard deviation expressed as a fraction of the min/max range. |
-| `spike_ratio`            | `float`                            | `0.7`       | For `distribution="spike"`, probability of sampling inside the spike window.                   |
-| `spike_width_fraction`   | `float`                            | `0.1`       | Width of the spike window (fraction of the min/max range).                                     |
+| Key                      | Type                             | Default     | Description                                                                                    |
+| ------------------------ | -------------------------------- | ----------- | ---------------------------------------------------------------------------------------------- |
+| `distribution`           | `"uniform" \ "normal" \ "spike"` | `"uniform"` | Base distribution applied to ints/floats/decimals.                                             |
+| `normal_stddev_fraction` | `float`                          | `0.25`      | When `distribution="normal"`, standard deviation expressed as a fraction of the min/max range. |
+| `spike_ratio`            | `float`                          | `0.7`       | For `distribution="spike"`, probability of sampling inside the spike window.                   |
+| `spike_width_fraction`   | `float`                          | `0.1`       | Width of the spike window (fraction of the min/max range).                                     |
 
 `normal` sampling is truncated to the configured bounds so values remain deterministic. `spike` mode biases generation toward the midpoint (`spike_ratio` chance) while occasionally falling back to uniform sampling to explore outliers.
 
 ### Path settings
 
-| Key          | Type                                       | Default   | Description                                                      |
-| ------------ | ------------------------------------------ | --------- | ---------------------------------------------------------------- |
-| `default_os` | `"posix" \| "windows" \| "mac"`            | `"posix"` | Baseline OS flavour applied to generated filesystem paths.       |
-| `models`     | `dict[str, "posix" \| "windows" \| "mac"]` | `{}`      | Override the target OS for matching model names (glob patterns). |
+| Key          | Type                                     | Default   | Description                                                      |
+| ------------ | ---------------------------------------- | --------- | ---------------------------------------------------------------- |
+| `default_os` | `"posix" \ "windows" \ "mac"`            | `"posix"` | Baseline OS flavour applied to generated filesystem paths.       |
+| `models`     | `dict[str, "posix" \ "windows" \ "mac"]` | `{}`      | Override the target OS for matching model names (glob patterns). |
 
 Path settings cover `pathlib.Path`, `pydantic.DirectoryPath`, and `pydantic.FilePath` fields so fixtures can mimic Windows drive letters, macOS bundles, or POSIX roots regardless of the host platform.
 

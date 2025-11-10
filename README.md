@@ -68,16 +68,16 @@ All commands → [docs/cli.md](https://github.com/CasperKristiansson/pydantic-fi
 
 <a id="configuration-precedence"></a>
 
-| key                   | type               | default   | purpose       |
-| --------------------- | ------------------ | --------- | ------------- |
-| seed                  | int \| str \| null | null      | Global seed   |
-| locale                | str                | en_US     | Faker locale  |
-| union_policy          | enum               | first     | Union branch  |
-| enum_policy           | enum               | first     | Enum choice   |
-| json.indent           | int                | 2         | Pretty JSON   |
-| json.orjson           | bool               | false     | Fast JSON     |
-| emitters.pytest.style | enum               | functions | Fixture style |
-| emitters.pytest.scope | enum               | function  | Fixture scope |
+| key                   | type             | default   | purpose       |
+| --------------------- | ---------------- | --------- | ------------- |
+| seed                  | int \ str \ null | null      | Global seed   |
+| locale                | str              | en_US     | Faker locale  |
+| union_policy          | enum             | first     | Union branch  |
+| enum_policy           | enum             | first     | Enum choice   |
+| json.indent           | int              | 2         | Pretty JSON   |
+| json.orjson           | bool             | false     | Fast JSON     |
+| emitters.pytest.style | enum             | functions | Fixture style |
+| emitters.pytest.scope | enum             | function  | Fixture scope |
 
 ```toml
 [tool.pydantic_fixturegen]
