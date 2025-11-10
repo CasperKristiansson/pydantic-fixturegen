@@ -6,6 +6,7 @@ from pathlib import Path
 
 import typer
 
+from pydantic_fixturegen._warnings import apply_warning_filters
 from pydantic_fixturegen.api._runtime import generate_schema_artifacts
 from pydantic_fixturegen.api.models import SchemaGenerationResult
 from pydantic_fixturegen.core.config import ConfigError
@@ -82,6 +83,7 @@ def register(app: typer.Typer) -> None:
         watch_debounce: float = WATCH_DEBOUNCE_OPTION,
         profile: str | None = PROFILE_OPTION,
     ) -> None:
+        apply_warning_filters()
         logger = get_logger()
 
         try:

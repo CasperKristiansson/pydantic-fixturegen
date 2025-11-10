@@ -8,6 +8,8 @@
 
 Generate deterministic Pydantic v2 data, pytest fixtures, and JSON quickly with a safe, task-focused CLI built for modern testing workflows.
 
+📘 Read the full docs and examples at [pydantic-fixturegen.kitgrid.dev](https://pydantic-fixturegen.kitgrid.dev/).
+
 ## Why
 
 <a id="why"></a>
