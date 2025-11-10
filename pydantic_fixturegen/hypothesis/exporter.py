@@ -414,8 +414,8 @@ def _build_secret_bytes(value: bytes) -> Any:
 
 _SECRET_MODULE_NAMES: tuple[str, ...]
 _module_names: list[str] = [
-    "pydantic.types",
     "pydantic",
+    "pydantic.types",
 ]
 if sys.version_info < (3, 14):  # pragma: no cover - version-specific import guard
     _module_names.extend(
