@@ -457,7 +457,9 @@ def _fallback_strategy_payload(
         summary_annotation=summary.annotation,
         trace=trace,
     )
-    if isinstance(candidate_type, type) and issubclass(candidate_type, BaseModel):
+    if isinstance(candidate_type, type) and (
+        _is_subclass(candidate_type, BaseModel) or hasattr(candidate_type, "model_fields")
+    ):
         payload["provider"] = "model"
         payload["summary_type"] = "model"
         payload["annotation"] = _describe_type(candidate_type)
@@ -490,6 +492,10 @@ def _resolve_nested_model_type(
     parent_model: type[BaseModel],
     trace: list[str] | None = None,
 ) -> type[BaseModel] | None:
+    def _record(message: str) -> None:
+        if trace is not None:
+            trace.append(message)
+
     candidate = _resolve_field_annotation_type(
         annotation,
         field_name=strategy.field_name,
@@ -498,14 +504,15 @@ def _resolve_nested_model_type(
         trace=trace,
     )
     if candidate is None:
+        _record("candidate_none")
         return None
-    try:
-        if issubclass(candidate, BaseModel):
-            return candidate
-    except TypeError:
-        return None
+    if _is_subclass(candidate, BaseModel):
+        _record(f"issubclass={_describe_type(candidate)}")
+        return candidate
     if hasattr(candidate, "model_fields"):
+        _record(f"using_model_fields={_describe_type(candidate)}")
         return cast(type[BaseModel], candidate)
+    _record(f"not_a_model={_describe_type(candidate)}")
     return None
 
 
