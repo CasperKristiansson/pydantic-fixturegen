@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+import warnings
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from types import ModuleType
@@ -15,7 +16,9 @@ from ..logging import Logger
 
 POLYFACTORY_MODEL_FACTORY: type[Any] | None
 try:  # pragma: no cover - runtime import with graceful fallback
-    from polyfactory.factories.pydantic_factory import ModelFactory as _RuntimeModelFactory
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        from polyfactory.factories.pydantic_factory import ModelFactory as _RuntimeModelFactory
 except Exception:  # pragma: no cover - optional dependency missing
     POLYFACTORY_MODEL_FACTORY = None
 else:

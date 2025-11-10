@@ -11,7 +11,7 @@ import types
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any, ForwardRef, Union, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, ForwardRef, Union, cast, get_args, get_origin, get_type_hints
 
 import typer
 from pydantic import BaseModel
@@ -488,7 +488,8 @@ def _resolve_nested_model_type(
     except TypeError:
         return None
     if strategy.provider_name == "model" and hasattr(candidate, "model_fields"):
-        return candidate  # fallback model compiled outside BaseModel hierarchy
+        # fallback model compiled outside BaseModel hierarchy
+        return cast(type[BaseModel], candidate)
     return None
 
 
