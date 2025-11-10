@@ -504,8 +504,7 @@ def _resolve_nested_model_type(
             return candidate
     except TypeError:
         return None
-    if strategy.provider_name == "model" and hasattr(candidate, "model_fields"):
-        # fallback model compiled outside BaseModel hierarchy
+    if hasattr(candidate, "model_fields"):
         return cast(type[BaseModel], candidate)
     return None
 
