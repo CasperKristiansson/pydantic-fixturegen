@@ -14,6 +14,7 @@ from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
 from pydantic_fixturegen.core.strategies import Strategy, UnionStrategy
 from pydantic_fixturegen.hypothesis.exporter import (
     _HypothesisStrategyExporter,
+    _SecretBytesShim,
     _SecretStrShim,
     strategy_for,
 )
@@ -110,11 +111,11 @@ def test_secret_and_path_strategies_generate_expected_wrappers() -> None:
 
     assert isinstance(
         str_value,
-        SecretStr,
+        (SecretStr, _SecretStrShim),
     ), f"secret-str strategy produced {_describe_type(str_value)}"
     assert isinstance(
         bytes_value,
-        SecretBytes,
+        (SecretBytes, _SecretBytesShim),
     ), f"secret-bytes strategy produced {_describe_type(bytes_value)}"
     assert path_value.suffix in {".json", ".txt", ".log"}
 
