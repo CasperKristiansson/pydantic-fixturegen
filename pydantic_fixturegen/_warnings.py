@@ -14,6 +14,10 @@ WARNING_PATTERNS: tuple[tuple[str, type[Warning]], ...] = (
         Warning,
     ),
     (r"ForwardRef\._evaluate is a private API.*", Warning),
+    (
+        r"Accessing the 'model_fields' attribute on the instance is deprecated\.",
+        Warning,
+    ),
 )
 
 
