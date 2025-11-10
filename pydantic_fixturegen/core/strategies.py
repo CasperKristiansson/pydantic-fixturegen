@@ -51,6 +51,20 @@ class UnionStrategy:
 StrategyResult = Strategy | UnionStrategy
 
 
+def _describe_annotation(annotation: Any) -> str:
+    if annotation is None:
+        return "None"
+    if isinstance(annotation, type):
+        module = getattr(annotation, "__module__", "<unknown>")
+        qualname = getattr(
+            annotation,
+            "__qualname__",
+            getattr(annotation, "__name__", repr(annotation)),
+        )
+        return f"{module}.{qualname}"
+    return repr(annotation)
+
+
 class StrategyBuilder:
     """Builds provider strategies for Pydantic models."""
 
@@ -200,8 +214,21 @@ class StrategyBuilder:
         if provider is None and summary.type == "string":
             provider = self.registry.get("string")
         if provider is None:
+            annotation_label = _describe_annotation(summary.annotation)
+            field_annotation_label = (
+                _describe_annotation(field_info.annotation) if field_info else None
+            )
+            model_label = f"{model.__module__}.{model.__qualname__}"
+            context_bits = [
+                f"model={model_label}",
+                f"annotation={annotation_label}",
+            ]
+            if field_annotation_label and field_annotation_label != annotation_label:
+                context_bits.append(f"field_annotation={field_annotation_label}")
+            context = "; ".join(context_bits)
             raise ValueError(
-                f"No provider registered for field '{field_name}' with type '{summary.type}'."
+                f"No provider registered for field '{field_name}' with type '{summary.type}'. "
+                f"{context}"
             )
 
         p_none = self.default_p_none
