@@ -234,6 +234,7 @@ def _collect_model_report(
                 builder=builder,
                 max_depth=max_depth,
                 visited=visited,
+                parent_model=model_cls,
             )
         else:
             field_report["strategy"] = _strategy_to_payload(
@@ -429,6 +430,7 @@ def _fallback_strategy_payload(
     builder: StrategyBuilder,
     max_depth: int | None,
     visited: set[type[Any]],
+    parent_model: type[BaseModel],
 ) -> dict[str, Any] | None:
     annotation = summary.annotation
     payload: dict[str, Any] = {
@@ -441,19 +443,22 @@ def _fallback_strategy_payload(
     }
 
     remaining = None if max_depth is None else max_depth - 1
-    resolved_annotation = annotation
-    if isinstance(resolved_annotation, type):
-        resolved_annotation = _resolve_runtime_type(resolved_annotation) or resolved_annotation
-    if isinstance(resolved_annotation, type) and issubclass(resolved_annotation, BaseModel):
+    candidate_type = _resolve_field_annotation_type(
+        annotation,
+        field_name=field_name,
+        parent_model=parent_model,
+        summary_annotation=summary.annotation,
+    )
+    if isinstance(candidate_type, type) and issubclass(candidate_type, BaseModel):
         payload["nested_model"] = _collect_model_report(
-            resolved_annotation,
+            candidate_type,
             builder=builder,
             max_depth=remaining,
             visited=visited,
         )
-    elif summary.type == "dataclass" and isinstance(resolved_annotation, type):
+    elif summary.type == "dataclass" and isinstance(candidate_type, type):
         payload["nested_model"] = _collect_dataclass_report(
-            resolved_annotation,
+            candidate_type,
             builder=builder,
             max_depth=remaining,
             visited=visited,
@@ -468,15 +473,41 @@ def _resolve_nested_model_type(
     *,
     parent_model: type[BaseModel],
 ) -> type[BaseModel] | None:
+    candidate = _resolve_field_annotation_type(
+        annotation,
+        field_name=strategy.field_name,
+        parent_model=parent_model,
+        summary_annotation=strategy.summary.annotation,
+    )
+    if candidate is None:
+        return None
+    try:
+        if issubclass(candidate, BaseModel):
+            return candidate
+    except TypeError:
+        return None
+    if strategy.provider_name == "model" and hasattr(candidate, "model_fields"):
+        # fallback model compiled outside BaseModel hierarchy
+        return cast(type[BaseModel], candidate)
+    return None
+
+
+def _resolve_field_annotation_type(
+    annotation: Any,
+    *,
+    field_name: str,
+    parent_model: type[BaseModel],
+    summary_annotation: Any,
+) -> type[Any] | None:
     candidate = annotation
     if not isinstance(candidate, type) or candidate is Any:
-        parent_field = parent_model.model_fields.get(strategy.field_name)
+        parent_field = parent_model.model_fields.get(field_name)
         if parent_field is not None:
             candidate = parent_field.annotation
     if not isinstance(candidate, type) or candidate is Any:
-        candidate = strategy.summary.annotation
+        candidate = summary_annotation
     if not isinstance(candidate, type) or candidate is Any:
-        raw = getattr(parent_model, "__annotations__", {}).get(strategy.field_name)
+        raw = getattr(parent_model, "__annotations__", {}).get(field_name)
         if raw is not None:
             candidate = raw
     if not isinstance(candidate, type) or candidate is Any:
@@ -485,7 +516,7 @@ def _resolve_nested_model_type(
             warnings.simplefilter("ignore")
             type_hints = get_type_hints(parent_model, include_extras=True)
         if type_hints:
-            hinted = type_hints.get(strategy.field_name)
+            hinted = type_hints.get(field_name)
             if hinted is not None:
                 candidate = hinted
     resolved = _resolve_runtime_type(candidate)
@@ -497,15 +528,7 @@ def _resolve_nested_model_type(
             candidate = forward
     if not isinstance(candidate, type) or candidate is Any:
         return None
-    try:
-        if issubclass(candidate, BaseModel):
-            return candidate
-    except TypeError:
-        return None
-    if strategy.provider_name == "model" and hasattr(candidate, "model_fields"):
-        # fallback model compiled outside BaseModel hierarchy
-        return cast(type[BaseModel], candidate)
-    return None
+    return candidate
 
 
 def _summary_to_payload(summary: FieldSummary) -> dict[str, Any]:
