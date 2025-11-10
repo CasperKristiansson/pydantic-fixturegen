@@ -94,7 +94,7 @@ def test_gen_seed_sqlmodel_rollback(tmp_path: Path) -> None:
         ],
     )
 
-    assert result.exit_code == 0, result.stdout
+    assert result.exit_code == 0, f"stdout:\n{result.stdout}\n\nstderr:\n{result.stderr}"
 
     engine = create_engine(database_url)
     with engine.connect() as conn:
