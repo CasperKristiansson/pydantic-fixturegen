@@ -331,7 +331,7 @@ def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None
             return "date", None, None
         if issubclass(annotation, datetime.time):
             return "time", None, None
-        if issubclass(annotation, BaseModel):
+        if _looks_like_pydantic_model(annotation):
             return "model", None, None
         scalar_map = {
             bool: "bool",
@@ -371,6 +371,17 @@ def _match_path_annotation(annotation: type[Any]) -> tuple[str, str | None, Any 
             return "path", None, None
 
     return None
+
+
+def _looks_like_pydantic_model(annotation: Any) -> bool:
+    if not isinstance(annotation, type):
+        return False
+    try:
+        if issubclass(annotation, BaseModel):
+            return True
+    except TypeError:
+        pass
+    return hasattr(annotation, "model_fields") or hasattr(annotation, "__fields__")
 
 
 def _resolve_numpy_dtype_name(arg: Any) -> str | None:
