@@ -10,17 +10,43 @@ from pydantic_fixturegen.polyfactory_support import (
     attach_polyfactory_bindings,
     discover_polyfactory_bindings,
 )
-from pydantic_fixturegen.polyfactory_support.discovery import (
-    POLYFACTORY_MODEL_FACTORY,
-    POLYFACTORY_UNAVAILABLE_REASON,
-)
+from pydantic_fixturegen.polyfactory_support import discovery as discovery_mod
+from pydantic_fixturegen.polyfactory_support.discovery import POLYFACTORY_MODEL_FACTORY
 
-polyfactory = pytest.importorskip("polyfactory")
-if POLYFACTORY_MODEL_FACTORY is None:
-    reason = POLYFACTORY_UNAVAILABLE_REASON or "polyfactory unavailable"
-    pytest.skip(reason)
-polyfactory_factories = pytest.importorskip("polyfactory.factories.pydantic_factory")
-ModelFactory = polyfactory_factories.ModelFactory
+
+class _FallbackModelFactory:
+    """Minimal stand-in used when polyfactory isn't available."""
+
+    __check_model__ = False
+
+    def __class_getitem__(cls, _item):  # pragma: no cover - typing convenience
+        return cls
+
+    @classmethod
+    def seed_random(cls, seed: int | None) -> None:  # pragma: no cover - stateful no-op
+        cls._seed = seed  # type: ignore[attr-defined]
+
+    @classmethod
+    def build(cls):
+        model = getattr(cls, "__model__", None)
+        if model is None:
+            raise RuntimeError("Fallback factories require a __model__ attribute.")
+        return model()
+
+
+ModelFactory = POLYFACTORY_MODEL_FACTORY or _FallbackModelFactory
+
+
+@pytest.fixture(autouse=True)
+def _patch_discovery_model_factory(monkeypatch: pytest.MonkeyPatch) -> None:
+    if POLYFACTORY_MODEL_FACTORY is not None:
+        return
+    monkeypatch.setattr(
+        discovery_mod,
+        "POLYFACTORY_MODEL_FACTORY",
+        ModelFactory,
+        raising=False,
+    )
 
 
 class _FakeLogger:

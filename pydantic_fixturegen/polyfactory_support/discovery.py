@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 import sys
 import warnings
 from collections.abc import Iterable, Sequence
@@ -13,6 +14,13 @@ from typing import Any
 from pydantic import BaseModel
 
 from ..logging import Logger
+
+
+def _env_flag(name: str) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _polyfactory_supports_pydantic(factory_cls: type[Any]) -> bool:
@@ -31,23 +39,34 @@ def _polyfactory_supports_pydantic(factory_cls: type[Any]) -> bool:
     return True
 
 
+_POLYFACTORY_PY314_BLOCKED = sys.version_info >= (3, 14) and not _env_flag(
+    "PFG_POLYFACTORY__ALLOW_PY314"
+)
+
 POLYFACTORY_MODEL_FACTORY: type[Any] | None
 POLYFACTORY_UNAVAILABLE_REASON: str | None = None
-try:  # pragma: no cover - runtime import with graceful fallback
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        from polyfactory.factories.pydantic_factory import ModelFactory as _RuntimeModelFactory
-except Exception:  # pragma: no cover - optional dependency missing
+
+if _POLYFACTORY_PY314_BLOCKED:
     POLYFACTORY_MODEL_FACTORY = None
+    POLYFACTORY_UNAVAILABLE_REASON = (
+        "polyfactory disabled on Python 3.14+: upstream relies on unsupported Pydantic v1 APIs."
+    )
 else:
-    if not _polyfactory_supports_pydantic(_RuntimeModelFactory):
+    try:  # pragma: no cover - runtime import with graceful fallback
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            from polyfactory.factories.pydantic_factory import ModelFactory as _RuntimeModelFactory
+    except Exception:  # pragma: no cover - optional dependency missing
         POLYFACTORY_MODEL_FACTORY = None
-        POLYFACTORY_UNAVAILABLE_REASON = (
-            "polyfactory incompatibility: ModelFactory rejected Pydantic BaseModel types."
-        )
     else:
-        POLYFACTORY_MODEL_FACTORY = _RuntimeModelFactory
-        POLYFACTORY_UNAVAILABLE_REASON = None
+        if not _polyfactory_supports_pydantic(_RuntimeModelFactory):
+            POLYFACTORY_MODEL_FACTORY = None
+            POLYFACTORY_UNAVAILABLE_REASON = (
+                "polyfactory incompatibility: ModelFactory rejected Pydantic BaseModel types."
+            )
+        else:
+            POLYFACTORY_MODEL_FACTORY = _RuntimeModelFactory
+            POLYFACTORY_UNAVAILABLE_REASON = None
 
 
 @dataclass(slots=True)
