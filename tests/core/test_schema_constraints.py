@@ -222,7 +222,7 @@ def test_summarize_field_for_email() -> None:
         email: EmailStr
 
     summary = schema_module.summarize_model_fields(ContactModel)
-    assert summary["email"].type == "email"
+    assert summary["email"].type == "email", f"annotation={summary['email'].annotation!r}"
 
 
 def test_summarize_field_for_ip_address() -> None:
