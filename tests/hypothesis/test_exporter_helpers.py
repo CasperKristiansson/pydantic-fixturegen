@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from typing import Any, Literal
 
 import pytest
+from hypothesis.errors import HypothesisDeprecationWarning, NonInteractiveExampleWarning
 from pydantic import BaseModel, SecretBytes, SecretStr
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
 from pydantic_fixturegen.core.strategies import Strategy, UnionStrategy
@@ -19,15 +20,10 @@ from pydantic_fixturegen.hypothesis.exporter import (
     strategy_for,
 )
 
-try:  # pragma: no cover - optional dependency
-    from hypothesis.errors import HypothesisDeprecationWarning, NonInteractiveExampleWarning
+from hypothesis import strategies as st
 
-    from hypothesis import strategies as st
-
-    warnings.filterwarnings("ignore", category=HypothesisDeprecationWarning)
-    WARNING_TYPES = (NonInteractiveExampleWarning, HypothesisDeprecationWarning)
-except ModuleNotFoundError:  # pragma: no cover - optional dependency
-    pytest.skip("hypothesis is not installed", allow_module_level=True)
+warnings.filterwarnings("ignore", category=HypothesisDeprecationWarning)
+WARNING_TYPES = (NonInteractiveExampleWarning, HypothesisDeprecationWarning)
 
 
 class _DummyGenerator:

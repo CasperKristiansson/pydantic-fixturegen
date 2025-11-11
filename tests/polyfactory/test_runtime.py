@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import pytest
 from pydantic import BaseModel
+from pydantic.warnings import PydanticDeprecatedSince20
 from pydantic_fixturegen.core.generate import InstanceGenerator
 from pydantic_fixturegen.polyfactory_support import (
     PolyfactoryBinding,
@@ -12,6 +14,12 @@ from pydantic_fixturegen.polyfactory_support import (
 )
 from pydantic_fixturegen.polyfactory_support import discovery as discovery_mod
 from pydantic_fixturegen.polyfactory_support.discovery import POLYFACTORY_MODEL_FACTORY
+
+warnings.filterwarnings(
+    "ignore",
+    message=r"The `update_forward_refs` method is deprecated; use `model_rebuild` instead\..*",
+    category=PydanticDeprecatedSince20,
+)
 
 
 class _FallbackModelFactory:

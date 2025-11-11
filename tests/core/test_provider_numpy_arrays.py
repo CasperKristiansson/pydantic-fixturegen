@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 import pytest
 from pydantic_fixturegen.core.config import ArrayConfig
 from pydantic_fixturegen.core.providers import numpy_arrays
@@ -30,7 +31,6 @@ def test_numpy_dependency_required(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_numpy_rng_is_required(monkeypatch: pytest.MonkeyPatch) -> None:
-    np = pytest.importorskip("numpy")
     monkeypatch.setattr(numpy_arrays, "_np", np, raising=False)
     summary = _make_summary("float32")
     array_config = ArrayConfig(dtypes=("float32",))
@@ -45,7 +45,6 @@ def test_numpy_rng_is_required(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_random_generator_required(monkeypatch: pytest.MonkeyPatch) -> None:
-    np = pytest.importorskip("numpy")
     monkeypatch.setattr(numpy_arrays, "_np", np, raising=False)
     summary = _make_summary("float32")
     array_config = ArrayConfig(dtypes=("float32",))
@@ -60,7 +59,6 @@ def test_random_generator_required(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_integer_dtype_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    np = pytest.importorskip("numpy")
     monkeypatch.setattr(numpy_arrays, "_np", np, raising=False)
     summary = _make_summary("int32")
     array_config = ArrayConfig(max_elements=16, dtypes=("int32",))
@@ -78,7 +76,6 @@ def test_integer_dtype_path(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_boolean_dtype_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    np = pytest.importorskip("numpy")
     monkeypatch.setattr(numpy_arrays, "_np", np, raising=False)
     summary = _make_summary("bool")
     array_config = ArrayConfig(dtypes=("bool",))
@@ -95,7 +92,6 @@ def test_boolean_dtype_path(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_fallback_dtype_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    np = pytest.importorskip("numpy")
     monkeypatch.setattr(numpy_arrays, "_np", np, raising=False)
     summary = _make_summary("complex64")
     array_config = ArrayConfig(dtypes=("complex64",))

@@ -2,59 +2,21 @@ from __future__ import annotations
 
 import random
 
-import pytest
+from pydantic_extra_types.color import Color
+from pydantic_extra_types.domain import DomainStr
+from pydantic_extra_types.epoch import Number as EpochNumber
+from pydantic_extra_types.isbn import ISBN
+from pydantic_extra_types.mac_address import MacAddress
+from pydantic_extra_types.s3 import S3Path
+from pydantic_extra_types.semantic_version import SemanticVersion
+from pydantic_extra_types.timezone_name import TimeZoneName
+from pydantic_extra_types.ulid import ULID
 from pydantic_fixturegen.core import schema as schema_module
 from pydantic_fixturegen.core.providers import create_default_registry
 from pydantic_fixturegen.core.providers import extra_types as extra_mod
 from pydantic_fixturegen.core.schema import FieldConstraints
 
-try:
-    from pydantic_extra_types.color import Color
-except (ModuleNotFoundError, RuntimeError):  # pragma: no cover - optional dependency not installed
-    Color = None  # type: ignore[assignment]
 
-try:
-    from pydantic_extra_types.domain import DomainStr
-except (ModuleNotFoundError, RuntimeError):  # pragma: no cover - optional dependency not installed
-    DomainStr = None  # type: ignore[assignment]
-
-try:
-    from pydantic_extra_types.epoch import Number as EpochNumber
-except (ModuleNotFoundError, RuntimeError):  # pragma: no cover - optional dependency not installed
-    EpochNumber = None  # type: ignore[assignment]
-
-try:
-    from pydantic_extra_types.isbn import ISBN
-except (ModuleNotFoundError, RuntimeError):  # pragma: no cover - optional dependency not installed
-    ISBN = None  # type: ignore[assignment]
-
-try:
-    from pydantic_extra_types.mac_address import MacAddress
-except (ModuleNotFoundError, RuntimeError):  # pragma: no cover - optional dependency not installed
-    MacAddress = None  # type: ignore[assignment]
-
-try:
-    from pydantic_extra_types.semantic_version import SemanticVersion
-except (ModuleNotFoundError, RuntimeError):  # pragma: no cover - optional dependency not installed
-    SemanticVersion = None  # type: ignore[assignment]
-
-try:
-    from pydantic_extra_types.s3 import S3Path
-except (ModuleNotFoundError, RuntimeError):  # pragma: no cover - optional dependency not installed
-    S3Path = None  # type: ignore[assignment]
-
-try:
-    from pydantic_extra_types.timezone_name import TimeZoneName
-except (ModuleNotFoundError, RuntimeError):  # pragma: no cover - optional dependency not installed
-    TimeZoneName = None  # type: ignore[assignment]
-
-try:
-    from pydantic_extra_types.ulid import ULID
-except (ModuleNotFoundError, RuntimeError):  # pragma: no cover - optional dependency not installed
-    ULID = None  # type: ignore[assignment]
-
-
-@pytest.mark.skipif(Color is None, reason="pydantic-extra-types[color] not available")
 def test_color_provider_generates_hex() -> None:
     registry = create_default_registry(load_plugins=False)
     provider = registry.get("color")
@@ -67,7 +29,6 @@ def test_color_provider_generates_hex() -> None:
     assert len(value) in (7, 9)
 
 
-@pytest.mark.skipif(S3Path is None, reason="pydantic-extra-types[s3] not available")
 def test_s3_path_provider_generates_prefixed_uri() -> None:
     registry = create_default_registry(load_plugins=False)
     provider = registry.get("s3-path")
@@ -80,7 +41,6 @@ def test_s3_path_provider_generates_prefixed_uri() -> None:
     assert "/" in value[len("s3://") :]
 
 
-@pytest.mark.skipif(DomainStr is None, reason="pydantic-extra-types[domain] not available")
 def test_domain_provider_generates_hostname() -> None:
     registry = create_default_registry(load_plugins=False)
     provider = registry.get("domain")
@@ -92,7 +52,6 @@ def test_domain_provider_generates_hostname() -> None:
     assert value.endswith((".com", ".net", ".io", ".dev"))
 
 
-@pytest.mark.skipif(EpochNumber is None, reason="pydantic-extra-types[epoch] not available")
 def test_epoch_number_provider_returns_seconds() -> None:
     registry = create_default_registry(load_plugins=False)
     provider = registry.get("epoch-number")
@@ -104,7 +63,6 @@ def test_epoch_number_provider_returns_seconds() -> None:
     assert value >= 0
 
 
-@pytest.mark.skipif(ISBN is None, reason="pydantic-extra-types[isbn] not available")
 def test_isbn_provider_returns_string() -> None:
     registry = create_default_registry(load_plugins=False)
     provider = registry.get("isbn")
@@ -116,7 +74,6 @@ def test_isbn_provider_returns_string() -> None:
     assert len(value) == 13
 
 
-@pytest.mark.skipif(MacAddress is None, reason="pydantic-extra-types[mac_address] not available")
 def test_mac_address_provider_returns_hex_pairs() -> None:
     registry = create_default_registry(load_plugins=False)
     provider = registry.get("mac-address")
@@ -128,9 +85,6 @@ def test_mac_address_provider_returns_hex_pairs() -> None:
     assert value.count(":") == 5
 
 
-@pytest.mark.skipif(
-    SemanticVersion is None, reason="pydantic-extra-types[semantic_version] not available"
-)
 def test_semantic_version_provider_returns_version_string() -> None:
     registry = create_default_registry(load_plugins=False)
     provider = registry.get("semantic-version")
@@ -142,9 +96,6 @@ def test_semantic_version_provider_returns_version_string() -> None:
     assert value.count(".") == 2
 
 
-@pytest.mark.skipif(
-    TimeZoneName is None, reason="pydantic-extra-types[timezone_name] not available"
-)
 def test_timezone_name_provider_returns_region() -> None:
     registry = create_default_registry(load_plugins=False)
     provider = registry.get("timezone-name")
@@ -156,7 +107,6 @@ def test_timezone_name_provider_returns_region() -> None:
     assert "/" in value or value == "UTC"
 
 
-@pytest.mark.skipif(ULID is None, reason="pydantic-extra-types[ulid] not available")
 def test_ulid_provider_returns_base32_string() -> None:
     registry = create_default_registry(load_plugins=False)
     provider = registry.get("ulid")

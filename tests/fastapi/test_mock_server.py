@@ -7,17 +7,13 @@ from typing import Any
 
 import pytest
 from pydantic import BaseModel
-
-try:  # pragma: no cover - optional dependency
-    import fastapi  # type: ignore  # noqa: F401
-except ModuleNotFoundError:  # pragma: no cover - optional dependency
-    pytest.skip("fastapi is not installed", allow_module_level=True)
-
 from pydantic_fixturegen.fastapi_support.loader import FastAPIRouteSpec
 from pydantic_fixturegen.fastapi_support.mock import (
     _build_response_factory,
     build_mock_app,
 )
+
+from fastapi import FastAPI  # noqa: F401
 
 
 class _DummyGenerator:

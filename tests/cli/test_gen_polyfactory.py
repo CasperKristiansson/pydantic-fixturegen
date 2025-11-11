@@ -3,11 +3,13 @@ from __future__ import annotations
 import builtins
 import importlib
 import sys
+import warnings
 from pathlib import Path
 from types import ModuleType
 
 import pydantic_fixturegen.cli.gen.polyfactory as poly_cli
 import pytest
+from pydantic.warnings import PydanticDeprecatedSince20
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.core.errors import DiscoveryError
 from pydantic_fixturegen.core.introspect import IntrospectedModel, IntrospectionResult
@@ -16,6 +18,8 @@ from pydantic_fixturegen.polyfactory_support.discovery import (
     POLYFACTORY_UNAVAILABLE_REASON,
 )
 from tests._cli import create_cli_runner
+
+import polyfactory  # noqa: F401
 
 runner = create_cli_runner()
 
@@ -33,10 +37,9 @@ def _suppress_polyfactory_cli_exit(monkeypatch):
 
 
 def test_gen_polyfactory_exports_factories(tmp_path: Path) -> None:
-    pytest.importorskip("polyfactory")
-    if POLYFACTORY_MODEL_FACTORY is None:
-        reason = POLYFACTORY_UNAVAILABLE_REASON or "polyfactory unavailable"
-        pytest.skip(reason)
+    assert POLYFACTORY_MODEL_FACTORY is not None, (
+        POLYFACTORY_UNAVAILABLE_REASON or "polyfactory unavailable"
+    )
 
     module_path = tmp_path / "models.py"
     module_path.write_text(
@@ -68,7 +71,9 @@ class User(BaseModel):
 
     sys.path.insert(0, str(tmp_path))
     try:
-        module = importlib.import_module("factories")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=PydanticDeprecatedSince20)
+            module = importlib.import_module("factories")
         assert hasattr(module, "UserFactory")
         factory = module.UserFactory
         instance = factory.build()

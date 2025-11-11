@@ -18,8 +18,6 @@ from pydantic_fixturegen.core.config import (
 )
 from pydantic_fixturegen.core.seed import DEFAULT_LOCALE
 
-HAS_YAML = config_mod.yaml is not None
-
 
 def test_default_configuration(tmp_path: Path) -> None:
     config = load_config(root=tmp_path)
@@ -103,8 +101,8 @@ def test_disable_heuristics_via_config(tmp_path: Path) -> None:
     assert config.heuristics.enabled is False
 
 
-@pytest.mark.skipif(not HAS_YAML, reason="PyYAML not installed")
 def test_yaml_merges_pyproject(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    assert config_mod.yaml is not None, "PyYAML must be installed for the test suite."
     monkeypatch.delenv("PFG_LOCALE", raising=False)
 
     pyproject = tmp_path / "pyproject.toml"

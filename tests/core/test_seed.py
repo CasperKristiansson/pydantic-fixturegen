@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 
+import numpy as np
 import pytest
 from pydantic_fixturegen.core.seed import PortableRandom, SeedManager
 
@@ -88,8 +89,6 @@ def test_faker_substreams_distinct() -> None:
 
 
 def test_numpy_rng_repeatable() -> None:
-    np = pytest.importorskip("numpy")
-
     manager_a = SeedManager(seed=42)
     manager_b = SeedManager(seed=42)
 
@@ -106,8 +105,6 @@ def test_numpy_rng_repeatable() -> None:
 
 
 def test_numpy_substream_repeatable() -> None:
-    np = pytest.importorskip("numpy")
-
     manager_a = SeedManager(seed="abc")
     manager_b = SeedManager(seed="abc")
 

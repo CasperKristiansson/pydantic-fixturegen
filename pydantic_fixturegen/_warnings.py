@@ -10,6 +10,10 @@ WARNING_PATTERNS: tuple[tuple[str, type[Warning]], ...] = (
         Warning,
     ),
     (
+        r"The `update_forward_refs` method is deprecated; use `model_rebuild` instead\..*",
+        Warning,
+    ),
+    (
         r"Core Pydantic V1 functionality isn't compatible with Python 3\.14 or greater\.",
         Warning,
     ),

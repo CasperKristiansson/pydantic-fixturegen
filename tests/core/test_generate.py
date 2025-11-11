@@ -4,13 +4,15 @@ import datetime
 import enum
 import ipaddress
 import uuid
-from contextlib import suppress
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 from typing import ClassVar
 
+import email_validator  # noqa: F401
+import numpy as np
 import pytest
+from numpy.typing import NDArray
 from pydantic import (
     AnyUrl,
     BaseModel,
@@ -24,6 +26,9 @@ from pydantic import (
     SecretStr,
     model_validator,
 )
+from pydantic_extra_types.payment import (
+    PaymentCardNumber as _PaymentCardNumber,  # type: ignore[valid-type]
+)
 from pydantic_fixturegen.core.config import (
     ArrayConfig,
     ConfigError,
@@ -35,19 +40,6 @@ from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.providers.registry import ProviderRegistry
 from pydantic_fixturegen.core.strategies import UnionStrategy
-
-try:  # optional dependency for EmailStr validation
-    import email_validator  # noqa: F401
-except ImportError:  # pragma: no cover - dependency missing
-    EMAIL_VALIDATOR_AVAILABLE = False
-else:  # pragma: no cover - dependency present
-    EMAIL_VALIDATOR_AVAILABLE = True
-
-_PaymentCardNumber = None
-with suppress(ImportError):  # optional dependency for PaymentCardNumber type
-    from pydantic_extra_types.payment import PaymentCardNumber as _PaymentCardNumber
-
-PAYMENT_CARD_AVAILABLE = _PaymentCardNumber is not None
 
 
 class Color(enum.Enum):
@@ -85,27 +77,22 @@ class PathExample(BaseModel):
     backup: Path
 
 
-IdentifierExample: type[BaseModel] | None = None
-if EMAIL_VALIDATOR_AVAILABLE and PAYMENT_CARD_AVAILABLE:
-
-    class _IdentifierExample(BaseModel):
-        email: EmailStr
-        url: AnyUrl
-        uuid_value: uuid.UUID
-        payment_card: _PaymentCardNumber  # type: ignore[valid-type]
-        secret_text: SecretStr
-        secret_token: SecretBytes
-        ip_address: IPvAnyAddress
-        ip_interface: IPvAnyInterface
-        ip_network: IPvAnyNetwork
-        amount: Decimal = Field(
-            max_digits=6,
-            decimal_places=2,
-            ge=Decimal("1.00"),
-            le=Decimal("9.99"),
-        )
-
-    IdentifierExample = _IdentifierExample
+class IdentifierExample(BaseModel):
+    email: EmailStr
+    url: AnyUrl
+    uuid_value: uuid.UUID
+    payment_card: _PaymentCardNumber  # type: ignore[valid-type]
+    secret_text: SecretStr
+    secret_token: SecretBytes
+    ip_address: IPvAnyAddress
+    ip_interface: IPvAnyInterface
+    ip_network: IPvAnyNetwork
+    amount: Decimal = Field(
+        max_digits=6,
+        decimal_places=2,
+        ge=Decimal("1.00"),
+        le=Decimal("9.99"),
+    )
 
 
 def test_generate_user_instance() -> None:
@@ -433,9 +420,6 @@ def test_locale_policy_applies_to_model_alias(pattern: str) -> None:
 
 
 def test_numpy_array_generation() -> None:
-    np = pytest.importorskip("numpy")
-    from numpy.typing import NDArray
-
     class ArrayModel(BaseModel):
         values: np.ndarray
         model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -480,14 +464,7 @@ def test_time_anchor_produces_deterministic_temporal_values() -> None:
     # allow either naive or aware time depending on anchor tzinfo
     expected_time = anchor.timetz() if anchor.tzinfo else anchor.time()
     assert instance.alarm.isoformat() == expected_time.isoformat()
-
-
-@pytest.mark.skipif(
-    not (EMAIL_VALIDATOR_AVAILABLE and PAYMENT_CARD_AVAILABLE),
-    reason="email-validator or payment extra not installed",
-)
 def test_identifier_generation_is_deterministic() -> None:
-    assert IdentifierExample is not None
     first_generator = InstanceGenerator(config=GenerationConfig(seed=2024))
     first = first_generator.generate_one(IdentifierExample)
 
@@ -505,14 +482,7 @@ def test_identifier_generation_is_deterministic() -> None:
     assert str(first.ip_interface) == str(second.ip_interface)
     assert str(first.ip_network) == str(second.ip_network)
     assert first.amount == second.amount
-
-
-@pytest.mark.skipif(
-    not (EMAIL_VALIDATOR_AVAILABLE and PAYMENT_CARD_AVAILABLE),
-    reason="email-validator or payment extra not installed",
-)
 def test_identifier_generation_respects_configuration() -> None:
-    assert IdentifierExample is not None
     identifier_config = IdentifierConfig(
         secret_str_length=22,
         secret_bytes_length=7,

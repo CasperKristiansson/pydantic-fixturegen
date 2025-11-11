@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
+import pyarrow.ipc as pa_ipc
+import pyarrow.parquet as pq
 from pydantic_fixturegen.cli import app as cli_app
 from tests._cli import create_cli_runner
 
@@ -51,7 +52,6 @@ def test_gen_dataset_csv(tmp_path: Path) -> None:
 
 
 def test_gen_dataset_parquet(tmp_path: Path) -> None:
-    pytest.importorskip("pyarrow.parquet")
     module_path = _write_models(tmp_path)
     output_path = tmp_path / "users.parquet"
 
@@ -72,16 +72,11 @@ def test_gen_dataset_parquet(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.stdout
 
-    import pyarrow.parquet as pq  # noqa: PLC0415
-
     table = pq.read_table(output_path)
     assert table.num_rows == 2
 
 
 def test_gen_dataset_arrow(tmp_path: Path) -> None:
-    pytest.importorskip("pyarrow")
-    pytest.importorskip("pyarrow.ipc")
-
     module_path = _write_models(tmp_path)
     output_path = tmp_path / "users.arrow"
 
@@ -102,7 +97,5 @@ def test_gen_dataset_arrow(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.stdout
 
-    import pyarrow.ipc as ipc  # noqa: PLC0415
-
-    with ipc.open_file(output_path) as reader:
+    with pa_ipc.open_file(output_path) as reader:
         assert reader.read_all().num_rows == 2

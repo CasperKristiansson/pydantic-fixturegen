@@ -5,14 +5,11 @@ import itertools
 import json
 from pathlib import Path
 
-import pytest
+import orjson
 from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
 from pydantic_fixturegen.emitters.json_out import emit_json_samples
 
-try:
-    import orjson
-except ImportError:  # pragma: no cover - optional dependency missing
-    orjson = None  # type: ignore[assignment]
+ORJSON_VERSION = orjson.__version__
 
 
 def test_emit_json_array_from_callable(tmp_path: Path) -> None:
@@ -49,7 +46,6 @@ def test_emit_jsonl_with_shards(tmp_path: Path) -> None:
     assert line_counts == [2, 2, 1]
 
 
-@pytest.mark.skipif(orjson is None, reason="orjson extra not installed")
 def test_emit_json_with_orjson(tmp_path: Path) -> None:
     data = [{"message": "héllo"}]
     output = tmp_path / "orjson-output.json"

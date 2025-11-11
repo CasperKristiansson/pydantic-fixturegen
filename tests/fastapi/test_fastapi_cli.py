@@ -5,12 +5,7 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import pytest
-
-try:  # pragma: no cover - optional dependency
-    from fastapi.testclient import TestClient  # type: ignore
-except ModuleNotFoundError:  # pragma: no cover - optional dependency
-    pytest.skip("fastapi is not installed", allow_module_level=True)
-
+from fastapi.testclient import TestClient  # type: ignore
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.cli.fastapi import (
     _import_object,

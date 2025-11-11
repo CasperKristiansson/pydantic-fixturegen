@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import pytest
+from hypothesis.errors import NonInteractiveExampleWarning
 from pydantic import BaseModel, Field
 from pydantic_fixturegen.hypothesis import strategy_for
 
-pytest.importorskip("hypothesis")
-from hypothesis.errors import NonInteractiveExampleWarning  # noqa: E402
-
-from hypothesis import given, settings  # noqa: E402
+from hypothesis import given, settings
 
 
 class Sample(BaseModel):

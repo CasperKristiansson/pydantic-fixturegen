@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Annotated, Any, cast
 
 import annotated_types
-import pytest
+import email_validator  # noqa: F401
 from pydantic import AnyUrl, BaseModel, Field, SecretBytes, SecretStr
 from pydantic_fixturegen.core import schema as schema_module
 from pydantic_fixturegen.core.schema import (
@@ -215,7 +215,6 @@ def test_summarize_field_for_url_and_any() -> None:
 
 
 def test_summarize_field_for_email() -> None:
-    pytest.importorskip("email_validator")
     from pydantic import EmailStr
 
     class ContactModel(BaseModel):

@@ -5,13 +5,13 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from hypothesis.errors import NonInteractiveExampleWarning
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.cli.gen import strategies as strategies_module
 from pydantic_fixturegen.core.errors import DiscoveryError
 from tests._cli import create_cli_runner
 
-pytest.importorskip("hypothesis")
-from hypothesis.errors import NonInteractiveExampleWarning
+import hypothesis  # noqa: F401
 
 MODULE_SOURCE = """
 from pydantic import BaseModel, Field

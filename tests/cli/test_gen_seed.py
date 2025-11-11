@@ -3,18 +3,12 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
+import beanie  # noqa: F401
 import pytest
-
-try:  # pragma: no cover - optional dependencies
-    from mongomock_motor import AsyncMongoMockClient
-    from sqlalchemy import text
-    from sqlmodel import create_engine
-except ModuleNotFoundError:  # pragma: no cover - optional dependencies
-    pytest.skip("sqlmodel and mongomock_motor are required", allow_module_level=True)
-
-pytest.importorskip("beanie")
-
+from mongomock_motor import AsyncMongoMockClient
 from pydantic_fixturegen.cli import app as cli_app
+from sqlalchemy import text
+from sqlmodel import create_engine
 from tests._cli import create_cli_runner
 
 runner = create_cli_runner()

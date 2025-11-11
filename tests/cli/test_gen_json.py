@@ -19,6 +19,8 @@ from pydantic_fixturegen.polyfactory_support.discovery import (
 )
 from tests._cli import create_cli_runner
 
+import polyfactory  # noqa: F401
+
 runner = create_cli_runner()
 
 
@@ -127,10 +129,9 @@ def test_gen_json_prefers_polyfactory_factories(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    pytest.importorskip("polyfactory")
-    if POLYFACTORY_MODEL_FACTORY is None:
-        reason = POLYFACTORY_UNAVAILABLE_REASON or "polyfactory unavailable"
-        pytest.skip(reason)
+    assert POLYFACTORY_MODEL_FACTORY is not None, (
+        POLYFACTORY_UNAVAILABLE_REASON or "polyfactory unavailable"
+    )
     monkeypatch.setenv("PFG_POLYFACTORY__ENABLED", "true")
     monkeypatch.setenv("PFG_POLYFACTORY__PREFER_DELEGATION", "true")
     module_path = tmp_path / "models.py"

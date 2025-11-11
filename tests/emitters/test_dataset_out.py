@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pyarrow  # noqa: F401
+import pyarrow.ipc as pa_ipc
+import pyarrow.parquet as pq
 import pytest
 from pydantic_fixturegen.emitters.dataset_out import emit_dataset_samples
 
@@ -42,9 +45,6 @@ def test_emit_dataset_samples_csv(tmp_path: Path) -> None:
 
 @pytest.mark.usefixtures("tmp_path")
 def test_emit_dataset_samples_parquet(tmp_path: Path) -> None:
-    pytest.importorskip("pyarrow")
-    pq = pytest.importorskip("pyarrow.parquet")
-
     factory = _factory_generator(
         [
             {"id": 1, "name": "alice"},
@@ -68,9 +68,6 @@ def test_emit_dataset_samples_parquet(tmp_path: Path) -> None:
 
 @pytest.mark.usefixtures("tmp_path")
 def test_emit_dataset_samples_arrow(tmp_path: Path) -> None:
-    pytest.importorskip("pyarrow")
-    ipc = pytest.importorskip("pyarrow.ipc")
-
     factory = _factory_generator(
         [
             {"id": 1, "name": "alice"},
@@ -87,7 +84,7 @@ def test_emit_dataset_samples_arrow(tmp_path: Path) -> None:
     )
 
     assert len(paths) == 1
-    with ipc.open_file(paths[0]) as reader:
+    with pa_ipc.open_file(paths[0]) as reader:
         table = reader.read_all()
     assert table.num_rows == 2
     assert table.column("name").to_pylist() == ["alice", "bob"]
