@@ -240,6 +240,28 @@ def test_field_hint_config_section(tmp_path: Path) -> None:
     assert config.field_hints.model_modes == (("app.models.Address", "defaults"),)
 
 
+def test_persistence_handler_section(tmp_path: Path) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """
+        [tool.pydantic_fixturegen.persistence.handlers.capture]
+        path = "tests.persistence_helpers:SyncCaptureHandler"
+        kind = "sync"
+        [tool.pydantic_fixturegen.persistence.handlers.capture.options]
+        marker = "demo"
+        """,
+        encoding="utf-8",
+    )
+
+    config = load_config(root=tmp_path)
+    assert config.persistence.handlers
+    handler = config.persistence.handlers[0]
+    assert handler.name == "capture"
+    assert handler.path.endswith("SyncCaptureHandler")
+    assert handler.kind == "sync"
+    assert handler.options["marker"] == "demo"
+
+
 def test_cli_override_rng_mode(tmp_path: Path) -> None:
     config = load_config(root=tmp_path, cli={"rng_mode": "legacy"})
 

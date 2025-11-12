@@ -11,12 +11,14 @@ from ._runtime import (
     generate_fixtures_artifacts,
     generate_json_artifacts,
     generate_schema_artifacts,
+    persist_samples,
 )
 from .anonymize import anonymize_from_rules, anonymize_payloads
 from .models import (
     DatasetGenerationResult,
     FixturesGenerationResult,
     JsonGenerationResult,
+    PersistenceRunResult,
     SchemaGenerationResult,
 )
 
@@ -24,10 +26,12 @@ __all__ = [
     "DatasetGenerationResult",
     "FixturesGenerationResult",
     "JsonGenerationResult",
+    "PersistenceRunResult",
     "SchemaGenerationResult",
     "generate_dataset",
     "generate_fixtures",
     "generate_json",
+    "persist",
     "generate_schema",
     "anonymize_payloads",
     "anonymize_from_rules",
@@ -220,4 +224,57 @@ def generate_dataset(
         cycle_policy=cycle_policy,
         rng_mode=rng_mode,
         field_hints=field_hints,
+    )
+
+
+def persist(
+    target: str | Path,
+    *,
+    handler: str,
+    count: int = 1,
+    batch_size: int = 50,
+    max_retries: int = 2,
+    retry_wait: float = 0.5,
+    handler_options: Mapping[str, Any] | None = None,
+    include: Sequence[str] | None = None,
+    exclude: Sequence[str] | None = None,
+    seed: int | None = None,
+    now: str | None = None,
+    preset: str | None = None,
+    profile: str | None = None,
+    respect_validators: bool | None = None,
+    validator_max_retries: int | None = None,
+    field_overrides: Mapping[str, Mapping[str, Any]] | None = None,
+    field_hints: str | None = None,
+    relations: Mapping[str, str] | None = None,
+    with_related: Sequence[str] | None = None,
+    max_depth: int | None = None,
+    cycle_policy: str | None = None,
+    rng_mode: str | None = None,
+) -> PersistenceRunResult:
+    """Generate payloads for the given target and stream them into a handler."""
+
+    return persist_samples(
+        target=target,
+        handler=handler,
+        count=count,
+        batch_size=batch_size,
+        max_retries=max_retries,
+        retry_wait=retry_wait,
+        handler_options=handler_options,
+        include=_normalize_sequence(include),
+        exclude=_normalize_sequence(exclude),
+        seed=seed,
+        now=now,
+        preset=preset,
+        profile=profile,
+        respect_validators=respect_validators,
+        validator_max_retries=validator_max_retries,
+        field_overrides=field_overrides,
+        field_hints=field_hints,
+        relations=relations,
+        with_related=_normalize_sequence(with_related),
+        max_depth=max_depth,
+        cycle_policy=cycle_policy,
+        rng_mode=rng_mode,
     )

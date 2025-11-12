@@ -36,6 +36,8 @@ from pydantic_fixturegen.emitters.schema_out import emit_model_schema, emit_mode
 from pydantic_fixturegen.logging import get_logger
 from pydantic_fixturegen.plugins.hookspecs import EmitterContext
 from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
+from pydantic_fixturegen.persistence.registry import PersistenceRegistry
+from pydantic_fixturegen.persistence.runner import PersistenceRunner
 
 from ..logging import Logger
 from .models import (
@@ -43,6 +45,7 @@ from .models import (
     DatasetGenerationResult,
     FixturesGenerationResult,
     JsonGenerationResult,
+    PersistenceRunResult,
     SchemaGenerationResult,
 )
 
@@ -936,6 +939,107 @@ def generate_dataset_artifacts(
         constraint_summary=constraint_summary,
         delegated=False,
         format=dataset_format,
+    )
+
+
+def persist_samples(
+    *,
+    target: str | Path,
+    handler: str,
+    count: int,
+    batch_size: int,
+    max_retries: int,
+    retry_wait: float,
+    handler_options: Mapping[str, Any] | None,
+    include: Sequence[str] | None,
+    exclude: Sequence[str] | None,
+    seed: int | None,
+    now: str | None,
+    preset: str | None,
+    profile: str | None,
+    respect_validators: bool | None,
+    validator_max_retries: int | None,
+    field_overrides: Mapping[str, Mapping[str, Any]] | None,
+    field_hints: str | None,
+    relations: Mapping[str, str] | None,
+    with_related: Sequence[str] | None,
+    max_depth: int | None,
+    cycle_policy: str | None,
+    rng_mode: str | None,
+) -> PersistenceRunResult:
+    logger = get_logger()
+    plan = _build_model_artifact_plan(
+        target_path=Path(target),
+        output_template=OutputTemplate("{model}"),
+        include=_resolve_patterns(include),
+        exclude=_resolve_patterns(exclude),
+        seed=seed,
+        now=now,
+        freeze_seeds=False,
+        freeze_seeds_file=None,
+        preset=preset,
+        profile=profile,
+        respect_validators=respect_validators,
+        validator_max_retries=validator_max_retries,
+        relations=relations,
+        with_related=with_related,
+        logger=logger,
+        max_depth=max_depth,
+        cycle_policy=cycle_policy,
+        rng_mode=rng_mode,
+        field_overrides=field_overrides,
+        field_hints=field_hints,
+        payload_mode="python",
+    )
+
+    registry = PersistenceRegistry()
+    registry.load_entrypoint_plugins()
+    for entry in plan.app_config.persistence.handlers:
+        registry.register_from_path(
+            entry.name,
+            entry.path,
+            kind=entry.kind,
+            default_options=entry.options,
+            override=True,
+        )
+
+    handler_name = handler.strip()
+    options = dict(handler_options or {})
+    available = registry.available()
+    if handler_name not in available and (":" in handler_name or "." in handler_name):
+        registry.register_from_path(handler_name, handler_name, override=True)
+
+    try:
+        handler_instance, handler_kind, effective_options = registry.create(handler_name, options)
+    except KeyError as exc:
+        raise DiscoveryError(f"Unknown persistence handler '{handler_name}'.") from exc
+    runner = PersistenceRunner(
+        handler=handler_instance,
+        handler_kind=handler_kind,
+        handler_name=handler_name,
+        sample_factory=plan.sample_factory,
+        model_cls=plan.model_cls,
+        related_models=plan.related_models,
+        count=count,
+        batch_size=batch_size,
+        max_retries=max_retries,
+        retry_wait=retry_wait,
+        logger=logger,
+        warnings=plan.warnings,
+        config_snapshot=plan.config_snapshot,
+        options=effective_options,
+    )
+    stats = runner.run()
+
+    return PersistenceRunResult(
+        handler=stats.handler_name,
+        batches=stats.batches,
+        records=stats.records,
+        retries=stats.retries,
+        duration=stats.duration,
+        model=plan.model_cls,
+        config=plan.config_snapshot,
+        warnings=plan.warnings,
     )
 
 

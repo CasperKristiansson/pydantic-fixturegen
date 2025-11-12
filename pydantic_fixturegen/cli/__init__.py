@@ -136,6 +136,11 @@ _proxy(
     "pydantic_fixturegen.cli.gen.explain:app",
     "Explain generation strategies per model field.",
 )
+_proxy(
+    "persist",
+    "pydantic_fixturegen.cli.persist:app",
+    "Send generated payloads to persistence handlers.",
+)
 
 app.add_typer(schema_cli.app, name="schema")
 app.add_typer(fastapi_cli.app, name="fastapi")

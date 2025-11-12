@@ -297,6 +297,61 @@
       "title": "PathSettingsSchema",
       "type": "object"
     },
+    "PersistenceHandlerSchema": {
+      "additionalProperties": false,
+      "description": "Schema describing a single persistence handler definition.",
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "sync",
+                "async"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Override the handler kind when auto-detection is insufficient.",
+          "title": "Kind"
+        },
+        "options": {
+          "additionalProperties": true,
+          "description": "Keyword arguments passed to the handler when instantiated.",
+          "title": "Options",
+          "type": "object"
+        },
+        "path": {
+          "description": "Dotted path or entry point to the handler callable or class.",
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "PersistenceHandlerSchema",
+      "type": "object"
+    },
+    "PersistenceSchema": {
+      "additionalProperties": false,
+      "description": "Schema describing persistence handler configuration.",
+      "properties": {
+        "handlers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/PersistenceHandlerSchema"
+          },
+          "description": "Named handlers referenced by `pfg persist --handler`.",
+          "title": "Handlers",
+          "type": "object"
+        }
+      },
+      "title": "PersistenceSchema",
+      "type": "object"
+    },
     "ProviderBundleSchema": {
       "additionalProperties": false,
       "description": "Schema describing reusable provider bundle definitions.",
@@ -604,6 +659,10 @@
     "paths": {
       "$ref": "#/$defs/PathSettingsSchema",
       "description": "Configuration for filesystem path providers."
+    },
+    "persistence": {
+      "$ref": "#/$defs/PersistenceSchema",
+      "description": "Custom persistence handler definitions referenced by `pfg persist`."
     },
     "preset": {
       "anyOf": [

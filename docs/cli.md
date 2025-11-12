@@ -25,6 +25,7 @@ You can append `-- --help` after any proxy command to view native Typer help bec
 | `pfg gen polyfactory`                              | Scaffold Polyfactory classes that delegate to fixturegen.            |
 | `pfg fastapi smoke` / `serve`                      | Generate FastAPI smoke tests or launch a deterministic mock server.  |
 | `pfg anonymize`                                    | Rewrite JSON/JSONL payloads via rule-driven strategies.              |
+| `pfg persist`                                      | Stream generated payloads into HTTP/DB/custom handlers.              |
 | `pfg diff` / `check` / `doctor`                    | Compare artefacts, validate configs, audit coverage.                 |
 | `pfg snapshot verify/write`                        | Verify or refresh stored snapshots outside pytest.                   |
 | `pfg lock` / `verify`                              | Record and enforce coverage manifests in CI.                         |
@@ -92,6 +93,22 @@ pfg gen dataset ./models.py \
 - Cycle metadata is preserved via the `__cycles__` column so downstream checks can reason about recursion heuristics.
 - Determinism helpers mirror `gen json`: `--seed`, `--freeze-seeds`, `--preset`, `--profile`, `--now`, `--respect-validators`, `--validator-max-retries`, `--max-depth`, `--on-cycle`, `--rng-mode`.
 - Observability: `--json-errors`, `--watch`, `--watch-debounce`, and relation links via `--link source.field=target.field` stay consistent with other emitters.
+
+### `pfg persist`
+
+```bash
+pfg persist ./models.py \
+  --handler http-post \
+  --handler-config '{"url": "https://api.example.com/fixtures", "headers": {"Authorization": "Bearer ..."}}' \
+  --include app.models.User --n 100 --batch-size 25 --seed 7
+```
+
+- Required `--handler/-H` chooses a registered handler (`http-post`, `http-post-async`, `sqlite-json`, or names defined under `[tool.pydantic_fixturegen.persistence.handlers]`). Supply dotted paths like `pkg.module:KafkaHandler` for ad-hoc handlers.
+- `--handler-config` accepts a JSON object merged into the handler's keyword arguments (URL, headers, database paths, etc.). Configured defaults are merged first, CLI overrides win.
+- `--batch-size`, `--max-retries`, and `--retry-wait` control batching and retry semantics; fixturegen retries failed batches before raising `PersistenceError`.
+- Generation flags mirror `pfg gen json`: `--include`, `--exclude`, `--seed`, `--preset`, `--profile`, `--field-hints`, `--override`, `--link`, `--with-related`, `--respect-validators`, `--validator-max-retries`, `--max-depth`, `--on-cycle`, `--rng-mode`, `--now`.
+- Handler discovery: declare named handlers in config or register them via entry-point plugins (`pfg_register_persistence_handlers`). Built-in HTTP/SQLite handlers require no extra dependencies and make for quick experiments.
+- Logging emits `persistence_batch` / `persistence_complete` events so you can trace throughput in CI alongside standard JSON logs.
 
 ### `pfg gen seed`
 

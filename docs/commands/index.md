@@ -24,6 +24,7 @@ Browse the guides:
 | `pfg gen seed sqlmodel`           | [Seed SQLModel / SQLAlchemy databases](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/commands/pfg-gen-seed-sqlmodel.md) |
 | `pfg gen seed beanie`             | [Seed Beanie / MongoDB databases](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/commands/pfg-gen-seed-beanie.md)        |
 | `pfg gen explain` / `pfg explain` | [Inspect generation strategies](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/commands/pfg-gen-explain.md)              |
+| `pfg persist`                    | [Stream payloads into persistence handlers](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/commands/pfg-persist.md) |
 | `pfg anonymize`                   | [Deterministic payload anonymizer](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/commands/pfg-anonymize.md)             |
 | `pfg fastapi smoke`               | [FastAPI smoke-test generator](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/commands/pfg-fastapi-smoke.md)             |
 | `pfg fastapi serve`               | [Deterministic FastAPI mock server](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/commands/pfg-fastapi-serve.md)        |

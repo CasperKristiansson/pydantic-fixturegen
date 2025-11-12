@@ -86,10 +86,25 @@ class SchemaGenerationResult:
     delegated: bool
 
 
+@dataclass(slots=True)
+class PersistenceRunResult:
+    """Result payload for persistence runs."""
+
+    handler: str
+    batches: int
+    records: int
+    retries: int
+    duration: float
+    model: type[BaseModel]
+    config: ConfigSnapshot
+    warnings: tuple[str, ...]
+
+
 __all__ = [
     "ConfigSnapshot",
     "DatasetGenerationResult",
     "FixturesGenerationResult",
     "JsonGenerationResult",
+    "PersistenceRunResult",
     "SchemaGenerationResult",
 ]

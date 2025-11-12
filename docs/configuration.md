@@ -351,6 +351,27 @@ mode = "defaults-then-examples"
 - Hints sit above heuristics but below explicit per-field overrides, so manual provider swaps still win when configured.
 - Field defaults are deep-cloned (`default_factory` is invoked) and BaseModel defaults use `model_copy(deep=True)` so nested data stays isolated between samples.
 
+### Persistence handlers
+
+Register reusable persistence handlers under `[tool.pydantic_fixturegen.persistence.handlers]` and reference them via `pfg persist --handler <name>`.
+
+```toml
+[tool.pydantic_fixturegen.persistence.handlers.sqlite]
+path = "pydantic_fixturegen.persistence.handlers:SQLiteJSONPersistenceHandler"
+[tool.pydantic_fixturegen.persistence.handlers.sqlite.options]
+database = "./artifacts/persist.db"
+table = "fixtures"
+
+[tool.pydantic_fixturegen.persistence.handlers.capture]
+path = "tests.persistence_helpers:SyncCaptureHandler"
+kind = "sync"
+```
+
+- `path` points to a callable or class (`module:attr`) that returns a handler instance. Built-in shortcuts (`http-post`, `http-post-async`, `sqlite-json`) are registered automatically.
+- `kind` is optional—fixturegen inspects handler methods to determine whether they are sync or async. Set it explicitly when the callable dynamically switches behaviour.
+- Nested `[options]` sections supply keyword arguments for handler construction (`url`, `headers`, etc.). CLI `--handler-config '{...}'` merges on top of the configured defaults.
+- Entry-point plugins can register handlers in code via `pfg_register_persistence_handlers(registry)`, allowing reusable handler suites without editing configuration.
+
 ### Locale overrides
 
 Add a `locales` mapping when you need region-specific Faker providers:

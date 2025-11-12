@@ -168,6 +168,22 @@ class ProviderDefaultsConfig:
     rules: tuple[ProviderDefaultRule, ...] = ()
 
 
+PersistenceHandlerKindLiteral = Literal["sync", "async"]
+
+
+@dataclass(frozen=True)
+class PersistenceHandlerEntry:
+    name: str
+    path: str
+    kind: PersistenceHandlerKindLiteral | None = None
+    options: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+
+
+@dataclass(frozen=True)
+class PersistenceConfig:
+    handlers: tuple[PersistenceHandlerEntry, ...] = ()
+
+
 FieldHintModeLiteral = Literal[
     "none",
     "defaults",
@@ -207,6 +223,7 @@ class AppConfig:
     paths: PathConfig = field(default_factory=PathConfig)
     field_hints: FieldHintConfig = field(default_factory=FieldHintConfig)
     provider_defaults: ProviderDefaultsConfig = field(default_factory=ProviderDefaultsConfig)
+    persistence: PersistenceConfig = field(default_factory=PersistenceConfig)
     emitters: EmittersConfig = field(default_factory=EmittersConfig)
     json: JsonConfig = field(default_factory=JsonConfig)
     respect_validators: bool = False
@@ -294,6 +311,9 @@ def _config_defaults_dict() -> dict[str, Any]:
         "provider_defaults": {
             "bundles": {},
             "rules": [],
+        },
+        "persistence": {
+            "handlers": {},
         },
         "numbers": {
             "distribution": DEFAULT_CONFIG.numbers.distribution,
@@ -469,6 +489,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
     identifiers_value = _normalize_identifier_config(data.get("identifiers"))
     field_hints_value = _normalize_field_hints(data.get("field_hints"))
     provider_defaults_value = _normalize_provider_defaults(data.get("provider_defaults"))
+    persistence_value = _normalize_persistence(data.get("persistence"))
     numbers_value = _normalize_number_config(data.get("numbers"))
     paths_value = _normalize_path_config(data.get("paths"))
     relations_value = _normalize_relations(data.get("relations"))
@@ -511,6 +532,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         identifiers=identifiers_value,
         field_hints=field_hints_value,
         provider_defaults=provider_defaults_value,
+        persistence=persistence_value,
         numbers=numbers_value,
         paths=paths_value,
         emitters=emitters_value,
@@ -1057,6 +1079,49 @@ def _normalize_provider_defaults(value: Any) -> ProviderDefaultsConfig:
             )
 
     return ProviderDefaultsConfig(bundles=tuple(bundles), rules=tuple(rules))
+
+
+def _normalize_persistence(value: Any) -> PersistenceConfig:
+    if value is None:
+        return PersistenceConfig()
+    if not isinstance(value, Mapping):
+        raise ConfigError("persistence must be a mapping.")
+
+    handlers_raw = value.get("handlers") or {}
+    if not isinstance(handlers_raw, Mapping):
+        raise ConfigError("persistence.handlers must be a mapping of handler names to settings.")
+
+    handlers: list[PersistenceHandlerEntry] = []
+    for name, handler_config in handlers_raw.items():
+        if not isinstance(name, str) or not name.strip():
+            raise ConfigError("persistence handler names must be non-empty strings.")
+        if not isinstance(handler_config, Mapping):
+            raise ConfigError(f"persistence.handlers['{name}'] must be a mapping of options.")
+        path = handler_config.get("path") or handler_config.get("callable")
+        if not isinstance(path, str) or not path.strip():
+            raise ConfigError(f"persistence.handlers['{name}'] requires a 'path'.")
+        kind_raw = handler_config.get("kind")
+        kind_value: PersistenceHandlerKindLiteral | None = None
+        if kind_raw is not None:
+            if not isinstance(kind_raw, str):
+                raise ConfigError(f"persistence.handlers['{name}'].kind must be 'sync' or 'async'.")
+            lowered = kind_raw.strip().lower()
+            if lowered not in {"sync", "async"}:
+                raise ConfigError(f"persistence.handlers['{name}'].kind must be 'sync' or 'async'.")
+            kind_value = cast(PersistenceHandlerKindLiteral, lowered)
+        options_raw = handler_config.get("options") or {}
+        if not isinstance(options_raw, Mapping):
+            raise ConfigError(f"persistence.handlers['{name}'].options must be a mapping.")
+        handlers.append(
+            PersistenceHandlerEntry(
+                name=name.strip(),
+                path=path.strip(),
+                kind=kind_value,
+                options=MappingProxyType(dict(options_raw)),
+            )
+        )
+
+    return PersistenceConfig(handlers=tuple(handlers))
 
 
 def _build_provider_rule(value: Any, name: str | None) -> ProviderDefaultRule:

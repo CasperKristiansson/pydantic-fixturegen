@@ -16,6 +16,7 @@ class ErrorCode(IntEnum):
     UNSAFE_IMPORT = 40
     DIFF = 50
     WATCH = 60
+    PERSIST = 70
 
 
 class PFGError(Exception):
@@ -166,12 +167,32 @@ class WatchError(PFGError):
         )
 
 
+class PersistenceError(PFGError):
+    """Raised when persistence handlers fail."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        details: Mapping[str, Any] | None = None,
+        hint: str | None = None,
+    ) -> None:
+        super().__init__(
+            message,
+            code=ErrorCode.PERSIST,
+            kind="PersistenceError",
+            details=details,
+            hint=hint,
+        )
+
+
 __all__ = [
     "EmitError",
     "DiffError",
     "DiscoveryError",
     "ErrorCode",
     "MappingError",
+    "PersistenceError",
     "PFGError",
     "WatchError",
     "UnsafeImportError",

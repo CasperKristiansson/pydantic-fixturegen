@@ -14,6 +14,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from pydantic_fixturegen.core.heuristics import HeuristicRegistry
     from pydantic_fixturegen.core.providers import ProviderRegistry
     from pydantic_fixturegen.core.strategies import Strategy
+    from pydantic_fixturegen.persistence.registry import PersistenceRegistry
 
 hookspec = pluggy.HookspecMarker("pfg")
 hookimpl = pluggy.HookimplMarker("pfg")
@@ -56,11 +57,18 @@ def pfg_emit_artifact(kind: str, context: EmitterContext) -> bool:  # pragma: no
     raise NotImplementedError
 
 
+@hookspec
+def pfg_register_persistence_handlers(registry: PersistenceRegistry) -> None:  # pragma: no cover
+    """Register persistence handlers that can be targeted by ``pfg persist``."""
+    raise NotImplementedError
+
+
 __all__ = [
     "EmitterContext",
     "hookimpl",
     "hookspec",
     "pfg_emit_artifact",
+    "pfg_register_persistence_handlers",
     "pfg_register_heuristics",
     "pfg_modify_strategy",
     "pfg_register_providers",

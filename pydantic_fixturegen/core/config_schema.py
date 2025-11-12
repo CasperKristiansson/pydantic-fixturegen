@@ -216,6 +216,36 @@ class ProviderDefaultsSchema(BaseModel):
     )
 
 
+class PersistenceHandlerSchema(BaseModel):
+    """Schema describing a single persistence handler definition."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    path: str = Field(
+        ...,
+        description="Dotted path or entry point to the handler callable or class.",
+    )
+    kind: Literal["sync", "async"] | None = Field(
+        default=None,
+        description="Override the handler kind when auto-detection is insufficient.",
+    )
+    options: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Keyword arguments passed to the handler when instantiated.",
+    )
+
+
+class PersistenceSchema(BaseModel):
+    """Schema describing persistence handler configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    handlers: dict[str, PersistenceHandlerSchema] = Field(
+        default_factory=dict,
+        description="Named handlers referenced by `pfg persist --handler`.",
+    )
+
+
 class FieldHintsSchema(BaseModel):
     """Schema describing default/example preference settings."""
 
@@ -347,6 +377,10 @@ class ConfigSchemaModel(BaseModel):
     provider_defaults: ProviderDefaultsSchema = Field(
         default_factory=ProviderDefaultsSchema,
         description="Reusable provider bundles plus type/annotation matching rules applied ahead of heuristics.",
+    )
+    persistence: PersistenceSchema = Field(
+        default_factory=PersistenceSchema,
+        description="Custom persistence handler definitions referenced by `pfg persist`.",
     )
     field_hints: FieldHintsSchema = Field(
         default_factory=FieldHintsSchema,
