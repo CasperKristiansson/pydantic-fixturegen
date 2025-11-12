@@ -442,6 +442,7 @@ def _create_plan(
         max_depth=max_depth,
         cycle_policy=cycle_policy,
         rng_mode=rng_mode,
+        field_hints=None,
         payload_mode="python",
     )
 

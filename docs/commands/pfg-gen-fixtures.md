@@ -28,6 +28,7 @@
 **Determinism + privacy**
 - `--seed`, `--preset`, `--profile`, `--now`, `--rng-mode` identical to JSON command.
 - `--freeze-seeds`, `--freeze-seeds-file`: persist per-model seeds so fixture diffs only change when inputs do.
+- `--field-hints`: honor `Field` defaults/examples before providers (modes mirror `pfg gen json`).
 
 **Relations + depth**
 - `--link` and `--with-related`: declare relationships and co-generate related fixtures (helpful when you want `Order` fixtures to bundle `User` instances in the same module).

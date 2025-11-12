@@ -32,6 +32,7 @@ from pydantic_extra_types.payment import (
 from pydantic_fixturegen.core.config import (
     ArrayConfig,
     ConfigError,
+    FieldHintConfig,
     IdentifierConfig,
     PathConfig,
     RelationLinkConfig,
@@ -177,6 +178,58 @@ def test_object_budget_limits() -> None:
     generator = InstanceGenerator(config=config)
     # Address + User requires more than 1 object, expect None
     assert generator.generate_one(User) is None
+
+
+def test_field_hints_prefer_defaults() -> None:
+    class DefaultsModel(BaseModel):
+        number: int = Field(default=7)
+        text: str = Field(default="value")
+
+    generator = InstanceGenerator(
+        config=GenerationConfig(field_hints=FieldHintConfig(mode="defaults"))
+    )
+    instance = generator.generate_one(DefaultsModel)
+
+    assert instance is not None
+    assert instance.number == 7
+    assert instance.text == "value"
+
+
+def test_field_hints_prefer_examples_then_defaults() -> None:
+    class ExampleModel(BaseModel):
+        color: str = Field(default="green", examples=["blue"])
+        nickname: str = Field(default="anon")
+
+    generator = InstanceGenerator(
+        config=GenerationConfig(field_hints=FieldHintConfig(mode="examples-then-defaults"))
+    )
+    instance = generator.generate_one(ExampleModel)
+
+    assert instance is not None
+    assert instance.color == "blue"
+    assert instance.nickname == "anon"
+
+
+def test_field_hints_respect_model_overrides() -> None:
+    class AddressModel(BaseModel):
+        city: str = Field(default="", examples=["Gotham"])
+        zipcode: str = Field(default="99999")
+
+    class ProfileModel(BaseModel):
+        nickname: str = Field(default="guest", examples=["hero"])
+        address: AddressModel
+
+    hint_config = FieldHintConfig(
+        mode="defaults",
+        model_modes=(("AddressModel", "examples-then-defaults"),),
+    )
+    generator = InstanceGenerator(config=GenerationConfig(field_hints=hint_config))
+    instance = generator.generate_one(ProfileModel)
+
+    assert instance is not None
+    assert instance.nickname == "guest"
+    assert instance.address.city == "Gotham"
+    assert instance.address.zipcode == "99999"
 
 
 def test_union_random_policy() -> None:

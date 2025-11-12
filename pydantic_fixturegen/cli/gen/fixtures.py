@@ -205,6 +205,7 @@ def register(app: typer.Typer) -> None:
         max_depth: int | None = MAX_DEPTH_OPTION,
         cycle_policy: str | None = CYCLE_POLICY_OPTION,
         rng_mode: str | None = RNG_MODE_OPTION,
+        field_hints: str | None = cli_common.FIELD_HINTS_OPTION,
         override_entries: list[str] | None = cli_common.OVERRIDES_OPTION,
     ) -> None:
         logger = get_logger()
@@ -249,6 +250,7 @@ def register(app: typer.Typer) -> None:
                     cycle_policy=cycle_policy,
                     rng_mode=rng_mode,
                     field_overrides=field_overrides or None,
+                    field_hints=field_hints,
                 )
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors, exit_app=exit_app)
@@ -311,6 +313,7 @@ def _execute_fixtures_command(
     cycle_policy: str | None = None,
     rng_mode: str | None = None,
     field_overrides: Mapping[str, Mapping[str, Any]] | None = None,
+    field_hints: str | None = None,
 ) -> None:
     logger = get_logger()
 
@@ -364,6 +367,7 @@ def _execute_fixtures_command(
             cycle_policy=cycle_policy,
             rng_mode=rng_mode,
             field_overrides=field_overrides,
+            field_hints=field_hints,
         )
     except PFGError as exc:
         _handle_fixtures_error(logger, exc)

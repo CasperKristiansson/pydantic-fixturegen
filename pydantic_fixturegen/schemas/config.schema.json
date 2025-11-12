@@ -50,6 +50,42 @@
       "title": "EmittersSchema",
       "type": "object"
     },
+    "FieldHintsSchema": {
+      "additionalProperties": false,
+      "description": "Schema describing default/example preference settings.",
+      "properties": {
+        "mode": {
+          "default": "none",
+          "description": "Global preference for using defaults/examples ('defaults', 'examples', etc.).",
+          "enum": [
+            "none",
+            "defaults",
+            "examples",
+            "defaults-then-examples",
+            "examples-then-defaults"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "models": {
+          "additionalProperties": {
+            "enum": [
+              "none",
+              "defaults",
+              "examples",
+              "defaults-then-examples",
+              "examples-then-defaults"
+            ],
+            "type": "string"
+          },
+          "description": "Per-model overrides mapping glob patterns to field hint modes.",
+          "title": "Models",
+          "type": "object"
+        }
+      },
+      "title": "FieldHintsSchema",
+      "type": "object"
+    },
     "FieldPolicyOptionsSchema": {
       "additionalProperties": false,
       "description": "Schema describing supported field policy overrides.",
@@ -483,6 +519,10 @@
       },
       "title": "Exclude",
       "type": "array"
+    },
+    "field_hints": {
+      "$ref": "#/$defs/FieldHintsSchema",
+      "description": "Controls when model defaults/examples override provider generation."
     },
     "field_policies": {
       "additionalProperties": {

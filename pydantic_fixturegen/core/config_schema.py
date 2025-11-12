@@ -17,6 +17,13 @@ UnionPolicyLiteral = Literal["first", "random", "weighted"]
 EnumPolicyLiteral = Literal["first", "random"]
 CyclePolicyLiteral = Literal["reuse", "stub", "null"]
 RngModeLiteral = Literal["portable", "legacy"]
+FieldHintModeLiteral = Literal[
+    "none",
+    "defaults",
+    "examples",
+    "defaults-then-examples",
+    "examples-then-defaults",
+]
 
 DEFAULT_PYTEST_STYLE = cast(
     Literal["functions", "factory", "class"],
@@ -209,6 +216,21 @@ class ProviderDefaultsSchema(BaseModel):
     )
 
 
+class FieldHintsSchema(BaseModel):
+    """Schema describing default/example preference settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: FieldHintModeLiteral = Field(
+        default="none",
+        description="Global preference for using defaults/examples ('defaults', 'examples', etc.).",
+    )
+    models: dict[str, FieldHintModeLiteral] = Field(
+        default_factory=dict,
+        description="Per-model overrides mapping glob patterns to field hint modes.",
+    )
+
+
 class ConfigSchemaModel(BaseModel):
     """Authoritative schema for `[tool.pydantic_fixturegen]` configuration."""
 
@@ -325,6 +347,10 @@ class ConfigSchemaModel(BaseModel):
     provider_defaults: ProviderDefaultsSchema = Field(
         default_factory=ProviderDefaultsSchema,
         description="Reusable provider bundles plus type/annotation matching rules applied ahead of heuristics.",
+    )
+    field_hints: FieldHintsSchema = Field(
+        default_factory=FieldHintsSchema,
+        description="Controls when model defaults/examples override provider generation.",
     )
 
 

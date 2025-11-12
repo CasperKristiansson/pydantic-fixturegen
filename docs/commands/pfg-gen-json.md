@@ -40,6 +40,7 @@
 - `--freeze-seeds/--no-freeze-seeds` and `--freeze-seeds-file`: persist per-model seeds (`.pfg-seeds.json` by default).
 - `--preset`: apply curated strategies like `boundary` or `boundary-max`.
 - `--profile`: apply privacy bundles (`pii-safe`, `realistic`, etc.).
+- `--field-hints`: choose how `Field(default=...)` / `Field(examples=...)` values influence output (`defaults`, `examples`, `defaults-then-examples`, `examples-then-defaults`, `none`).
 - `--respect-validators` + `--validator-max-retries`: repeatedly attempt generation until model/dataclass validators pass.
 - `--rng-mode`: choose between `portable` (default) and `legacy` RNGs to match historical artifacts.
 

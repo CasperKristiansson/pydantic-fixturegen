@@ -222,6 +222,24 @@ def test_provider_defaults_section(tmp_path: Path) -> None:
     assert defaults.rules[0].summary_types == ("email",)
 
 
+def test_field_hint_config_section(tmp_path: Path) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """
+        [tool.pydantic_fixturegen.field_hints]
+        mode = "examples-then-defaults"
+
+        [tool.pydantic_fixturegen.field_hints.models]
+        "app.models.Address" = "defaults"
+        """,
+        encoding="utf-8",
+    )
+
+    config = load_config(root=tmp_path)
+    assert config.field_hints.mode == "examples-then-defaults"
+    assert config.field_hints.model_modes == (("app.models.Address", "defaults"),)
+
+
 def test_cli_override_rng_mode(tmp_path: Path) -> None:
     config = load_config(root=tmp_path, cli={"rng_mode": "legacy"})
 

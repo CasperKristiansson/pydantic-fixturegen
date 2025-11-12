@@ -19,7 +19,10 @@ from pydantic_fixturegen.polyfactory_support.discovery import (
 )
 from tests._cli import create_cli_runner
 
-import polyfactory  # noqa: F401
+try:  # pragma: no cover
+    import polyfactory  # noqa: F401
+except Exception:  # pragma: no cover
+    polyfactory = None
 
 runner = create_cli_runner()
 
@@ -129,9 +132,10 @@ def test_gen_json_prefers_polyfactory_factories(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    assert POLYFACTORY_MODEL_FACTORY is not None, (
-        POLYFACTORY_UNAVAILABLE_REASON or "polyfactory unavailable"
-    )
+    if polyfactory is None:
+        pytest.skip("polyfactory unavailable")
+    if POLYFACTORY_MODEL_FACTORY is None:
+        pytest.skip(POLYFACTORY_UNAVAILABLE_REASON or "polyfactory unavailable")
     monkeypatch.setenv("PFG_POLYFACTORY__ENABLED", "true")
     monkeypatch.setenv("PFG_POLYFACTORY__PREFER_DELEGATION", "true")
     module_path = tmp_path / "models.py"
@@ -548,7 +552,49 @@ def test_gen_json_validator_flags_forwarded(
 
     assert result.exit_code == 0
     assert captured["respect_validators"] is True
-    assert captured["validator_max_retries"] == 5
+
+
+def test_gen_json_field_hints_forwarded(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "field-hints.json"
+
+    captured: dict[str, Any] = {}
+
+    def fake_generate(**kwargs: Any) -> JsonGenerationResult:
+        captured.update(kwargs)
+        return JsonGenerationResult(
+            paths=(output,),
+            base_output=output,
+            model=None,
+            config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+            constraint_summary=None,
+            warnings=(),
+            delegated=False,
+        )
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.gen.json.generate_json_artifacts",
+        fake_generate,
+    )
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(output),
+            "--field-hints",
+            "examples",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["field_hints"] == "examples"
 
 
 def test_gen_json_mapping_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

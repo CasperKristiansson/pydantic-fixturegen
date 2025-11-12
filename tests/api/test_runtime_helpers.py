@@ -194,6 +194,8 @@ def test_build_model_artifact_plan_validates_target(tmp_path: Path) -> None:
             max_depth=None,
             cycle_policy=None,
             rng_mode=None,
+            field_overrides=None,
+            field_hints=None,
             payload_mode="python",
         )
 
@@ -220,6 +222,8 @@ def test_build_model_artifact_plan_validates_target(tmp_path: Path) -> None:
             max_depth=None,
             cycle_policy=None,
             rng_mode=None,
+            field_overrides=None,
+            field_hints=None,
             payload_mode="python",
         )
 

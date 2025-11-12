@@ -762,3 +762,52 @@ def test_coerce_helpers_validate_inputs() -> None:
         fixtures_mod._coerce_scope("invalid")
     with pytest.raises(DiscoveryError):
         fixtures_mod._coerce_return_type("bad")
+
+
+def test_gen_fixtures_field_hints_forwarded(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module_path = _write_module(tmp_path)
+    output_path = tmp_path / "fixtures.py"
+
+    captured: dict[str, Any] = {}
+
+    def fake_generate(**kwargs: Any) -> FixturesGenerationResult:
+        captured.update(kwargs)
+        return FixturesGenerationResult(
+            path=output_path,
+            base_output=output_path,
+            models=(),
+            config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+            metadata=None,
+            warnings=(),
+            constraint_summary=None,
+            skipped=False,
+            delegated=False,
+            style="functions",
+            scope="function",
+            return_type="model",
+            cases=1,
+        )
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.gen.fixtures.generate_fixtures_artifacts",
+        fake_generate,
+    )
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "fixtures",
+            str(module_path),
+            "--out",
+            str(output_path),
+            "--field-hints",
+            "examples",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["field_hints"] == "examples"

@@ -20,6 +20,7 @@ from typing import Any, Literal
 import typer
 from pydantic import BaseModel
 
+from pydantic_fixturegen.core.config import FIELD_HINT_MODES
 from pydantic_fixturegen.core.errors import PFGError
 from pydantic_fixturegen.core.introspect import (
     IntrospectedModel,
@@ -33,6 +34,7 @@ __all__ = [
     "NOW_OPTION",
     "OVERRIDES_OPTION",
     "RNG_MODE_OPTION",
+    "FIELD_HINTS_OPTION",
     "clear_module_cache",
     "discover_models",
     "load_model_class",
@@ -77,6 +79,28 @@ OVERRIDES_OPTION = typer.Option(
     help=(
         "Per-field override entry (repeatable) formatted as Model.field={'value': 1} "
         "or Model.field={'factory': 'pkg.module:func'}."
+    ),
+)
+
+
+def _validate_field_hint_mode(value: str | None) -> str | None:
+    if value is None:
+        return None
+    lowered = value.strip().lower()
+    if lowered not in FIELD_HINT_MODES:
+        raise typer.BadParameter(
+            f"field hint mode must be one of {', '.join(sorted(FIELD_HINT_MODES))}."
+        )
+    return lowered
+
+
+FIELD_HINTS_OPTION = typer.Option(
+    None,
+    "--field-hints",
+    callback=_validate_field_hint_mode,
+    help=(
+        "Prefer field hints when available: none, defaults, examples, defaults-then-examples, "
+        "examples-then-defaults."
     ),
 )
 

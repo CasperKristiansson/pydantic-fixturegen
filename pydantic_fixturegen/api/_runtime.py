@@ -157,6 +157,7 @@ def _build_model_artifact_plan(
     cycle_policy: str | None,
     rng_mode: str | None,
     field_overrides: Mapping[str, Mapping[str, Any]] | None = None,
+    field_hints: str | None = None,
     payload_mode: Literal["python", "json"],
 ) -> ModelArtifactPlan:
     from ..cli.gen import _common as cli_common
@@ -470,6 +471,7 @@ def _build_instance_generator(
         identifiers=app_config.identifiers,
         numbers=app_config.numbers,
         paths=app_config.paths,
+        field_hints=app_config.field_hints,
         provider_defaults=app_config.provider_defaults,
         respect_validators=app_config.respect_validators,
         validator_max_retries=app_config.validator_max_retries,
@@ -603,6 +605,7 @@ def generate_json_artifacts(
     cycle_policy: str | None = None,
     rng_mode: str | None = None,
     field_overrides: Mapping[str, Mapping[str, Any]] | None = None,
+    field_hints: str | None = None,
 ) -> JsonGenerationResult:
     logger = logger or get_logger()
 
@@ -654,6 +657,9 @@ def generate_json_artifacts(
             cli_overrides["overrides"] = {
                 model_key: dict(field_map) for model_key, field_map in field_overrides.items()
             }
+        if field_hints is not None:
+            hint_overrides = cli_overrides.setdefault("field_hints", {})
+            hint_overrides["mode"] = field_hints
         json_overrides: dict[str, Any] = {}
         if indent is not None:
             json_overrides["indent"] = indent
@@ -700,6 +706,7 @@ def generate_json_artifacts(
         cycle_policy=cycle_policy,
         rng_mode=rng_mode,
         field_overrides=field_overrides,
+        field_hints=field_hints,
         payload_mode="python",
     )
 
@@ -814,6 +821,7 @@ def generate_dataset_artifacts(
     cycle_policy: str | None = None,
     rng_mode: str | None = None,
     field_overrides: Mapping[str, Mapping[str, Any]] | None = None,
+    field_hints: str | None = None,
 ) -> DatasetGenerationResult:
     logger = logger or get_logger()
     fmt = format.lower()
@@ -840,6 +848,7 @@ def generate_dataset_artifacts(
         cycle_policy=cycle_policy,
         rng_mode=rng_mode,
         field_overrides=field_overrides,
+        field_hints=field_hints,
         payload_mode="json",
     )
 
@@ -1095,6 +1104,7 @@ def generate_fixtures_artifacts(
     cycle_policy: str | None = None,
     rng_mode: str | None = None,
     field_overrides: Mapping[str, Mapping[str, Any]] | None = None,
+    field_hints: str | None = None,
 ) -> FixturesGenerationResult:
     from ..cli.gen import _common as cli_common
 
@@ -1180,6 +1190,9 @@ def generate_fixtures_artifacts(
         cli_overrides["overrides"] = {
             model_key: dict(field_map) for model_key, field_map in field_overrides.items()
         }
+    if field_hints is not None:
+        hint_overrides = cli_overrides.setdefault("field_hints", {})
+        hint_overrides["mode"] = field_hints
 
     app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
     config_snapshot = _snapshot_config(app_config)

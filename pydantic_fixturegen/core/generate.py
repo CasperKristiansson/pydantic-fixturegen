@@ -2,25 +2,29 @@
 
 from __future__ import annotations
 
+import copy
 import dataclasses
 import datetime
 import enum
+import fnmatch
 import importlib
 import inspect
 import random
-from collections.abc import Callable, Iterable, Mapping, Sized
+from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field, is_dataclass
 from dataclasses import fields as dataclass_fields
 from typing import Any, cast, get_type_hints
 
 from faker import Faker
 from pydantic import BaseModel, ValidationError
-from pydantic.fields import FieldInfo
+from pydantic.fields import FieldInfo, PydanticUndefined
 
 from pydantic_fixturegen.core import schema as schema_module
 from pydantic_fixturegen.core.config import (
     ArrayConfig,
     ConfigError,
+    FieldHintConfig,
+    FieldHintModeLiteral,
     IdentifierConfig,
     NumberDistributionConfig,
     PathConfig,
@@ -73,6 +77,7 @@ class GenerationConfig:
     identifiers: IdentifierConfig = field(default_factory=IdentifierConfig)
     numbers: NumberDistributionConfig = field(default_factory=NumberDistributionConfig)
     paths: PathConfig = field(default_factory=PathConfig)
+    field_hints: FieldHintConfig = field(default_factory=FieldHintConfig)
     provider_defaults: ProviderDefaultsConfig = field(default_factory=ProviderDefaultsConfig)
     respect_validators: bool = False
     validator_max_retries: int = 2
@@ -102,6 +107,7 @@ class _PathEntry:
 
 _RELATION_SKIP = object()
 _PENDING_FAILURE_NONE = object()
+_HINT_UNSET = object()
 
 
 @dataclass(slots=True)
@@ -243,6 +249,22 @@ class RelationManager:
         return candidate
 
 
+class FieldHintResolver:
+    """Resolves hint modes (defaults/examples) per model."""
+
+    def __init__(self, config: FieldHintConfig) -> None:
+        self._default_mode: FieldHintModeLiteral = config.mode
+        self._overrides: tuple[tuple[str, FieldHintModeLiteral], ...] = config.model_modes
+        self.enabled = self._default_mode != "none" or bool(self._overrides)
+
+    def mode_for(self, model_keys: Sequence[str]) -> FieldHintModeLiteral:
+        for pattern, mode in self._overrides:
+            for key in model_keys:
+                if fnmatch.fnmatchcase(key, pattern):
+                    return mode
+        return self._default_mode
+
+
 class InstanceGenerator:
     """Generate instances of Pydantic models with recursion guards."""
 
@@ -278,6 +300,12 @@ class InstanceGenerator:
             if self.config.relations
             else None
         )
+        self._field_hint_resolver: FieldHintResolver | None = None
+        self._field_hint_mode_cache: dict[type[Any], FieldHintModeLiteral] = {}
+        if self.config.field_hints.mode != "none" or self.config.field_hints.model_modes:
+            resolver = FieldHintResolver(self.config.field_hints)
+            if resolver.enabled:
+                self._field_hint_resolver = resolver
 
         load_entrypoint_plugins()
         self._plugin_manager = get_plugin_manager()
@@ -500,14 +528,20 @@ class InstanceGenerator:
                             f"Override '{full_path}' is marked as require; provide a value via "
                             "config or CLI overrides."
                         )
-                    self._apply_field_policies(field_name, strategy)
-                    value = self._evaluate_strategy(
-                        strategy,
-                        depth,
-                        model_type,
-                        field_name,
-                        report_model,
-                    )
+                    hint_value = _HINT_UNSET
+                    if override is None:
+                        hint_value = self._maybe_apply_field_hint(model_type, summary)
+                    if hint_value is not _HINT_UNSET:
+                        value = hint_value
+                    else:
+                        self._apply_field_policies(field_name, strategy)
+                        value = self._evaluate_strategy(
+                            strategy,
+                            depth,
+                            model_type,
+                            field_name,
+                            report_model,
+                        )
                 values[field_name] = value
                 entry.partial_values[field_name] = value
                 if override and override.post_generate:
@@ -903,6 +937,74 @@ class InstanceGenerator:
         if "enum_policy" in policy_values and policy_values["enum_policy"] is not None:
             strategy.enum_policy = policy_values["enum_policy"]
 
+    def _maybe_apply_field_hint(
+        self,
+        model_type: type[Any],
+        summary: FieldSummary | None,
+    ) -> Any:
+        if summary is None or self._field_hint_resolver is None:
+            return _HINT_UNSET
+        mode = self._get_field_hint_mode(model_type)
+        if mode == "none":
+            return _HINT_UNSET
+        for preference in self._hint_order(mode):
+            if preference == "examples":
+                value = self._hint_value_from_examples(summary)
+            else:
+                value = self._hint_value_from_defaults(summary)
+            if value is not _HINT_UNSET:
+                return value
+        return _HINT_UNSET
+
+    def _get_field_hint_mode(self, model_type: type[Any]) -> FieldHintModeLiteral:
+        cached = self._field_hint_mode_cache.get(model_type)
+        if cached is not None:
+            return cached
+        if self._field_hint_resolver is None:
+            return "none"
+        model_keys = self._model_identifier_keys(model_type)
+        mode = self._field_hint_resolver.mode_for(model_keys)
+        self._field_hint_mode_cache[model_type] = mode
+        return mode
+
+    @staticmethod
+    def _hint_order(mode: FieldHintModeLiteral) -> tuple[str, ...]:
+        if mode == "defaults":
+            return ("defaults",)
+        if mode == "examples":
+            return ("examples",)
+        if mode == "defaults-then-examples":
+            return ("defaults", "examples")
+        if mode == "examples-then-defaults":
+            return ("examples", "defaults")
+        return ()
+
+    def _hint_value_from_defaults(self, summary: FieldSummary) -> Any:
+        if summary.has_default:
+            return self._clone_hint_value(summary.default_value)
+        if summary.default_factory is not None:
+            try:
+                generated = summary.default_factory()
+            except Exception:
+                return _HINT_UNSET
+            return self._clone_hint_value(generated)
+        return _HINT_UNSET
+
+    def _hint_value_from_examples(self, summary: FieldSummary) -> Any:
+        if not summary.examples:
+            return _HINT_UNSET
+        example = summary.examples[0]
+        return self._clone_hint_value(example)
+
+    @staticmethod
+    def _clone_hint_value(value: Any) -> Any:
+        if isinstance(value, BaseModel):
+            return value.model_copy(deep=True)
+        try:
+            return copy.deepcopy(value)
+        except Exception:
+            return value
+
     def _build_override_context(
         self,
         model_type: type[Any],
@@ -1274,11 +1376,27 @@ class InstanceGenerator:
         if field.metadata:
             metadata_entries.extend(field.metadata.values())
 
-        return schema_module._summarize_annotation(
+        summary = schema_module._summarize_annotation(
             annotation,
             constraints,
             metadata=tuple(metadata_entries),
         )
+
+        if field.default is not dataclasses.MISSING:
+            summary.has_default = True
+            summary.default_value = field.default
+        elif field.default_factory is not dataclasses.MISSING:  # type: ignore[attr-defined]
+            summary.default_factory = field.default_factory  # type: ignore[attr-defined,assignment]
+        elif field_info is not None and field_info.default is not PydanticUndefined:
+            summary.has_default = True
+            summary.default_value = field_info.default
+
+        if field_info is not None:
+            examples = getattr(field_info, "examples", None)
+            if examples:
+                summary.examples = tuple(examples)
+
+        return summary
 
     def _record_validator_failure(
         self,

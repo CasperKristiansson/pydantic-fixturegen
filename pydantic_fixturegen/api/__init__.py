@@ -53,6 +53,7 @@ def generate_json(
     profile: str | None = None,
     type_annotation: Any | None = None,
     type_label: str | None = None,
+    field_hints: str | None = None,
 ) -> JsonGenerationResult:
     """Generate JSON artifacts for a single Pydantic model or ``TypeAdapter`` target.
 
@@ -86,6 +87,7 @@ def generate_json(
         profile=profile,
         type_annotation=type_annotation,
         type_label=label_override,
+        field_hints=field_hints,
     )
 
 
@@ -106,6 +108,7 @@ def generate_fixtures(
     freeze_seeds_file: str | Path | None = None,
     preset: str | None = None,
     profile: str | None = None,
+    field_hints: str | None = None,
 ) -> FixturesGenerationResult:
     """Emit pytest fixtures for discovered models.
 
@@ -131,6 +134,7 @@ def generate_fixtures(
         freeze_seeds_file=freeze_path,
         preset=preset,
         profile=profile,
+        field_hints=field_hints,
     )
 
 
@@ -185,6 +189,7 @@ def generate_dataset(
     max_depth: int | None = None,
     cycle_policy: str | None = None,
     rng_mode: str | None = None,
+    field_hints: str | None = None,
 ) -> DatasetGenerationResult:
     """Generate CSV/Parquet/Arrow datasets for a single Pydantic model."""
 
@@ -214,4 +219,5 @@ def generate_dataset(
         max_depth=max_depth,
         cycle_policy=cycle_policy,
         rng_mode=rng_mode,
+        field_hints=field_hints,
     )

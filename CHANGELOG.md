@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Added
 
 - Added type-level provider defaults (issue #50): a new `[tool.pydantic_fixturegen.provider_defaults]` section lets teams define reusable provider bundles and bind them to Pydantic types or `typing.Annotated` metadata, ensuring every `EmailStr` or `Annotated[str, MinLen(3)]` field shares the same provider across commands; resolver precedence honours bundles first, then per-field overrides, and finally heuristic fallbacks, and explain output surfaces which rule fired.
+- Added example/default-aware generation (issue #51): new `[field_hints]` config plus the `--field-hints` CLI flag (json/dataset/fixtures) let you prefer `Field(default=...)` or `Field(examples=...)` values ahead of provider output, with per-model override modes like `examples-then-defaults` so nested models can reuse curated examples while other models still emit random data; overrides sit above heuristics but below per-field overrides so manual providers continue to win when configured.
 
 ## [v1.2.0] - 2025-11-10
 

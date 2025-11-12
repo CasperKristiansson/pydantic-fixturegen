@@ -11,12 +11,12 @@ import types
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Annotated, Any, Union, get_args, get_origin
+from typing import Annotated, Any, Callable, Union, get_args, get_origin
 
 import annotated_types
 import pydantic
 from pydantic import BaseModel, SecretBytes, SecretStr
-from pydantic.fields import FieldInfo
+from pydantic.fields import FieldInfo, PydanticUndefined
 
 from pydantic_fixturegen.core.extra_types import resolve_type_id
 
@@ -69,6 +69,10 @@ class FieldSummary:
     annotation: Any | None = None
     item_annotation: Any | None = None
     metadata: tuple[Any, ...] = ()
+    has_default: bool = False
+    default_value: Any = None
+    default_factory: Callable[[], Any] | None = None
+    examples: tuple[Any, ...] = ()
 
 
 def extract_constraints(field: FieldInfo) -> FieldConstraints:
@@ -98,6 +102,15 @@ def summarize_field(field: FieldInfo) -> FieldSummary:
     constraints = extract_constraints(field)
     annotation = field.annotation
     summary = _summarize_annotation(annotation, constraints, metadata=tuple(field.metadata))
+    if field.default is not PydanticUndefined:
+        summary.has_default = True
+        summary.default_value = field.default
+    default_factory = getattr(field, "default_factory", None)
+    if default_factory is not None and default_factory is not PydanticUndefined:
+        summary.default_factory = default_factory  # type: ignore[assignment]
+    examples = getattr(field, "examples", None)
+    if examples:
+        summary.examples = tuple(examples)
     return summary
 
 

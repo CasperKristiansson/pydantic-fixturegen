@@ -103,6 +103,7 @@ scope = "module"
 | `now`                   | `datetime \ null`           | `null`     | Anchor timestamp used for temporal values.                                                                                                    |
 | `overrides`             | `dict[str, dict[str, Any]]` | `{}`       | Per-model overrides keyed by fully-qualified model name.                                                                                      |
 | `provider_defaults`     | object                      | `{}`       | Reusable provider bundles and matching rules applied per type/annotation before heuristics.                                                   |
+| `field_hints`           | object                      | `{mode = "none"}` | Prefer `Field` defaults/examples globally or per-model before falling back to providers.                                              |
 | `field_policies`        | `dict[str, FieldPolicy]`    | `{}`       | Pattern-based overrides for specific fields.                                                                                                  |
 | `locales`               | `dict[str, str]`            | `{}`       | Pattern-based Faker locale overrides for models or fields.                                                                                    |
 | `emitters`              | object                      | see below  | Configure emitters such as pytest fixtures.                                                                                                   |
@@ -330,6 +331,25 @@ metadata = ["annotated_types.MinLen"]
 - Rules accept `summary_types`, `formats`, `annotation_globs`, `metadata`/`metadata_all`, and `metadata_any`. Metadata entries reference the fully-qualified class name of the metadata object (e.g., `annotated_types.MinLen`), so any `typing.Annotated[..., MinLen(3)]` field can opt into a bundle without matching by field name.
 - Configuration order determines precedence: the first matching rule wins, per-field overrides still take top priority, and heuristics only run when no type-level rule applies.
 - Use `provider_kwargs` on bundles to pass static arguments (for example, enable masked identifier output everywhere or cap slug lengths) and keep CLI invocations free of repeated `--override` flags.
+
+### Field hints
+
+Prefer `Field(default=...)` or `Field(examples=...)` values before falling back to providers.
+
+```toml
+[tool.pydantic_fixturegen.field_hints]
+mode = "defaults-then-examples"
+
+[tool.pydantic_fixturegen.field_hints.models]
+"*.Address" = "examples"
+"legacy.*" = "examples-then-defaults"
+```
+
+- Global mode accepts `none`, `defaults`, `examples`, `defaults-then-examples`, or `examples-then-defaults`. Modes describe the priority order when both defaults and examples exist.
+- Per-model overrides (glob patterns) force specific models into a different mode without touching the rest of the run.
+- The `--field-hints` flag is available on `pfg gen json`, `pfg gen dataset`, and `pfg gen fixtures` for one-off overrides.
+- Hints sit above heuristics but below explicit per-field overrides, so manual provider swaps still win when configured.
+- Field defaults are deep-cloned (`default_factory` is invoked) and BaseModel defaults use `model_copy(deep=True)` so nested data stays isolated between samples.
 
 ### Locale overrides
 

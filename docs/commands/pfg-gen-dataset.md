@@ -28,6 +28,7 @@
 **Determinism + privacy**
 - `--seed`, `--now`, `--preset`, `--profile`, `--rng-mode`: same semantics as `pfg gen json`.
 - `--freeze-seeds`, `--freeze-seeds-file`: persist per-model seeds between runs.
+- `--field-hints`: prefer `Field` defaults/examples before providers (modes match `pfg gen json`).
 
 **Quality controls**
 - `--respect-validators`, `--validator-max-retries`: enforce Pydantic validators before rows hit disk.

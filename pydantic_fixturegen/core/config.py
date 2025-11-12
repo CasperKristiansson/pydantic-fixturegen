@@ -10,7 +10,7 @@ from dataclasses import dataclass, field, replace
 from importlib import import_module
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, TypeVar, cast
+from typing import Any, Literal, TypeVar, cast
 
 from faker import Faker
 
@@ -45,6 +45,13 @@ UNION_POLICIES = {"first", "random", "weighted"}
 ENUM_POLICIES = {"first", "random"}
 CYCLE_POLICIES = {"reuse", "stub", "null"}
 RNG_MODES = {"portable", "legacy"}
+FIELD_HINT_MODES = {
+    "none",
+    "defaults",
+    "examples",
+    "defaults-then-examples",
+    "examples-then-defaults",
+}
 
 TRUTHY = {"1", "true", "yes", "on"}
 FALSY = {"0", "false", "no", "off"}
@@ -161,6 +168,21 @@ class ProviderDefaultsConfig:
     rules: tuple[ProviderDefaultRule, ...] = ()
 
 
+FieldHintModeLiteral = Literal[
+    "none",
+    "defaults",
+    "examples",
+    "defaults-then-examples",
+    "examples-then-defaults",
+]
+
+
+@dataclass(frozen=True)
+class FieldHintConfig:
+    mode: FieldHintModeLiteral = "none"
+    model_modes: tuple[tuple[str, FieldHintModeLiteral], ...] = ()
+
+
 @dataclass(frozen=True)
 class AppConfig:
     preset: str | None = None
@@ -183,6 +205,7 @@ class AppConfig:
     identifiers: IdentifierConfig = field(default_factory=IdentifierConfig)
     numbers: NumberDistributionConfig = field(default_factory=NumberDistributionConfig)
     paths: PathConfig = field(default_factory=PathConfig)
+    field_hints: FieldHintConfig = field(default_factory=FieldHintConfig)
     provider_defaults: ProviderDefaultsConfig = field(default_factory=ProviderDefaultsConfig)
     emitters: EmittersConfig = field(default_factory=EmittersConfig)
     json: JsonConfig = field(default_factory=JsonConfig)
@@ -281,6 +304,10 @@ def _config_defaults_dict() -> dict[str, Any]:
         "paths": {
             "default_os": DEFAULT_CONFIG.paths.default_os,
             "models": {pattern: target for pattern, target in DEFAULT_CONFIG.paths.model_targets},
+        },
+        "field_hints": {
+            "mode": DEFAULT_CONFIG.field_hints.mode,
+            "models": {},
         },
         "polyfactory": {
             "enabled": DEFAULT_CONFIG.polyfactory.enabled,
@@ -440,6 +467,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
     locale_policies_value = _normalize_locale_policies(data.get("locales"))
     arrays_value = _normalize_array_config(data.get("arrays"))
     identifiers_value = _normalize_identifier_config(data.get("identifiers"))
+    field_hints_value = _normalize_field_hints(data.get("field_hints"))
     provider_defaults_value = _normalize_provider_defaults(data.get("provider_defaults"))
     numbers_value = _normalize_number_config(data.get("numbers"))
     paths_value = _normalize_path_config(data.get("paths"))
@@ -481,6 +509,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         locale_policies=locale_policies_value,
         arrays=arrays_value,
         identifiers=identifiers_value,
+        field_hints=field_hints_value,
         provider_defaults=provider_defaults_value,
         numbers=numbers_value,
         paths=paths_value,
@@ -600,6 +629,17 @@ def _coerce_policy(value: Any, allowed: set[str], field_name: str) -> str:
     if value not in allowed:
         raise ConfigError(f"{field_name} must be one of {sorted(allowed)}.")
     return value
+
+
+def _coerce_field_hint_mode(value: Any, label: str) -> FieldHintModeLiteral:
+    if value is None:
+        return DEFAULT_CONFIG.field_hints.mode
+    if not isinstance(value, str):
+        raise ConfigError(f"{label} must be one of {sorted(FIELD_HINT_MODES)}.")
+    lowered = value.strip().lower()
+    if lowered not in FIELD_HINT_MODES:
+        raise ConfigError(f"{label} must be one of {sorted(FIELD_HINT_MODES)}.")
+    return cast(FieldHintModeLiteral, lowered)
 
 
 def _coerce_mapping(value: Any, label: str) -> Mapping[str, Any]:
@@ -916,6 +956,31 @@ def _normalize_identifier_config(value: Any) -> IdentifierConfig:
         uuid_version=uuid_version,
         mask_sensitive=mask_sensitive_raw,
     )
+
+
+def _normalize_field_hints(value: Any) -> FieldHintConfig:
+    if value is None:
+        return FieldHintConfig()
+    if not isinstance(value, Mapping):
+        raise ConfigError("field_hints must be a mapping.")
+
+    mode = _coerce_field_hint_mode(value.get("mode"), "field_hints.mode")
+
+    models_raw = value.get("models")
+    model_modes: list[tuple[str, FieldHintModeLiteral]] = []
+    if models_raw is not None:
+        if not isinstance(models_raw, Mapping):
+            raise ConfigError("field_hints.models must be a mapping of pattern to mode.")
+        for pattern, entry in models_raw.items():
+            if not isinstance(pattern, str) or not pattern.strip():
+                raise ConfigError("field_hints model patterns must be non-empty strings.")
+            pattern_mode = _coerce_field_hint_mode(
+                entry,
+                f"field_hints.models['{pattern}']",
+            )
+            model_modes.append((pattern.strip(), pattern_mode))
+
+    return FieldHintConfig(mode=mode, model_modes=tuple(model_modes))
 
 
 def _normalize_provider_defaults(value: Any) -> ProviderDefaultsConfig:
