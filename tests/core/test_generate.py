@@ -7,7 +7,7 @@ import uuid
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, TypedDict
 
 import email_validator  # noqa: F401
 import numpy as np
@@ -263,6 +263,30 @@ def test_dataclass_field_generation() -> None:
     assert isinstance(account, Account)
     assert isinstance(account.profile, Profile)
     assert isinstance(account.user.address, Address)
+
+
+@dataclass
+class Inventory:
+    sku: str
+    quantity: int
+
+
+class Shipment(TypedDict):
+    reference: str
+    item: Inventory
+
+
+def test_generate_root_dataclass_and_typeddict() -> None:
+    generator = InstanceGenerator(config=GenerationConfig(seed=7))
+    stock = generator.generate_one(Inventory)
+    assert stock is not None
+    assert isinstance(stock, Inventory)
+    assert isinstance(stock.sku, str)
+
+    report = generator.generate_one(Shipment)
+    assert report is not None
+    assert isinstance(report, dict)
+    assert isinstance(report["item"], Inventory)
 
 
 class OptionalItem(BaseModel):

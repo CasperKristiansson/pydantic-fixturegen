@@ -51,10 +51,10 @@ class ConstraintReporter:
         self._stack: list[_AttemptContext] = []
 
     @staticmethod
-    def _model_key(model: type[BaseModel]) -> str:
+    def _model_key(model: type[Any]) -> str:
         return f"{canonical_module_name(model)}.{model.__qualname__}"
 
-    def begin_model(self, model: type[BaseModel]) -> None:
+    def begin_model(self, model: type[Any]) -> None:
         key = self._model_key(model)
         stats = self._models.setdefault(key, ModelStats())
         stats.attempts += 1
@@ -62,7 +62,7 @@ class ConstraintReporter:
 
     def record_field_attempt(
         self,
-        model: type[BaseModel],
+        model: type[Any],
         field_name: str,
         summary: FieldSummary,
     ) -> None:
@@ -87,7 +87,7 @@ class ConstraintReporter:
 
     def finish_model(
         self,
-        model: type[BaseModel],
+        model: type[Any],
         *,
         success: bool,
         errors: Iterable[Mapping[str, Any]] | None = None,

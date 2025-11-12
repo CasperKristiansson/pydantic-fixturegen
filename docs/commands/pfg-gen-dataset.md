@@ -10,7 +10,7 @@
 - Validate cross-model relations under realistic volume before seeding a database.
 
 ## Inputs & outputs
-- **Target**: module path or `--schema` (JSON Schema). Required unless a schema is provided.
+- **Target**: module path exposing Pydantic models, stdlib `@dataclass` types, or `TypedDict`s (or use `--schema` for JSON Schema). Required unless a schema is provided.
 - **Format**: `--format csv|parquet|arrow` (default `csv`). Columnar formats require the `dataset` extra so PyArrow is available.
 - **Output**: `--out` accepts file templates; include `{model}` whenever more than one model is selected.
 - **Compression**: `--compression` chooses codecs. CSV supports `gzip`; Parquet/Arrow support `snappy`, `zstd`, `brotli`, `lz4` (Arrow also `zstd`/`lz4`). Leave unset for uncompressed output.

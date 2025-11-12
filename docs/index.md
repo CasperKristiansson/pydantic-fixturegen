@@ -7,6 +7,7 @@
 - **Determinism everywhere** — cascaded seeds across `random`, Faker, NumPy, and PyArrow plus optional freeze files keep JSON, datasets, fixtures, FastAPI smoke tests, and anonymized payloads byte-for-byte identical.
 - **Guardrails built in** — sandboxed discovery, `pfg diff`, `pfg doctor`, `pfg snapshot`, lockfiles, and coverage manifests let CI block regressions without custom glue code.
 - **Extensible engine** — Pluggy hooks, Polyfactory delegation, schema ingestion, dataset emitters, anonymizer, Hypothesis strategies, SQLModel/Beanie seeders, and FastAPI tooling reuse the same generation plan across APIs, tests, and data pipelines.
+- **Dataclasses + TypedDicts** — the same configuration/preset system now works for stdlib `@dataclass` types and `typing.TypedDict` alongside native Pydantic models (attrs/msgspec under active discussion).
 
 If you are comparing tools, start with the [Alternatives & migration guides](alternatives.md) to see head-to-head features, Polyfactory/Pydantic-Factories migration steps, and real-world case studies.
 

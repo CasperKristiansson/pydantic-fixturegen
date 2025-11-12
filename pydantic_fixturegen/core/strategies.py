@@ -8,7 +8,6 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Union, get_args, get_origin
 
 import pluggy
-from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from pydantic_fixturegen.core.config import ProviderDefaultsConfig
@@ -111,23 +110,30 @@ class StrategyBuilder:
             else None
         )
 
-    def build_model_strategies(self, model: type[BaseModel]) -> Mapping[str, StrategyResult]:
+    def build_model_strategies(self, model: type[Any]) -> Mapping[str, StrategyResult]:
         summaries = summarize_model_fields(model)
         strategies: dict[str, StrategyResult] = {}
-        for name, model_field in model.model_fields.items():
-            summary = summaries[name]
+        model_fields = getattr(model, "model_fields", None)
+        for name, summary in summaries.items():
+            field_info: FieldInfo | None = None
+            annotation = summary.annotation
+            if isinstance(model_fields, Mapping):
+                model_field = model_fields.get(name)
+                if model_field is not None:
+                    field_info = model_field
+                    annotation = model_field.annotation
             strategies[name] = self.build_field_strategy(
                 model,
                 name,
-                model_field.annotation,
+                annotation,
                 summary,
-                field_info=model_field,
+                field_info=field_info,
             )
         return strategies
 
     def build_field_strategy(
         self,
-        model: type[BaseModel],
+        model: type[Any],
         field_name: str,
         annotation: Any,
         summary: FieldSummary,
@@ -154,7 +160,7 @@ class StrategyBuilder:
     # ------------------------------------------------------------------ helpers
     def _build_union_strategy(
         self,
-        model: type[BaseModel],
+        model: type[Any],
         field_name: str,
         union_args: Sequence[Any],
         *,
@@ -176,7 +182,7 @@ class StrategyBuilder:
 
     def _build_single_strategy(
         self,
-        model: type[BaseModel],
+        model: type[Any],
         field_name: str,
         summary: FieldSummary,
         annotation: Any,
@@ -196,7 +202,7 @@ class StrategyBuilder:
                 enum_policy=self.enum_policy,
             )
 
-        if summary.type in {"model", "dataclass"}:
+        if summary.type in {"model", "dataclass", "typed-dict"}:
             p_none = self.optional_p_none if summary.is_optional else self.default_p_none
             return Strategy(
                 field_name=field_name,
@@ -314,7 +320,7 @@ class StrategyBuilder:
 
     def _apply_heuristics(
         self,
-        model: type[BaseModel],
+        model: type[Any],
         field_name: str,
         summary: FieldSummary,
         field_info: FieldInfo | None,
@@ -338,7 +344,7 @@ class StrategyBuilder:
 
     def _apply_strategy_plugins(
         self,
-        model: type[BaseModel],
+        model: type[Any],
         field_name: str,
         strategy: Strategy,
     ) -> Strategy:

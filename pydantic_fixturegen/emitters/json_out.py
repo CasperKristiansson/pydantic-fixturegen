@@ -365,7 +365,11 @@ def _normalise_record(record: Any) -> Any:
     if bool(is_dataclass(record)):
         if isinstance(record, type):
             return record
-        return asdict(record)
+        payload = asdict(record)
+        events = consume_cycle_events(record)
+        if events:
+            payload["__cycles__"] = [event.to_payload() for event in events]
+        return payload
     if isinstance(record, BaseModel):
         data = record.model_dump()
         events = consume_cycle_events(record)
@@ -375,7 +379,12 @@ def _normalise_record(record: Any) -> Any:
     model_dump = getattr(record, "model_dump", None)
     if callable(model_dump):
         dump_call = cast(Callable[[], Any], model_dump)
-        return dump_call()
+        payload = dump_call()
+        events = consume_cycle_events(record)
+        if events and isinstance(payload, dict):
+            payload = dict(payload)
+            payload["__cycles__"] = [event.to_payload() for event in events]
+        return payload
     return record
 
 

@@ -140,6 +140,43 @@ def test_gen_fixtures_basic_functions_style(tmp_path: Path) -> None:
     assert rerun.exit_code == 0
 
 
+def test_gen_fixtures_supports_dataclasses(tmp_path: Path) -> None:
+    module_path = tmp_path / "analytics.py"
+    module_path.write_text(
+        textwrap.dedent(
+            """
+            from dataclasses import dataclass
+
+
+            @dataclass
+            class Metric:
+                name: str
+                value: int
+            """
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "analytics_fixtures.py"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "fixtures",
+            str(module_path),
+            "--out",
+            str(output),
+            "--include",
+            "analytics.Metric",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    text = output.read_text(encoding="utf-8")
+    assert "from analytics import Metric" in text
+    assert "def metric(" in text
+
+
 def test_gen_fixtures_with_now(tmp_path: Path) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "anchored.py"

@@ -13,8 +13,6 @@ from pathlib import Path
 from pprint import pformat
 from typing import Any, Literal, cast
 
-from pydantic import BaseModel
-
 from pydantic_fixturegen.core.config import (
     ArrayConfig,
     IdentifierConfig,
@@ -31,6 +29,7 @@ from pydantic_fixturegen.core.io_utils import WriteResult, write_atomic_text
 from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
 from pydantic_fixturegen.core.seed import DEFAULT_LOCALE, RNGModeLiteral
 from pydantic_fixturegen.core.seed_freeze import canonical_module_name, model_identifier
+from pydantic_fixturegen.core.model_utils import dump_model_instance
 from pydantic_fixturegen.core.version import build_artifact_header
 from pydantic_fixturegen.polyfactory_support import (
     PolyfactoryBinding,
@@ -75,7 +74,7 @@ class PytestEmitConfig:
 
 
 def emit_pytest_fixtures(
-    models: Sequence[type[BaseModel]],
+    models: Sequence[type[Any]],
     *,
     output_path: str | Path,
     config: PytestEmitConfig | None = None,
@@ -157,7 +156,7 @@ def emit_pytest_fixtures(
             )
         if per_model_seeds:
             constraint_reporters.append(generator.constraint_report)
-        data = [_model_to_literal(instance) for instance in instances]
+        data = [_model_to_literal(model, instance) for instance in instances]
         base_name = model.__name__
         if cfg.style in {"factory", "class"}:
             base_name = f"{base_name}_factory"
@@ -211,7 +210,7 @@ def emit_pytest_fixtures(
 # --------------------------------------------------------------------------- rendering helpers
 @dataclass(slots=True)
 class _ModelEntry:
-    model: type[BaseModel]
+    model: type[Any]
     data: list[dict[str, Any]]
     fixture_name: str
     helper_name: str | None = None
@@ -444,10 +443,11 @@ def _to_snake_case(name: str) -> str:
     return name.lower()
 
 
-def _model_to_literal(instance: BaseModel) -> dict[str, Any]:
-    raw = instance.model_dump(mode="json")
+def _model_to_literal(model: type[Any], instance: Any) -> dict[str, Any]:
+    raw = dump_model_instance(model, instance, mode="json")
     events = consume_cycle_events(instance)
     if events:
+        raw = dict(raw)
         raw["__cycles__"] = [event.to_payload() for event in events]
     serialized = json.dumps(raw, sort_keys=True, ensure_ascii=False)
     return cast(dict[str, Any], json.loads(serialized))

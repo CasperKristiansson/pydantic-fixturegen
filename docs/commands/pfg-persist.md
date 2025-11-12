@@ -1,6 +1,6 @@
 # `pfg persist`
 
-Persist generated Pydantic payloads through reusable handlers (HTTP, SQLite, custom plugins) instead of writing JSON/fixtures to disk. The command reuses the same discovery/generation pipeline as `pfg gen json`, so flags like `--include`, `--seed`, `--override`, and `--field-hints` behave identically before the handler sees any data.
+Persist generated payloads (Pydantic v2 models, stdlib dataclasses, or TypedDicts) through reusable handlers (HTTP, SQLite, custom plugins) instead of writing JSON/fixtures to disk. The command reuses the same discovery/generation pipeline as `pfg gen json`, so flags like `--include`, `--seed`, `--override`, and `--field-hints` behave identically before the handler sees any data.
 
 ## Typical use cases
 

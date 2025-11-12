@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, cast, get_origin
 
 import typer
-from pydantic import BaseModel
 
 from pydantic_fixturegen.core.errors import DiscoveryError, PFGError
 from pydantic_fixturegen.core.extra_types import describe_extra_annotation
@@ -121,7 +120,7 @@ class FieldReport:
 
 @dataclass
 class ModelReport:
-    model: type[BaseModel]
+    model: type[Any]
     coverage: tuple[int, int]
     issues: list[str]
     gaps: list[FieldGap] = field(default_factory=list)
@@ -138,7 +137,7 @@ class GapInfo:
 
 @dataclass(slots=True)
 class FieldGap:
-    model: type[BaseModel]
+    model: type[Any]
     field: str
     info: GapInfo
 
@@ -358,7 +357,7 @@ def _execute_doctor(
     return gap_summary
 
 
-def _analyse_model(model: type[BaseModel], builder: StrategyBuilder) -> ModelReport:
+def _analyse_model(model: type[Any], builder: StrategyBuilder) -> ModelReport:
     total_fields = 0
     covered_fields = 0
     issues: list[str] = []
@@ -367,16 +366,24 @@ def _analyse_model(model: type[BaseModel], builder: StrategyBuilder) -> ModelRep
 
     summaries = summarize_model_fields(model)
 
-    for field_name, model_field in model.model_fields.items():
+    model_fields = getattr(model, "model_fields", None)
+
+    for field_name, summary in summaries.items():
         total_fields += 1
-        summary = summaries[field_name]
+        field_info = None
+        annotation = summary.annotation
+        if isinstance(model_fields, Mapping):
+            model_field = model_fields.get(field_name)
+            if model_field is not None:
+                field_info = model_field
+                annotation = model_field.annotation
         try:
             strategy = builder.build_field_strategy(
                 model,
                 field_name,
-                model_field.annotation,
+                annotation,
                 summary,
-                field_info=model_field,
+                field_info=field_info,
             )
         except ValueError as exc:
             message = str(exc)

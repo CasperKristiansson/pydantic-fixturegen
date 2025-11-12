@@ -9,8 +9,6 @@ import uuid
 from collections.abc import Callable, Mapping, Sequence, Iterator
 from typing import Any
 
-from pydantic import BaseModel
-
 from pydantic_fixturegen.api.models import ConfigSnapshot
 from pydantic_fixturegen.core.errors import PersistenceError
 from pydantic_fixturegen.logging import Logger
@@ -29,8 +27,8 @@ class PersistenceRunner:
         handler_kind: HandlerKind,
         handler_name: str,
         sample_factory: Callable[[], Mapping[str, Any]],
-        model_cls: type[BaseModel],
-        related_models: Sequence[type[BaseModel]],
+        model_cls: type[Any],
+        related_models: Sequence[type[Any]],
         count: int,
         batch_size: int,
         max_retries: int,

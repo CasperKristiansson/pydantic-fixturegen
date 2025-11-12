@@ -29,6 +29,8 @@ from pydantic_fixturegen.core.seed_freeze import (
     model_identifier,
     resolve_freeze_path,
 )
+from pydantic_fixturegen.core.schema import summarize_model_fields
+from pydantic_fixturegen.core.model_utils import dump_model_instance
 from pydantic_fixturegen.emitters.dataset_out import DatasetFormat, emit_dataset_samples
 from pydantic_fixturegen.emitters.json_out import emit_json_samples
 from pydantic_fixturegen.emitters.pytest_codegen import PytestEmitConfig, emit_pytest_fixtures
@@ -78,14 +80,17 @@ def _config_details(snapshot: ConfigSnapshot) -> dict[str, Any]:
 
 
 def _instance_payload(
-    instance: BaseModel,
+    instance: Any,
     *,
+    model: type[Any],
     mode: Literal["python", "json"] = "python",
 ) -> dict[str, Any]:
-    data = instance.model_dump(mode=mode)
+    data = dump_model_instance(model, instance, mode=mode)
     events = consume_cycle_events(instance)
     if events:
-        data["__cycles__"] = [event.to_payload() for event in events]
+        payload = dict(data)
+        payload["__cycles__"] = [event.to_payload() for event in events]
+        return payload
     return data
 
 
@@ -340,7 +345,7 @@ def _build_model_artifact_plan(
     related_class_tuple = tuple(related_model_classes)
 
     def sample_factory() -> Mapping[str, Any]:
-        related_instances: list[tuple[type[BaseModel], dict[str, Any]]] = []
+        related_instances: list[tuple[type[Any], dict[str, Any]]] = []
         for related_cls in related_class_tuple:
             related_instance = generator.generate_one(related_cls)
             if related_instance is None:
@@ -349,7 +354,10 @@ def _build_model_artifact_plan(
                     details={"model": related_cls.__qualname__},
                 )
             related_instances.append(
-                (related_cls, _instance_payload(related_instance, mode=payload_mode))
+                (
+                    related_cls,
+                    _instance_payload(related_instance, model=related_cls, mode=payload_mode),
+                )
             )
 
         instance = generator.generate_one(model_cls)
@@ -368,7 +376,7 @@ def _build_model_artifact_plan(
                 f"Failed to generate instance for {target_model.qualname}.",
                 details=details,
             )
-        payload = _instance_payload(instance, mode=payload_mode)
+        payload = _instance_payload(instance, model=model_cls, mode=payload_mode)
         if related_instances:
             bundle: dict[str, Any] = {model_cls.__name__: payload}
             for related_cls, related_payload in related_instances:
@@ -411,8 +419,8 @@ class ModelArtifactPlan:
 
     app_config: AppConfig
     config_snapshot: ConfigSnapshot
-    model_cls: type[BaseModel]
-    related_models: tuple[type[BaseModel], ...]
+    model_cls: type[Any]
+    related_models: tuple[type[Any], ...]
     sample_factory: Callable[[], Mapping[str, Any]]
     template_context: OutputTemplateContext
     base_output: Path
@@ -424,17 +432,24 @@ class ModelArtifactPlan:
     reporter: Any
 
 
-def _dataset_columns(model_cls: type[BaseModel]) -> tuple[str, ...]:
-    fields = tuple(getattr(model_cls, "model_fields", {}).keys())
+def _dataset_columns(model_cls: type[Any]) -> tuple[str, ...]:
+    try:
+        fields = tuple(summarize_model_fields(model_cls).keys())
+    except (TypeError, AttributeError):
+        fallback_fields = getattr(model_cls, "model_fields", None)
+        if isinstance(fallback_fields, Mapping):
+            fields = tuple(fallback_fields.keys())
+        else:
+            fields = ()
     if "__cycles__" in fields:
         return fields
     return fields + ("__cycles__",)
 
 
 def _build_relation_model_map(
-    model_classes: Sequence[type[BaseModel]],
-) -> dict[str, type[BaseModel]]:
-    mapping: dict[str, type[BaseModel]] = {}
+    model_classes: Sequence[type[Any]],
+) -> dict[str, type[Any]]:
+    mapping: dict[str, type[Any]] = {}
     for cls in model_classes:
         full = InstanceGenerator._describe_model(cls)
         mapping[full] = cls
@@ -447,7 +462,7 @@ def _build_instance_generator(
     app_config: AppConfig,
     *,
     seed_override: int | None = None,
-    relation_models: Mapping[str, type[BaseModel]] | None = None,
+    relation_models: Mapping[str, type[Any]] | None = None,
 ) -> InstanceGenerator:
     if seed_override is not None:
         seed_value: int | None = seed_override
@@ -493,7 +508,7 @@ def _collect_polyfactory_bindings(
     *,
     app_config: AppConfig,
     discovery: IntrospectedModel | Sequence[IntrospectedModel] | None,
-    model_class_lookup: Mapping[str, type[BaseModel]] | None,
+    model_class_lookup: Mapping[str, type[Any]] | None,
     logger: Logger,
 ) -> tuple[PolyfactoryBinding, ...]:
     from pydantic_fixturegen.polyfactory_support import discover_polyfactory_bindings
@@ -536,11 +551,11 @@ def _maybe_enable_polyfactory_delegation(
 
 def _rebase_polyfactory_bindings(
     bindings: Sequence[PolyfactoryBinding],
-    model_class_lookup: Mapping[str, type[BaseModel]],
+    model_class_lookup: Mapping[str, type[Any]],
 ) -> tuple[PolyfactoryBinding, ...]:
     from pydantic_fixturegen.polyfactory_support import PolyfactoryBinding
 
-    def _labels(model: type[BaseModel]) -> set[str]:
+    def _labels(model: type[Any]) -> set[str]:
         module = getattr(model, "__module__", "")
         qualname = getattr(model, "__qualname__", getattr(model, "__name__", ""))
         labels = {qualname}
@@ -553,7 +568,7 @@ def _rebase_polyfactory_bindings(
                 labels.add(f"{module}.{simple}")
         return labels
 
-    lookup: dict[str, type[BaseModel]] = {}
+    lookup: dict[str, type[Any]] = {}
     for cls in model_class_lookup.values():
         for label in _labels(cls):
             lookup.setdefault(label, cls)
@@ -1653,7 +1668,7 @@ def generate_schema_artifacts(
 
 
 def _aggregate_model_digest(
-    model_classes: Sequence[type[BaseModel]],
+    model_classes: Sequence[type[Any]],
     model_digests: Mapping[str, str | None],
 ) -> str | None:
     if not model_classes:

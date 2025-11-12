@@ -213,8 +213,12 @@ def _collect_model_report(
     visited.add(model_cls)
     summaries = summarize_model_fields(model_cls)
 
-    for field_name, field in model_cls.model_fields.items():
-        summary = summaries[field_name]
+    model_fields = getattr(model_cls, "model_fields", None)
+
+    for field_name, summary in summaries.items():
+        field_info = None
+        if isinstance(model_fields, Mapping):
+            field_info = model_fields.get(field_name)
         field_report: dict[str, Any] = {
             "name": field_name,
             "summary": _summary_to_payload(summary),
@@ -224,9 +228,9 @@ def _collect_model_report(
             strategy = builder.build_field_strategy(
                 model_cls,
                 field_name,
-                field.annotation,
+                field_info.annotation if field_info is not None else summary.annotation,
                 summary,
-                field_info=field,
+                field_info=field_info,
             )
         except ValueError as exc:
             field_report["error"] = str(exc)
@@ -258,7 +262,7 @@ def _strategy_to_payload(
     builder: StrategyBuilder,
     remaining_depth: int | None,
     visited: set[type[Any]],
-    parent_model: type[BaseModel],
+    parent_model: type[Any],
 ) -> dict[str, Any]:
     if isinstance(strategy, UnionStrategy):
         payload: dict[str, Any] = {

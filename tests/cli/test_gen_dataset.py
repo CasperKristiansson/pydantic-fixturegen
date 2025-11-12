@@ -104,6 +104,48 @@ def test_gen_dataset_arrow(tmp_path: Path) -> None:
         assert reader.read_all().num_rows == 2
 
 
+def test_gen_dataset_supports_typeddict_models(tmp_path: Path) -> None:
+    module_path = tmp_path / "typed_models.py"
+    module_path.write_text(
+        """
+from typing import TypedDict
+
+
+class Audit(TypedDict):
+    level: str
+    actor: str
+
+
+class Event(TypedDict):
+    name: str
+    audit: Audit
+""",
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "events.csv"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "dataset",
+            str(module_path),
+            "--out",
+            str(output_path),
+            "--format",
+            "csv",
+            "--n",
+            "1",
+            "--include",
+            "typed_models.Event",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    rows = output_path.read_text(encoding="utf-8").strip().splitlines()
+    assert rows[0].startswith("name,audit")
+
+
 def test_gen_dataset_field_hints_forwarded(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

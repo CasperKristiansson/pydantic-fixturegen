@@ -270,5 +270,5 @@ def test_instance_payload_includes_cycle_metadata() -> None:
         ],
     )
 
-    payload = runtime_mod._instance_payload(instance)
+    payload = runtime_mod._instance_payload(instance, model=Record)
     assert payload["__cycles__"][0]["path"] == "$.value"

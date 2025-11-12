@@ -9,7 +9,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic_fixturegen.core.model_utils import model_json_schema
 
 from .seed import SeedManager
 
@@ -145,19 +145,19 @@ def resolve_freeze_path(path_option: Path | None, *, root: Path | None = None) -
     return base / candidate
 
 
-def canonical_module_name(model: type[BaseModel]) -> str:
+def canonical_module_name(model: type[Any]) -> str:
     """Return the canonical module name for a dynamically imported model."""
 
     return getattr(model, "__pfg_canonical_module__", model.__module__)
 
 
-def model_identifier(model: type[BaseModel]) -> str:
+def model_identifier(model: type[Any]) -> str:
     return f"{canonical_module_name(model)}.{model.__qualname__}"
 
 
-def compute_model_digest(model: type[BaseModel]) -> str | None:
+def compute_model_digest(model: type[Any]) -> str | None:
     try:
-        schema = model.model_json_schema()
+        schema = model_json_schema(model)
     except Exception:  # pragma: no cover - defensive
         return None
 

@@ -18,7 +18,9 @@ from pydantic_fixturegen.api import (
 )
 ```
 
-All helpers return dataclasses defined in `pydantic_fixturegen.api.models`. Every result exposes:
+All helpers return dataclasses defined in `pydantic_fixturegen.api.models`. Even though the project name emphasises "pydantic", the Python API mirrors the CLI and happily drives stdlib `@dataclass` types and `typing.TypedDict` definitions alongside BaseModel subclasses—point `target` (or `type_annotation`) at any supported model family and overrides/presets behave the same way.
+
+Every result exposes:
 
 - `paths` / `path` — filesystem locations written atomically.
 - `base_output` — the resolved template root (`OutputTemplateContext`).
@@ -56,7 +58,7 @@ result: JsonGenerationResult = generate_json(
 
 | Parameter                                              | Type                | Notes                                                                                                                                   |
 | ------------------------------------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `target`                                               | `str`/`Path`/`None` | Module file that exports Pydantic models. Set to `None` when using `type_annotation`.                                                   |
+| `target`                                               | `str`/`Path`/`None` | Module file that exports supported models (Pydantic, dataclasses, TypedDicts). Set to `None` when using `type_annotation`.             |
 | `out`                                                  | `str`/`Path`        | Templated `OutputTemplate` path (`{model}`, `{case_index}`, `{timestamp}` etc.).                                                        |
 | `count`, `jsonl`, `indent`, `use_orjson`, `shard_size` | Scalars             | Match the CLI flags (`--n`, `--jsonl`, `--indent`, `--orjson`, `--shard-size`).                                                         |
 | `include` / `exclude`                                  | sequence            | Fully-qualified model globs.                                                                                                            |

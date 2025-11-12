@@ -11,7 +11,7 @@ import types
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Annotated, Any, Callable, Union, get_args, get_origin
+from typing import Annotated, Any, Callable, Union, get_args, get_origin, get_type_hints
 
 import annotated_types
 import pydantic
@@ -19,6 +19,8 @@ from pydantic import BaseModel, SecretBytes, SecretStr
 from pydantic.fields import FieldInfo, PydanticUndefined
 
 from pydantic_fixturegen.core.extra_types import resolve_type_id
+from pydantic_fixturegen.core.model_utils import is_dataclass_type, is_typeddict_type
+from typing_extensions import NotRequired, Required
 
 _np: types.ModuleType | None
 try:  # Optional dependency
@@ -75,6 +77,15 @@ class FieldSummary:
     examples: tuple[Any, ...] = ()
 
 
+@dataclass(slots=True)
+class _SimpleFieldInfo:
+    annotation: Any
+    metadata: tuple[Any, ...]
+    default: Any
+    default_factory: Callable[[], Any] | None
+    examples: tuple[Any, ...] = ()
+
+
 def extract_constraints(field: FieldInfo) -> FieldConstraints:
     """Extract constraint metadata from a single Pydantic FieldInfo."""
     constraints = FieldConstraints()
@@ -114,11 +125,72 @@ def summarize_field(field: FieldInfo) -> FieldSummary:
     return summary
 
 
-def summarize_model_fields(model: type[BaseModel]) -> Mapping[str, FieldSummary]:
+def summarize_model_fields(model: type[Any]) -> Mapping[str, FieldSummary]:
     summary: dict[str, FieldSummary] = {}
-    for name, field in model.model_fields.items():
+    field_map: Mapping[str, FieldInfo | _SimpleFieldInfo]
+
+    model_fields = getattr(model, "model_fields", None)
+    if isinstance(model_fields, Mapping):
+        field_map = model_fields
+    elif is_dataclass_type(model):
+        field_map = _dataclass_field_info_map(model)
+    elif is_typeddict_type(model):
+        field_map = _typeddict_field_info_map(model)
+    else:
+        raise TypeError(f"Unsupported model type: {model!r}")
+
+    for name, field in field_map.items():
         summary[name] = summarize_field(field)
     return summary
+
+
+def _dataclass_field_info_map(model: type[Any]) -> Mapping[str, _SimpleFieldInfo]:
+    annotations = get_type_hints(model, include_extras=True)
+    result: dict[str, _SimpleFieldInfo] = {}
+    for field in dataclasses_module.fields(model):
+        if not field.init:
+            continue
+        annotation = annotations.get(field.name, field.type)
+        metadata_entries = tuple(field.metadata.values()) if field.metadata else ()
+        default_value: Any = PydanticUndefined
+        default_factory: Callable[[], Any] | None = None
+        if field.default is not dataclasses_module.MISSING:
+            default_value = field.default
+        elif field.default_factory is not dataclasses_module.MISSING:  # type: ignore[attr-defined]
+            default_factory = field.default_factory  # type: ignore[attr-defined]
+        result[field.name] = _SimpleFieldInfo(
+            annotation=annotation,
+            metadata=metadata_entries,
+            default=default_value,
+            default_factory=default_factory,
+        )
+    return result
+
+
+def _typeddict_field_info_map(model: type[Any]) -> Mapping[str, _SimpleFieldInfo]:
+    annotations = get_type_hints(model, include_extras=True)
+    result: dict[str, _SimpleFieldInfo] = {}
+    for field_name, annotation in annotations.items():
+        origin = get_origin(annotation)
+        required = True
+        if origin in (Required, NotRequired):
+            required = origin is Required
+            annotation = get_args(annotation)[0]
+
+        metadata: tuple[Any, ...] = ()
+        if required:
+            default_value: Any = getattr(model, field_name, PydanticUndefined)
+        else:
+            default_value = getattr(model, field_name, None)
+            annotation = Union[annotation, type(None)]
+
+        result[field_name] = _SimpleFieldInfo(
+            annotation=annotation,
+            metadata=metadata,
+            default=default_value,
+            default_factory=None,
+        )
+    return result
 
 
 def _apply_metadata(constraints: FieldConstraints, meta: Any) -> None:
@@ -314,6 +386,8 @@ def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None
             return extra_type_id, None, None
         if dataclasses_module.is_dataclass(annotation):
             return "dataclass", None, None
+        if is_typeddict_type(annotation):
+            return "typed-dict", None, None
         if _matches_pydantic_type(annotation, "EmailStr"):
             return "email", None, None
         if _matches_pydantic_type(annotation, "AnyUrl"):

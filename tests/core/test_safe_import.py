@@ -137,6 +137,33 @@ def test_safe_import_handles_relative_imports(tmp_path: Path) -> None:
     assert {"ExampleInputs", "ExampleRequest"}.issubset(discovered)
 
 
+def test_safe_import_collects_dataclasses_and_typeddict(tmp_path: Path) -> None:
+    module_path = _write_module(
+        tmp_path,
+        "non_pydantic",
+        """
+        from dataclasses import dataclass
+        from typing import TypedDict
+
+
+        class Audit(TypedDict):
+            level: str
+
+
+        @dataclass
+        class Report:
+            name: str
+            audit: Audit
+        """,
+    )
+
+    result = safe_import_models([module_path], cwd=tmp_path)
+
+    assert result.success is True
+    discovered = {model["name"] for model in result.models}
+    assert {"Audit", "Report"}.issubset(discovered)
+
+
 def test_safe_import_handles_relative_imports_from_nested_cwd(tmp_path: Path) -> None:
     target_module = _write_relative_import_package(tmp_path)
     package_dir = target_module.parent

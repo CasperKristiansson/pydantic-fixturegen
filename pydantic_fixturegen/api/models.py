@@ -8,8 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
-
 from pydantic_fixturegen.core.seed import RNGModeLiteral
 
 
@@ -32,7 +30,7 @@ class JsonGenerationResult:
 
     paths: tuple[Path, ...]
     base_output: Path
-    model: type[BaseModel] | None
+    model: type[Any] | None
     config: ConfigSnapshot
     constraint_summary: Mapping[str, Any] | None
     warnings: tuple[str, ...]
@@ -47,7 +45,7 @@ class DatasetGenerationResult:
 
     paths: tuple[Path, ...]
     base_output: Path
-    model: type[BaseModel]
+    model: type[Any]
     config: ConfigSnapshot
     warnings: tuple[str, ...]
     constraint_summary: Mapping[str, Any] | None
@@ -61,7 +59,7 @@ class FixturesGenerationResult:
 
     path: Path | None
     base_output: Path
-    models: tuple[type[BaseModel], ...]
+    models: tuple[type[Any], ...]
     config: ConfigSnapshot
     metadata: Mapping[str, Any] | None
     warnings: tuple[str, ...]
@@ -80,7 +78,7 @@ class SchemaGenerationResult:
 
     path: Path | None
     base_output: Path
-    models: tuple[type[BaseModel], ...]
+    models: tuple[type[Any], ...]
     config: ConfigSnapshot
     warnings: tuple[str, ...]
     delegated: bool
@@ -95,7 +93,7 @@ class PersistenceRunResult:
     records: int
     retries: int
     duration: float
-    model: type[BaseModel]
+    model: type[Any]
     config: ConfigSnapshot
     warnings: tuple[str, ...]
 

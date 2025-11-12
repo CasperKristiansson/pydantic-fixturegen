@@ -467,16 +467,44 @@ _RUNNER_SNIPPET = textwrap.dedent(
         except Exception:  # pragma: no cover - in absence of pydantic
             BaseModel = None
 
+        try:
+            import dataclasses
+        except ImportError:  # pragma: no cover - stdlib always available
+            dataclasses = None
+
+        try:
+            from typing_extensions import is_typeddict  # type: ignore[attr-defined]
+        except Exception:  # pragma: no cover
+            is_typeddict = None
+
         for attr_name, attr_value in vars(module).items():
             if getattr(attr_value, "__module__", None) != module.__name__:
                 continue
-            if BaseModel is None:
-                continue
-            if isinstance(attr_value, type) and issubclass(attr_value, BaseModel):
+            if BaseModel is not None and isinstance(attr_value, type) and issubclass(attr_value, BaseModel):
                 models.append(
                     {
                         "module": module.__name__,
                         "name": attr_value.__name__,
+                        "qualname": f"{module.__name__}.{attr_value.__name__}",
+                        "path": str(module_path),
+                    }
+                )
+                continue
+            if dataclasses is not None and dataclasses.is_dataclass(attr_value):
+                models.append(
+                    {
+                        "module": module.__name__,
+                        "name": getattr(attr_value, "__name__", attr_name),
+                        "qualname": f"{module.__name__}.{attr_value.__name__}",
+                        "path": str(module_path),
+                    }
+                )
+                continue
+            if is_typeddict is not None and isinstance(attr_value, type) and is_typeddict(attr_value):
+                models.append(
+                    {
+                        "module": module.__name__,
+                        "name": getattr(attr_value, "__name__", attr_name),
                         "qualname": f"{module.__name__}.{attr_value.__name__}",
                         "path": str(module_path),
                     }

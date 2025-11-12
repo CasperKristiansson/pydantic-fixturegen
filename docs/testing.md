@@ -24,7 +24,7 @@ def test_user_snapshot(pfg_snapshot):
     )
 ```
 
-- `target` points to a Python module that exports Pydantic models.
+- `target` points to a Python module that exports Pydantic models, dataclasses, or TypedDicts.
 - Pass one or more configs (`JsonSnapshotConfig`, `FixturesSnapshotConfig`, `SchemaSnapshotConfig`).
 - Use `include`/`exclude`, `seed`, `preset`, or `freeze_seeds` as you would with `pfg diff`.
 

@@ -1,12 +1,12 @@
-# pydantic-fixturegen: deterministic Pydantic fixtures, JSON generator, secure sandbox
+# pydantic-fixturegen: deterministic fixtures for Pydantic, dataclasses, TypedDicts
 
-> Pydantic v2 deterministic fixtures, pytest fixtures, JSON generator, secure sandboxed CLI with Pluggy providers.
+> Deterministic fixtures, pytest modules, datasets, and JSON from Pydantic v2 models **and** stdlib dataclasses/TypedDicts, all inside a sandboxed CLI with Pluggy providers.
 
 [![PyPI version](https://img.shields.io/pypi/v/pydantic-fixturegen.svg "PyPI")](https://pypi.org/project/pydantic-fixturegen/)
 ![Python versions](https://img.shields.io/pypi/pyversions/pydantic-fixturegen.svg "Python 3.10–3.14")
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg "MIT License")
 
-Generate deterministic Pydantic v2 data, pytest fixtures, and JSON quickly with a safe, task-focused CLI built for modern testing workflows.
+Generate deterministic structured data, pytest fixtures, and JSON quickly with a safe, task-focused CLI built for modern testing workflows. Fixturegen still speaks Pydantic natively and now understands dataclasses and TypedDicts without extra adapters.
 
 📘 Read the full docs and examples at [pydantic-fixturegen.kitgrid.dev](https://pydantic-fixturegen.kitgrid.dev/).
 
@@ -36,13 +36,22 @@ Other flows → [docs/install.md](https://github.com/CasperKristiansson/pydantic
 
 <a id="quickstart"></a>
 
-1. Create a small Pydantic v2 model file.
+1. Create a small model file (Pydantic v2, `@dataclass`, or `TypedDict`).
 2. List models: `pfg list ./models.py`
 3. Generate JSON: `pfg gen json ./models.py --include models.User --n 2 --indent 2 --out ./out/User`
 4. Generate fixtures: `pfg gen fixtures ./models.py --out tests/fixtures/test_user.py --cases 3`
    Full steps → [docs/quickstart.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/quickstart.md)
 
 JSON, fixtures, and schema commands all share flags like `--include`, `--exclude`, `--seed`, `--preset`, and `--watch`, so once you learn one flow you can handle the rest without re-reading the help pages.
+
+### Supported model families
+
+- ✅ **Pydantic BaseModel / RootModel (v2)** — full support with validators, constraints, provider defaults, and Polyfactory delegation.
+- ✅ **Stdlib `@dataclass`** — fixturegen inspects field metadata/annotations, respects defaults/examples, and serializes back to dataclass instances.
+- ✅ **`typing.TypedDict` (total or partial)** — treated as schema-driven dicts, including nested dataclasses or other TypedDicts.
+- 🚧 **attrs/msgspec** — not yet wired into the adapters; vote on [issue #53](https://github.com/CasperKristiansson/pydantic-fixturegen/issues/53) if you need them next.
+
+The same include/exclude filters, overrides, presets, and field hints apply no matter which model family you point the CLI at.
 
 ## Basics
 

@@ -6,10 +6,9 @@ import json
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
-from pydantic import BaseModel
-
+from pydantic_fixturegen.core.model_utils import model_json_schema
 from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
 
 
@@ -21,7 +20,7 @@ class SchemaEmitConfig:
 
 
 def emit_model_schema(
-    model: type[BaseModel],
+    model: type[Any],
     *,
     output_path: str | Path,
     indent: int | None = 2,
@@ -43,7 +42,7 @@ def emit_model_schema(
         indent=_normalise_indent(indent),
         ensure_ascii=ensure_ascii,
     )
-    schema = model.model_json_schema()
+    schema = model_json_schema(model)
     payload = json.dumps(
         schema,
         indent=config.indent,
@@ -58,7 +57,7 @@ def emit_model_schema(
 
 
 def emit_models_schema(
-    models: Iterable[type[BaseModel]],
+    models: Iterable[type[Any]],
     *,
     output_path: str | Path,
     indent: int | None = 2,
@@ -82,7 +81,7 @@ def emit_models_schema(
     )
     combined: dict[str, Any] = {}
     for model in sorted(models, key=lambda m: m.__name__):
-        combined[model.__name__] = model.model_json_schema()
+        combined[model.__name__] = model_json_schema(model)
 
     payload = json.dumps(
         combined,

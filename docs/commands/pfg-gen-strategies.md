@@ -10,7 +10,7 @@
 - Run in watch mode while developing new strategies.
 
 ## Inputs & outputs
-- **Target**: module containing Pydantic models.
+- **Target**: module containing supported models (Pydantic BaseModel/RootModel, dataclasses, or TypedDicts).
 - **Output**: `--out` path (defaults to `strategies.py`) or `--stdout` to print.
 - Each module contains:
   - A shared `GenerationConfig` builder with the selected seed/depth/profile.

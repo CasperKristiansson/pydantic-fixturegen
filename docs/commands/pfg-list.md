@@ -1,7 +1,7 @@
 # `pfg list`
 
 ## Capabilities
-`pfg list` discovers Pydantic models inside a Python module without generating artifacts. It runs the same discovery pipeline used by the generators (AST + safe-import hybrids) so you can verify what will actually be emitted, surface sandbox warnings, and feed the and include/exclude globs you plan to reuse later.
+`pfg list` discovers supported models (Pydantic BaseModel/RootModel, stdlib `@dataclass`, and `TypedDict`) inside a Python module without generating artifacts. It runs the same discovery pipeline used by the generators (AST + safe-import hybrids) so you can verify what will actually be emitted, surface sandbox warnings, and feed the and include/exclude globs you plan to reuse later.
 
 ## Typical use cases
 - Smoke-test a new module before running heavy generators.
@@ -10,7 +10,7 @@
 - Validate that safe-import memory and timeout guards suit CI sandboxes.
 
 ## Inputs & outputs
-- **Input**: path to a Python module (`.py`) containing Pydantic v2 models. The command refuses to traverse packages or directories.
+- **Input**: path to a Python module (`.py`) containing supported models (Pydantic v2/datataclasses/TypedDicts). The command refuses to traverse packages or directories.
 - **Output**: each discovered model printed as `<module.qualname> [discovery_method]`. Warnings appear on stderr with `warning:` prefix. On failure the command exits with a non-zero status and, when `--json-errors` is set globally, emits structured JSON diagnostics.
 
 ## Flag reference

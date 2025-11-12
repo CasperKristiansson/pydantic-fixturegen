@@ -12,12 +12,11 @@ import inspect
 import random
 from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field, is_dataclass
-from dataclasses import fields as dataclass_fields
-from typing import Any, cast, get_type_hints
+from typing import Any, cast
 
 from faker import Faker
 from pydantic import BaseModel, ValidationError
-from pydantic.fields import FieldInfo, PydanticUndefined
+from pydantic.fields import PydanticUndefined
 
 from pydantic_fixturegen.core import schema as schema_module
 from pydantic_fixturegen.core.config import (
@@ -48,6 +47,7 @@ from pydantic_fixturegen.core.providers import (
     ProviderRegistry,
     create_default_registry,
 )
+from pydantic_fixturegen.core.model_utils import is_typeddict_type
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary, extract_constraints
 from pydantic_fixturegen.core.seed import DEFAULT_LOCALE, RNGModeLiteral, SeedManager
 from pydantic_fixturegen.core.seed_freeze import canonical_module_name
@@ -353,7 +353,7 @@ class InstanceGenerator:
         return self._last_generation_failure
 
     # ------------------------------------------------------------------ public API
-    def generate_one(self, model: type[BaseModel]) -> BaseModel | None:
+    def generate_one(self, model: type[Any]) -> Any | None:
         self._objects_remaining = self.config.max_objects
         self._cycle_events = []
         instance = self._generate_with_retries(
@@ -365,8 +365,8 @@ class InstanceGenerator:
             self._cycle_events = []
         return instance
 
-    def generate(self, model: type[BaseModel], count: int = 1) -> list[BaseModel]:
-        results: list[BaseModel] = []
+    def generate(self, model: type[Any], count: int = 1) -> list[Any]:
+        results: list[Any] = []
         for _ in range(count):
             instance = self.generate_one(model)
             if instance is None:
@@ -486,9 +486,9 @@ class InstanceGenerator:
             self._path_stack.pop()
             return None
 
-        report_model: type[BaseModel] | None = None
-        if self._is_pydantic_model_type(model_type):
-            report_model = cast(type[BaseModel], model_type)
+        report_model: type[Any] | None = None
+        if isinstance(model_type, type):
+            report_model = cast(type[Any], model_type)
             self._constraint_reporter.begin_model(report_model)
 
         delegate = self._delegated_models.get(model_type)
@@ -564,7 +564,11 @@ class InstanceGenerator:
 
         try:
             instance: Any | None = None
-            if self._is_pydantic_model_type(model_type) or is_dataclass(model_type):
+            if (
+                self._is_pydantic_model_type(model_type)
+                or is_dataclass(model_type)
+                or is_typeddict_type(model_type)
+            ):
                 instance = model_type(**values)
         except ValidationError as exc:
             self._record_validator_failure(
@@ -624,7 +628,7 @@ class InstanceGenerator:
         delegate: ModelDelegate,
         model_type: type[Any],
         path_label: str,
-        report_model: type[BaseModel] | None,
+        report_model: type[Any] | None,
     ) -> Any | None:
         try:
             instance = delegate(self, model_type, path_label)
@@ -672,7 +676,7 @@ class InstanceGenerator:
         depth: int,
         model_type: type[Any],
         field_name: str,
-        report_model: type[BaseModel] | None,
+        report_model: type[Any] | None,
     ) -> Any:
         if isinstance(strategy, UnionStrategy):
             return self._evaluate_union(strategy, depth, model_type, field_name, report_model)
@@ -1116,6 +1120,12 @@ class InstanceGenerator:
                 return model_type(**values)
             except Exception:  # pragma: no cover - defensive fallback
                 return None
+        if is_typeddict_type(model_type):
+            try:
+                defaults = {name: None for name in self._model_field_names(model_type)}
+                return model_type(**defaults)
+            except Exception:  # pragma: no cover - defensive fallback
+                return None
         return None
 
     def _build_partial_instance(
@@ -1131,6 +1141,11 @@ class InstanceGenerator:
             except Exception:  # pragma: no cover - defensive fallback
                 return None
         if dataclasses.is_dataclass(model_type):
+            try:
+                return model_type(**entry.partial_values)
+            except Exception:  # pragma: no cover - defensive fallback
+                return None
+        if is_typeddict_type(model_type):
             try:
                 return model_type(**entry.partial_values)
             except Exception:  # pragma: no cover - defensive fallback
@@ -1158,7 +1173,7 @@ class InstanceGenerator:
         depth: int,
         model_type: type[Any],
         field_name: str,
-        report_model: type[BaseModel] | None,
+        report_model: type[Any] | None,
     ) -> Any:
         choices = strategy.choices
         if not choices:
@@ -1173,7 +1188,7 @@ class InstanceGenerator:
         depth: int,
         model_type: type[Any],
         field_name: str,
-        report_model: type[BaseModel] | None,
+        report_model: type[Any] | None,
     ) -> Any:
         summary = strategy.summary
         if report_model is not None:
@@ -1311,12 +1326,7 @@ class InstanceGenerator:
         if cached is not None:
             return cached
 
-        if self._is_pydantic_model_type(model_type):
-            strategies = dict(self.builder.build_model_strategies(model_type))
-        elif is_dataclass(model_type):
-            strategies = self._build_dataclass_strategies(model_type)
-        else:
-            raise TypeError(f"Unsupported model type: {model_type!r}")
+        strategies = dict(self.builder.build_model_strategies(model_type))
 
         if self._field_override_set is not None:
             self._apply_strategy_overrides(model_type, strategies)
@@ -1339,64 +1349,6 @@ class InstanceGenerator:
                 strategy,
                 override,
             )
-
-    def _build_dataclass_strategies(self, cls: type[Any]) -> dict[str, StrategyResult]:
-        strategies: dict[str, StrategyResult] = {}
-        type_hints = get_type_hints(cls)
-        for field_def in dataclass_fields(cls):
-            if not field_def.init:
-                continue
-            annotation = type_hints.get(field_def.name, field_def.type)
-            field_info_obj = self._extract_field_info(field_def)
-            summary = self._summarize_dataclass_field(field_def, annotation, field_info_obj)
-            strategies[field_def.name] = self.builder.build_field_strategy(
-                cls,
-                field_def.name,
-                annotation,
-                summary,
-                field_info=field_info_obj,
-            )
-        return strategies
-
-    def _summarize_dataclass_field(
-        self,
-        field: dataclasses.Field[Any],
-        annotation: Any,
-        field_info: FieldInfo | None = None,
-    ) -> FieldSummary:
-        if field_info is None:
-            field_info = self._extract_field_info(field)
-        if field_info is not None:
-            constraints = extract_constraints(field_info)
-            metadata_entries: list[Any] = list(field_info.metadata)
-        else:
-            constraints = FieldConstraints()
-            metadata_entries = []
-
-        if field.metadata:
-            metadata_entries.extend(field.metadata.values())
-
-        summary = schema_module._summarize_annotation(
-            annotation,
-            constraints,
-            metadata=tuple(metadata_entries),
-        )
-
-        if field.default is not dataclasses.MISSING:
-            summary.has_default = True
-            summary.default_value = field.default
-        elif field.default_factory is not dataclasses.MISSING:  # type: ignore[attr-defined]
-            summary.default_factory = field.default_factory  # type: ignore[attr-defined,assignment]
-        elif field_info is not None and field_info.default is not PydanticUndefined:
-            summary.has_default = True
-            summary.default_value = field_info.default
-
-        if field_info is not None:
-            examples = getattr(field_info, "examples", None)
-            if examples:
-                summary.examples = tuple(examples)
-
-        return summary
 
     def _record_validator_failure(
         self,
@@ -1453,9 +1405,10 @@ class InstanceGenerator:
         fields = getattr(model_type, "model_fields", None)
         if isinstance(fields, Mapping):
             return list(fields.keys())
-        legacy = getattr(model_type, "__fields__", None)
-        if isinstance(legacy, Mapping):
-            return list(legacy.keys())
+        try:
+            return list(schema_module.summarize_model_fields(model_type).keys())
+        except TypeError:
+            pass
         return []
 
     def _serialize_value(self, value: Any, depth: int = 0) -> Any:
@@ -1482,13 +1435,6 @@ class InstanceGenerator:
         if isinstance(value, set):
             return sorted(self._serialize_value(item, depth + 1) for item in value)
         return repr(value)
-
-    @staticmethod
-    def _extract_field_info(field: dataclasses.Field[Any]) -> FieldInfo | None:
-        for meta in getattr(field, "metadata", ()):
-            if isinstance(meta, FieldInfo):
-                return meta
-        return None
 
     def _should_return_none(self, strategy: Strategy) -> bool:
         if not strategy.summary.is_optional:
@@ -1524,7 +1470,11 @@ class InstanceGenerator:
     def _is_model_like(annotation: Any) -> bool:
         if not isinstance(annotation, type):
             return False
-        return InstanceGenerator._is_pydantic_model_type(annotation) or is_dataclass(annotation)
+        return (
+            InstanceGenerator._is_pydantic_model_type(annotation)
+            or is_dataclass(annotation)
+            or is_typeddict_type(annotation)
+        )
 
     def _call_strategy_provider(
         self,

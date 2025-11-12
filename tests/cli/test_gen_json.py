@@ -212,6 +212,50 @@ def test_gen_json_basic(tmp_path: Path) -> None:
     assert "address" in data[0]
 
 
+def test_gen_json_supports_dataclass_and_typeddict(tmp_path: Path) -> None:
+    module_path = tmp_path / "mixed_models.py"
+    module_path.write_text(
+        textwrap.dedent(
+            """
+            from dataclasses import dataclass
+            from typing import TypedDict
+
+
+            class AuditInfo(TypedDict):
+                level: str
+                actor: str
+
+
+            @dataclass
+            class Event:
+                name: str
+                audit: AuditInfo
+            """
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "events.json"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(output),
+            "--include",
+            "mixed_models.Event",
+            "--n",
+            "1",
+        ],
+    )
+
+    assert result.exit_code == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    events = json.loads(output.read_text(encoding="utf-8"))
+    assert events[0]["audit"].keys() >= {"level", "actor"}
+
+
 def test_gen_json_jsonl_shards(tmp_path: Path) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "samples.jsonl"

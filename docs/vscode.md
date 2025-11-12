@@ -19,7 +19,7 @@ The repository ships reusable tasks under `.vscode/tasks.json` for common workfl
 
 Each task prompts for the following inputs:
 
-- `modulePath`: path to a module or package that exposes your Pydantic models (default: `./models.py`).
+- `modulePath`: path to a module or package that exposes your models (Pydantic, dataclasses, or TypedDicts). Default: `./models.py`.
 - `outputPath`: directory or file for generated artifacts (default: `./out`).
 - `modelFilter`: optional comma-separated include patterns (defaults to include all models).
 - `seed`: deterministic seed value (default: `42`).

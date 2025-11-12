@@ -28,6 +28,11 @@ from pydantic_fixturegen.core.introspect import (
     discover,
 )
 from pydantic_fixturegen.logging import Logger
+from pydantic_fixturegen.core.model_utils import (
+    is_dataclass_type,
+    is_pydantic_model,
+    is_typeddict_type,
+)
 
 __all__ = [
     "JSON_ERRORS_OPTION",
@@ -260,20 +265,29 @@ def discover_models(
     )
 
 
-def load_model_class(model_info: IntrospectedModel) -> type[BaseModel]:
+def load_model_class(model_info: IntrospectedModel) -> type[Any]:
     module = _load_module(model_info.module, Path(model_info.locator))
     attr = getattr(module, model_info.name, None)
     if (
         isinstance(attr, type)
-        and not _is_pydantic_model(attr)
+        and not is_pydantic_model(attr)
         and getattr(module, "__pfg_schema_fallback__", False)
     ):
         attr = _promote_to_base_model(attr)
         setattr(module, model_info.name, attr)
-    if not isinstance(attr, type) or not _is_pydantic_model(attr):
+    if not isinstance(attr, type):
         raise RuntimeError(
             f"Attribute {model_info.name!r} in module "
-            f"{module.__name__} is not a Pydantic BaseModel."
+            f"{module.__name__} is not a supported model class."
+        )
+    if not (
+        is_pydantic_model(attr)
+        or is_dataclass_type(attr)
+        or is_typeddict_type(attr)
+    ):
+        raise RuntimeError(
+            f"Attribute {model_info.name!r} in module {module.__name__} is not a "
+            "Pydantic model, dataclass, or TypedDict."
         )
     rebuild = getattr(attr, "model_rebuild", None)
     if callable(rebuild):  # pragma: no branch - harmless when absent
@@ -382,18 +396,6 @@ def _promote_to_base_model(model_cls: type[Any]) -> type[BaseModel]:
             continue
         namespace[key] = value
     return type(model_cls.__name__, (BaseModel,), namespace)
-
-
-def _is_pydantic_model(model_cls: type[Any]) -> bool:
-    try:
-        if issubclass(model_cls, BaseModel):
-            return True
-    except TypeError:
-        return False
-    for base in model_cls.__mro__[1:]:
-        if base.__name__ == "BaseModel" and base.__module__.startswith("pydantic"):
-            return True
-    return False
 
 
 def _load_module(module_name: str, locator: Path) -> ModuleType:

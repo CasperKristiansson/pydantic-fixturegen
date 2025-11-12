@@ -66,8 +66,45 @@ def test_load_model_class_invalid(tmp_path: Path) -> None:
     common._import_module_by_path("sample_invalid", module_path)
 
     info = _model_info(module_path, "sample_invalid", "Plain")
-    with pytest.raises(RuntimeError, match="not a Pydantic BaseModel"):
+    with pytest.raises(RuntimeError, match="not a Pydantic model, dataclass, or TypedDict"):
         common.load_model_class(info)
+
+
+def test_load_model_class_accepts_dataclass(tmp_path: Path) -> None:
+    module_path = tmp_path / "dataclass_models.py"
+    module_path.write_text(
+        """
+from dataclasses import dataclass
+
+
+@dataclass
+class Report:
+    name: str
+    count: int
+""",
+        encoding="utf-8",
+    )
+    info = _model_info(module_path, "dataclass_models", "Report")
+    model_cls = common.load_model_class(info)
+    assert model_cls.__name__ == "Report"
+
+
+def test_load_model_class_accepts_typeddict(tmp_path: Path) -> None:
+    module_path = tmp_path / "typed_dict_models.py"
+    module_path.write_text(
+        """
+from typing import TypedDict
+
+
+class Payload(TypedDict, total=False):
+    id: int
+    name: str
+""",
+        encoding="utf-8",
+    )
+    info = _model_info(module_path, "typed_dict_models", "Payload")
+    model_cls = common.load_model_class(info)
+    assert model_cls.__name__ == "Payload"
 
 
 def test_load_model_class_promotes_fallback(tmp_path: Path) -> None:
