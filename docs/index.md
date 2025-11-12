@@ -25,6 +25,7 @@ Already familiar with the basics? Jump to the section that matches your task.
 - [Cookbook](cookbook.md) — apply repeatable recipes for diffing artifacts, streaming datasets, toggling presets, seeding databases, or wiring Polyfactory delegation.
 - [Testing helpers](testing.md) — pytest snapshot fixture, CLI snapshot commands (`pfg snapshot verify/write`), and CI/linting tips.
 - [Doctor & diagnostics](doctor.md) — interpret coverage reports, enforce `--fail-on-gaps`, and integrate lockfiles.
+- [Coverage dashboard](commands/pfg-coverage.md) — summarize heuristics, overrides, and relation gaps with text/JSON reports for CI.
 - [Features at a glance](features.md) — skim capabilities (discovery, generation, emitters, privacy) with links to deep dives.
 
 ### Emitters & integrations

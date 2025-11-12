@@ -134,6 +134,13 @@ class _FieldEntry:
 
 
 @dataclass(slots=True, frozen=True)
+class OverrideDescriptor:
+    model_pattern: str
+    field_pattern: str
+    override: FieldOverride
+
+
+@dataclass(slots=True, frozen=True)
 class _ModelEntry:
     matcher: _Pattern
     fields: tuple[_FieldEntry, ...]
@@ -187,6 +194,20 @@ class FieldOverrideSet:
                 best = key
                 selected = override
         return selected
+
+    def describe(self) -> tuple[OverrideDescriptor, ...]:
+        descriptors: list[OverrideDescriptor] = []
+        for entry in self._entries:
+            model_pattern = entry.matcher.raw
+            for field_entry in entry.fields:
+                descriptors.append(
+                    OverrideDescriptor(
+                        model_pattern=model_pattern,
+                        field_pattern=field_entry.matcher.raw,
+                        override=field_entry.override,
+                    )
+                )
+        return tuple(descriptors)
 
 
 def build_field_override_set(mapping: Mapping[str, Mapping[str, Any]]) -> FieldOverrideSet | None:
@@ -401,5 +422,6 @@ __all__ = [
     "FieldOverride",
     "FieldOverrideContext",
     "FieldOverrideSet",
+    "OverrideDescriptor",
     "build_field_override_set",
 ]
