@@ -10,6 +10,10 @@
 - A heuristic rule engine inspects field names, aliases, constraints, and metadata to map common shapes (emails, slugs, country/language codes, filesystem paths, etc.) onto richer providers automatically; see [heuristic settings](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md#heuristic-settings) for opt-out controls.
 - When the [`polyfactory`](https://pypi.org/project/polyfactory/) extra is installed and `[polyfactory]` keeps `prefer_delegation = true`, fixturegen auto-registers any `ModelFactory` subclasses it finds as model-level delegates so you can keep bespoke Polyfactory logic without touching providers manually.
 
+## Type-level defaults
+
+Centralise provider decisions for whole annotation families with `[tool.pydantic_fixturegen.provider_defaults]`. Bundles describe a provider (`provider`, optional `provider_format`, optional `provider_kwargs`) and rules map bundles to summary types, fully-qualified annotations (via globbing), or `typing.Annotated` metadata such as `annotated_types.MinLen`. Rules fire before heuristics, so every `EmailStr` or `Annotated[str, MinLen(3)]` field can share the same provider across JSON, dataset, fixture, and FastAPI commands while per-field overrides remain the ultimate source of truth. Full syntax lives in [configuration#type-level-provider-defaults](configuration.md#type-level-provider-defaults).
+
 ## Scaffold plugin projects
 
 Spin up a ready-to-publish skeleton with:

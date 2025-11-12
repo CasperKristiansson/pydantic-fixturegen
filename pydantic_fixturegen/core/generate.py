@@ -24,6 +24,7 @@ from pydantic_fixturegen.core.config import (
     IdentifierConfig,
     NumberDistributionConfig,
     PathConfig,
+    ProviderDefaultsConfig,
     RelationLinkConfig,
 )
 from pydantic_fixturegen.core.constraint_report import ConstraintReporter
@@ -72,6 +73,7 @@ class GenerationConfig:
     identifiers: IdentifierConfig = field(default_factory=IdentifierConfig)
     numbers: NumberDistributionConfig = field(default_factory=NumberDistributionConfig)
     paths: PathConfig = field(default_factory=PathConfig)
+    provider_defaults: ProviderDefaultsConfig = field(default_factory=ProviderDefaultsConfig)
     respect_validators: bool = False
     validator_max_retries: int = 2
     relations: tuple[RelationLinkConfig, ...] = ()
@@ -295,6 +297,7 @@ class InstanceGenerator:
             number_config=self.number_config,
             heuristics_enabled=self.config.heuristics_enabled,
             cycle_policy=self.config.cycle_policy,
+            provider_defaults=self.config.provider_defaults,
         )
         self._strategy_cache: dict[type[Any], dict[str, StrategyResult]] = {}
         self._constraint_reporter = ConstraintReporter()

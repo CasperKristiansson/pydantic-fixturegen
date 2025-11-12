@@ -4,9 +4,16 @@ from typing import Any
 
 import pytest
 from pydantic import BaseModel
-from pydantic_fixturegen.core.config import ConfigError
+from pydantic_fixturegen.core.config import (
+    ConfigError,
+    ProviderBundleConfig,
+    ProviderDefaultRule,
+    ProviderDefaultsConfig,
+)
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.overrides import build_field_override_set
+from pydantic_fixturegen.core.providers import create_default_registry
+from pydantic_fixturegen.core.strategies import Strategy
 
 
 class OverrideUser(BaseModel):
@@ -98,3 +105,51 @@ def test_field_override_post_generate_applies_callback() -> None:
 
     assert user is not None
     assert user.joined == "alpha-beta"
+
+
+def test_field_override_provider_takes_precedence_over_type_defaults() -> None:
+    class SlugModel(BaseModel):
+        slug: str
+
+    registry = create_default_registry(load_plugins=False)
+
+    def _custom_string_provider(*_args: Any, **_kwargs: Any) -> str:
+        return "type-default"
+
+    registry.register("custom-string", _custom_string_provider)
+
+    provider_defaults = ProviderDefaultsConfig(
+        bundles=(ProviderBundleConfig(name="custom", provider="custom-string"),),
+        rules=(
+            ProviderDefaultRule(
+                name="strings",
+                bundle="custom",
+                summary_types=("string",),
+            ),
+        ),
+    )
+
+    overrides = build_field_override_set(
+        {
+            f"{SlugModel.__module__}.{SlugModel.__qualname__}": {
+                "slug": {"provider": "string"}
+            }
+        }
+    )
+
+    generator = InstanceGenerator(
+        registry=registry,
+        config=GenerationConfig(
+            seed=21,
+            field_overrides=overrides,
+            provider_defaults=provider_defaults,
+        ),
+    )
+
+    strategies = generator._get_model_strategies(SlugModel)
+    slug_strategy = strategies["slug"]
+    assert isinstance(slug_strategy, Strategy)
+    assert slug_strategy.provider_ref is not None
+    assert slug_strategy.provider_ref.type_id == "string"
+    assert slug_strategy.type_default is not None
+    assert slug_strategy.type_default.provider.type_id == "custom-string"

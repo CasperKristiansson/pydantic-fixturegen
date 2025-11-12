@@ -102,6 +102,7 @@ scope = "module"
 | `rng_mode`              | `portable \ legacy`         | `portable` | RNG implementation: portable SplitMix64 for cross-platform determinism or the legacy CPython RNG.                                             |
 | `now`                   | `datetime \ null`           | `null`     | Anchor timestamp used for temporal values.                                                                                                    |
 | `overrides`             | `dict[str, dict[str, Any]]` | `{}`       | Per-model overrides keyed by fully-qualified model name.                                                                                      |
+| `provider_defaults`     | object                      | `{}`       | Reusable provider bundles and matching rules applied per type/annotation before heuristics.                                                   |
 | `field_policies`        | `dict[str, FieldPolicy]`    | `{}`       | Pattern-based overrides for specific fields.                                                                                                  |
 | `locales`               | `dict[str, str]`            | `{}`       | Pattern-based Faker locale overrides for models or fields.                                                                                    |
 | `emitters`              | object                      | see below  | Configure emitters such as pytest fixtures.                                                                                                   |
@@ -297,6 +298,38 @@ enum_policy = "random"
 - Patterns accept glob-style wildcards or regex (enable `regex` extra).
 - Values match the schema defined under `$defs.FieldPolicyOptionsSchema`.
 - Use `pfg gen explain` to confirm the overrides take effect.
+
+### Type-level provider defaults
+
+Define reusable bundles when entire annotation families should share the same provider without repeating CLI overrides. Each bundle names a provider type (and optional format/kwargs); rules bind bundles to field summaries by matching `FieldSummary.type`, annotation paths, or `typing.Annotated` metadata.
+
+```toml
+[tool.pydantic_fixturegen.provider_defaults.bundles.masked_email]
+provider = "email"
+[tool.pydantic_fixturegen.provider_defaults.bundles.masked_email.provider_kwargs]
+mask_sensitive = true
+
+[tool.pydantic_fixturegen.provider_defaults.bundles.short_slug]
+provider = "string"
+provider_format = "slug"
+[tool.pydantic_fixturegen.provider_defaults.bundles.short_slug.provider_kwargs]
+max_length = 16
+
+[[tool.pydantic_fixturegen.provider_defaults.rules]]
+name = "typed-email"
+bundle = "masked_email"
+annotation_globs = ["pydantic.*EmailStr"]
+
+[[tool.pydantic_fixturegen.provider_defaults.rules]]
+name = "annotated-slug"
+bundle = "short_slug"
+summary_types = ["string"]
+metadata = ["annotated_types.MinLen"]
+```
+
+- Rules accept `summary_types`, `formats`, `annotation_globs`, `metadata`/`metadata_all`, and `metadata_any`. Metadata entries reference the fully-qualified class name of the metadata object (e.g., `annotated_types.MinLen`), so any `typing.Annotated[..., MinLen(3)]` field can opt into a bundle without matching by field name.
+- Configuration order determines precedence: the first matching rule wins, per-field overrides still take top priority, and heuristics only run when no type-level rule applies.
+- Use `provider_kwargs` on bundles to pass static arguments (for example, enable masked identifier output everywhere or cap slug lengths) and keep CLI invocations free of repeated `--override` flags.
 
 ### Locale overrides
 

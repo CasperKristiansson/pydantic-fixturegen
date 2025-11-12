@@ -137,6 +137,78 @@ class HeuristicsSchema(BaseModel):
     )
 
 
+class ProviderBundleSchema(BaseModel):
+    """Schema describing reusable provider bundle definitions."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(
+        description="Provider type identifier registered in the ProviderRegistry.",
+    )
+    provider_format: str | None = Field(
+        default=None,
+        description="Optional provider format key for providers that differentiate formats.",
+    )
+    provider_kwargs: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Keyword arguments merged into the provider call when this bundle is used.",
+    )
+
+
+class ProviderDefaultRuleSchema(BaseModel):
+    """Schema describing matching rules for provider defaults."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(
+        default=None,
+        description="Optional identifier for the rule when defined inside an array of tables.",
+    )
+    bundle: str = Field(
+        description="Name of the bundle applied when the rule matches.",
+    )
+    summary_types: list[str] = Field(
+        default_factory=list,
+        description="FieldSummary.type values that must match (e.g., 'string', 'email').",
+    )
+    formats: list[str] = Field(
+        default_factory=list,
+        description="Optional FieldSummary.format values that must match (e.g., 'slug').",
+    )
+    annotation_globs: list[str] = Field(
+        default_factory=list,
+        description=
+        "Glob patterns matched against fully-qualified annotation paths (e.g., 'pydantic.*EmailStr').",
+    )
+    metadata: list[str] = Field(
+        default_factory=list,
+        description="Metadata class paths that must all be present (alias for metadata_all).",
+    )
+    metadata_all: list[str] = Field(
+        default_factory=list,
+        description="Additional metadata class paths that must all be present.",
+    )
+    metadata_any: list[str] = Field(
+        default_factory=list,
+        description="Metadata class paths where at least one must be present.",
+    )
+
+
+class ProviderDefaultsSchema(BaseModel):
+    """Schema describing provider default configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bundles: dict[str, ProviderBundleSchema] = Field(
+        default_factory=dict,
+        description="Named bundles referencing providers and kwargs that can be reused across rules.",
+    )
+    rules: list[ProviderDefaultRuleSchema] | dict[str, ProviderDefaultRuleSchema] | None = Field(
+        default=None,
+        description="List or mapping of rules that map annotations/types onto bundles.",
+    )
+
+
 class ConfigSchemaModel(BaseModel):
     """Authoritative schema for `[tool.pydantic_fixturegen]` configuration."""
 
@@ -249,6 +321,10 @@ class ConfigSchemaModel(BaseModel):
     paths: PathSettingsSchema = Field(
         default_factory=lambda: PathSettingsSchema(),
         description="Configuration for filesystem path providers.",
+    )
+    provider_defaults: ProviderDefaultsSchema = Field(
+        default_factory=ProviderDefaultsSchema,
+        description="Reusable provider bundles plus type/annotation matching rules applied ahead of heuristics.",
     )
 
 

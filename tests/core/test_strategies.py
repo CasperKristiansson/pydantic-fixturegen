@@ -2,9 +2,17 @@ from __future__ import annotations
 
 import enum
 
+from typing import Any, Annotated
+
+import annotated_types
 from pydantic import BaseModel, Field
 from pydantic_fixturegen.core.providers import ProviderRegistry, create_default_registry
 from pydantic_fixturegen.core.strategies import Strategy, StrategyBuilder, UnionStrategy
+from pydantic_fixturegen.core.config import (
+    ProviderBundleConfig,
+    ProviderDefaultRule,
+    ProviderDefaultsConfig,
+)
 
 
 class Color(enum.Enum):
@@ -19,7 +27,15 @@ class ExampleModel(BaseModel):
     score: int | str
 
 
-def build_builder(registry: ProviderRegistry | None = None) -> StrategyBuilder:
+class EmailTag:
+    pass
+
+
+def build_builder(
+    registry: ProviderRegistry | None = None,
+    *,
+    provider_defaults: ProviderDefaultsConfig | None = None,
+) -> StrategyBuilder:
     registry = registry or create_default_registry(load_plugins=False)
     return StrategyBuilder(
         registry,
@@ -27,6 +43,7 @@ def build_builder(registry: ProviderRegistry | None = None) -> StrategyBuilder:
         union_policy="first",
         default_p_none=0.0,
         optional_p_none=0.2,
+        provider_defaults=provider_defaults,
     )
 
 
@@ -107,3 +124,71 @@ def test_heuristics_can_be_disabled() -> None:
     assert email_strategy.provider_ref is not None
     assert email_strategy.provider_ref.type_id == "string"
     assert email_strategy.heuristic is None
+
+
+def test_provider_defaults_override_heuristics() -> None:
+    registry = create_default_registry(load_plugins=False)
+
+    def _custom_email_provider(*_args: Any, **_kwargs: Any) -> str:
+        return "override"
+
+    registry.register("custom-email", _custom_email_provider)
+
+    tag_path = f"{EmailTag.__module__}.{EmailTag.__qualname__}"
+    provider_defaults = ProviderDefaultsConfig(
+        bundles=(ProviderBundleConfig(name="custom_email", provider="custom-email"),),
+        rules=(
+            ProviderDefaultRule(
+                name="email-rule",
+                bundle="custom_email",
+                summary_types=("string",),
+                metadata_any=(tag_path,),
+            ),
+        ),
+    )
+
+    builder = build_builder(registry, provider_defaults=provider_defaults)
+
+    class EmailModel(BaseModel):
+        contact_email: Annotated[str, EmailTag()]
+
+    strategy = builder.build_model_strategies(EmailModel)["contact_email"]
+    assert isinstance(strategy, Strategy)
+    assert strategy.provider_ref is not None
+    assert strategy.provider_ref.type_id == "custom-email"
+    assert strategy.type_default is not None
+    assert strategy.type_default.rule.name == "email-rule"
+    assert strategy.heuristic is None
+
+
+def test_provider_defaults_match_metadata_rules() -> None:
+    registry = create_default_registry(load_plugins=False)
+
+    def _custom_string_provider(*_args: Any, **_kwargs: Any) -> str:
+        return "meta"
+
+    registry.register("custom-string", _custom_string_provider)
+
+    provider_defaults = ProviderDefaultsConfig(
+        bundles=(ProviderBundleConfig(name="minlen", provider="custom-string"),),
+        rules=(
+            ProviderDefaultRule(
+                name="minlen",
+                bundle="minlen",
+                summary_types=("string",),
+                metadata_all=("annotated_types.MinLen",),
+            ),
+        ),
+    )
+
+    builder = build_builder(registry, provider_defaults=provider_defaults)
+
+    class AnnotatedModel(BaseModel):
+        value: Annotated[str, annotated_types.MinLen(3)]
+
+    strategy = builder.build_model_strategies(AnnotatedModel)["value"]
+    assert isinstance(strategy, Strategy)
+    assert strategy.provider_ref is not None
+    assert strategy.provider_ref.type_id == "custom-string"
+    assert strategy.type_default is not None
+    assert strategy.type_default.rule.name == "minlen"

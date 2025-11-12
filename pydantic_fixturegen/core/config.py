@@ -9,6 +9,7 @@ from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, field, replace
 from importlib import import_module
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, TypeVar, cast
 
 from faker import Faker
@@ -136,6 +137,31 @@ class PolyfactoryConfig:
 
 
 @dataclass(frozen=True)
+class ProviderBundleConfig:
+    name: str
+    provider: str
+    provider_format: str | None = None
+    provider_kwargs: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+
+
+@dataclass(frozen=True)
+class ProviderDefaultRule:
+    name: str
+    bundle: str
+    summary_types: tuple[str, ...] = ()
+    formats: tuple[str, ...] = ()
+    annotation_globs: tuple[str, ...] = ()
+    metadata_all: tuple[str, ...] = ()
+    metadata_any: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ProviderDefaultsConfig:
+    bundles: tuple[ProviderBundleConfig, ...] = ()
+    rules: tuple[ProviderDefaultRule, ...] = ()
+
+
+@dataclass(frozen=True)
 class AppConfig:
     preset: str | None = None
     profile: str | None = None
@@ -157,6 +183,7 @@ class AppConfig:
     identifiers: IdentifierConfig = field(default_factory=IdentifierConfig)
     numbers: NumberDistributionConfig = field(default_factory=NumberDistributionConfig)
     paths: PathConfig = field(default_factory=PathConfig)
+    provider_defaults: ProviderDefaultsConfig = field(default_factory=ProviderDefaultsConfig)
     emitters: EmittersConfig = field(default_factory=EmittersConfig)
     json: JsonConfig = field(default_factory=JsonConfig)
     respect_validators: bool = False
@@ -240,6 +267,10 @@ def _config_defaults_dict() -> dict[str, Any]:
             "url_include_path": DEFAULT_CONFIG.identifiers.url_include_path,
             "uuid_version": DEFAULT_CONFIG.identifiers.uuid_version,
             "mask_sensitive": DEFAULT_CONFIG.identifiers.mask_sensitive,
+        },
+        "provider_defaults": {
+            "bundles": {},
+            "rules": [],
         },
         "numbers": {
             "distribution": DEFAULT_CONFIG.numbers.distribution,
@@ -409,6 +440,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
     locale_policies_value = _normalize_locale_policies(data.get("locales"))
     arrays_value = _normalize_array_config(data.get("arrays"))
     identifiers_value = _normalize_identifier_config(data.get("identifiers"))
+    provider_defaults_value = _normalize_provider_defaults(data.get("provider_defaults"))
     numbers_value = _normalize_number_config(data.get("numbers"))
     paths_value = _normalize_path_config(data.get("paths"))
     relations_value = _normalize_relations(data.get("relations"))
@@ -449,6 +481,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         locale_policies=locale_policies_value,
         arrays=arrays_value,
         identifiers=identifiers_value,
+        provider_defaults=provider_defaults_value,
         numbers=numbers_value,
         paths=paths_value,
         emitters=emitters_value,
@@ -567,6 +600,40 @@ def _coerce_policy(value: Any, allowed: set[str], field_name: str) -> str:
     if value not in allowed:
         raise ConfigError(f"{field_name} must be one of {sorted(allowed)}.")
     return value
+
+
+def _coerce_mapping(value: Any, label: str) -> Mapping[str, Any]:
+    if value is None:
+        return MappingProxyType({})
+    if not isinstance(value, Mapping):
+        raise ConfigError(f"{label} must be a mapping.")
+    frozen: dict[str, Any] = {}
+    for key, entry in value.items():
+        if not isinstance(key, str) or not key:
+            raise ConfigError(f"{label} keys must be non-empty strings.")
+        frozen[key] = entry
+    return MappingProxyType(frozen)
+
+
+def _coerce_str_tuple(value: Any, label: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            raise ConfigError(f"{label} entries must be non-empty strings.")
+        return (text,)
+    if isinstance(value, Sequence):
+        results: list[str] = []
+        for entry in value:
+            if not isinstance(entry, str):
+                raise ConfigError(f"{label} entries must be strings.")
+            text = entry.strip()
+            if not text:
+                raise ConfigError(f"{label} entries must be non-empty strings.")
+            results.append(text)
+        return tuple(results)
+    raise ConfigError(f"{label} must be a string or list of strings.")
 
 
 def _coerce_datetime(value: Any, field_name: str) -> datetime.datetime | None:
@@ -848,6 +915,126 @@ def _normalize_identifier_config(value: Any) -> IdentifierConfig:
         url_include_path=url_include_path,
         uuid_version=uuid_version,
         mask_sensitive=mask_sensitive_raw,
+    )
+
+
+def _normalize_provider_defaults(value: Any) -> ProviderDefaultsConfig:
+    if value is None:
+        return ProviderDefaultsConfig()
+    if not isinstance(value, Mapping):
+        raise ConfigError("provider_defaults must be a mapping.")
+
+    bundles_raw = value.get("bundles") or {}
+    if not isinstance(bundles_raw, Mapping):
+        raise ConfigError("provider_defaults.bundles must be a mapping of names to settings.")
+    bundles: list[ProviderBundleConfig] = []
+    for name, bundle_config in bundles_raw.items():
+        if not isinstance(name, str) or not name.strip():
+            raise ConfigError("provider bundle names must be non-empty strings.")
+        if not isinstance(bundle_config, Mapping):
+            raise ConfigError(
+                f"provider_defaults.bundles['{name}'] must be a mapping of options."
+            )
+        provider = bundle_config.get("provider")
+        if not isinstance(provider, str) or not provider.strip():
+            raise ConfigError(f"provider_defaults.bundles['{name}'].provider must be a string.")
+        format_value = bundle_config.get("provider_format", bundle_config.get("format"))
+        provider_format: str | None
+        if format_value is None:
+            provider_format = None
+        elif isinstance(format_value, str) and format_value.strip():
+            provider_format = format_value.strip()
+        else:
+            raise ConfigError(
+                f"provider_defaults.bundles['{name}'].provider_format must be a string when set."
+            )
+        kwargs = _coerce_mapping(
+            bundle_config.get("provider_kwargs"),
+            f"provider_defaults.bundles['{name}'].provider_kwargs",
+        )
+        bundles.append(
+            ProviderBundleConfig(
+                name=name.strip(),
+                provider=provider.strip(),
+                provider_format=provider_format,
+                provider_kwargs=kwargs,
+            )
+        )
+
+    rules_raw = value.get("rules")
+    rules: list[ProviderDefaultRule] = []
+    if rules_raw is None:
+        pass
+    elif isinstance(rules_raw, Mapping):
+        for rule_name, rule_config in rules_raw.items():
+            rules.append(
+                _build_provider_rule(
+                    rule_config,
+                    rule_name if isinstance(rule_name, str) else str(rule_name),
+                )
+            )
+    elif isinstance(rules_raw, (list, tuple)):
+        for index, entry in enumerate(rules_raw):
+            if isinstance(entry, Mapping):
+                declared_name = entry.get("name")
+                rule_name = declared_name if isinstance(declared_name, str) else None
+            else:
+                rule_name = None
+            rules.append(_build_provider_rule(entry, rule_name or f"rule_{index}"))
+    else:
+        raise ConfigError("provider_defaults.rules must be an array or mapping of rule entries.")
+
+    bundle_names = {bundle.name for bundle in bundles}
+    for rule in rules:
+        if rule.bundle not in bundle_names:
+            raise ConfigError(
+                f"provider_defaults.rules '{rule.name}' references unknown bundle '{rule.bundle}'."
+            )
+
+    return ProviderDefaultsConfig(bundles=tuple(bundles), rules=tuple(rules))
+
+
+def _build_provider_rule(value: Any, name: str | None) -> ProviderDefaultRule:
+    if not isinstance(value, Mapping):
+        raise ConfigError("provider_defaults.rules entries must be mappings.")
+    label = name or value.get("name") or "unnamed"
+    bundle = value.get("bundle")
+    if not isinstance(bundle, str) or not bundle.strip():
+        raise ConfigError(f"provider_defaults.rules '{label}' must specify a bundle name.")
+
+    summary_types = _coerce_str_tuple(
+        value.get("summary_types"),
+        f"provider_defaults.rules['{label}'].summary_types",
+    )
+    formats = _coerce_str_tuple(
+        value.get("formats"),
+        f"provider_defaults.rules['{label}'].formats",
+    )
+    annotation_globs = _coerce_str_tuple(
+        value.get("annotation_globs"),
+        f"provider_defaults.rules['{label}'].annotation_globs",
+    )
+    metadata_all = _coerce_str_tuple(
+        value.get("metadata"),
+        f"provider_defaults.rules['{label}'].metadata",
+    ) or _coerce_str_tuple(
+        value.get("metadata_all"),
+        f"provider_defaults.rules['{label}'].metadata_all",
+    )
+    metadata_any = _coerce_str_tuple(
+        value.get("metadata_any"),
+        f"provider_defaults.rules['{label}'].metadata_any",
+    )
+
+    rule_name = label if isinstance(label, str) else str(label)
+    return ProviderDefaultRule(
+        name=rule_name,
+        bundle=bundle.strip(),
+        summary_types=summary_types,
+        formats=formats,
+        annotation_globs=annotation_globs,
+        metadata_all=metadata_all,
+        metadata_any=metadata_any,
     )
 
 

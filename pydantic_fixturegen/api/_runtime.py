@@ -470,6 +470,7 @@ def _build_instance_generator(
         identifiers=app_config.identifiers,
         numbers=app_config.numbers,
         paths=app_config.paths,
+        provider_defaults=app_config.provider_defaults,
         respect_validators=app_config.respect_validators,
         validator_max_retries=app_config.validator_max_retries,
         relations=app_config.relations,

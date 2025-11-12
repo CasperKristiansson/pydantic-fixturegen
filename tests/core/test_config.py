@@ -200,6 +200,28 @@ def test_cli_overrides_validator_settings(tmp_path: Path) -> None:
     assert config.validator_max_retries == 7
 
 
+def test_provider_defaults_section(tmp_path: Path) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """
+        [tool.pydantic_fixturegen.provider_defaults.bundles.email_safe]
+        provider = "email"
+
+        [tool.pydantic_fixturegen.provider_defaults.rules.email_rule]
+        bundle = "email_safe"
+        summary_types = ["email"]
+        """,
+        encoding="utf-8",
+    )
+
+    config = load_config(root=tmp_path)
+    defaults = config.provider_defaults
+    assert defaults.bundles and defaults.bundles[0].name == "email_safe"
+    assert defaults.bundles[0].provider == "email"
+    assert defaults.rules and defaults.rules[0].bundle == "email_safe"
+    assert defaults.rules[0].summary_types == ("email",)
+
+
 def test_cli_override_rng_mode(tmp_path: Path) -> None:
     config = load_config(root=tmp_path, cli={"rng_mode": "legacy"})
 

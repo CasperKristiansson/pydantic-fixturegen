@@ -11,11 +11,16 @@ import pluggy
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
+from pydantic_fixturegen.core.config import ProviderDefaultsConfig
 from pydantic_fixturegen.core import schema as schema_module
 from pydantic_fixturegen.core.heuristics import (
     HeuristicMatch,
     HeuristicRegistry,
     create_default_heuristic_registry,
+)
+from pydantic_fixturegen.core.provider_defaults import (
+    ProviderDefaultMatch,
+    ProviderDefaultResolver,
 )
 from pydantic_fixturegen.core.providers import ProviderRef, ProviderRegistry
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary, summarize_model_fields
@@ -37,6 +42,7 @@ class Strategy:
     enum_policy: str | None = None
     cycle_policy: str | None = None
     heuristic: HeuristicMatch | None = None
+    type_default: ProviderDefaultMatch | None = None
 
 
 @dataclass(slots=True)
@@ -83,6 +89,7 @@ class StrategyBuilder:
         heuristic_registry: HeuristicRegistry | None = None,
         heuristics_enabled: bool = True,
         cycle_policy: str = "reuse",
+        provider_defaults: ProviderDefaultsConfig | None = None,
     ) -> None:
         self.registry = registry
         self.enum_policy = enum_policy
@@ -98,6 +105,11 @@ class StrategyBuilder:
         if heuristics_enabled:
             self._heuristics = heuristic_registry or create_default_heuristic_registry()
         self._cycle_policy = cycle_policy
+        self._type_defaults = (
+            ProviderDefaultResolver(provider_defaults, registry)
+            if provider_defaults and provider_defaults.rules
+            else None
+        )
 
     def build_model_strategies(self, model: type[BaseModel]) -> Mapping[str, StrategyResult]:
         summaries = summarize_model_fields(model)
@@ -199,7 +211,16 @@ class StrategyBuilder:
 
         provider: ProviderRef | None = None
         heuristic_match: HeuristicMatch | None = None
-        if self._heuristics_enabled and self._heuristics is not None:
+        type_default_match: ProviderDefaultMatch | None = None
+        if self._type_defaults is not None:
+            type_default_match = self._type_defaults.resolve(
+                summary=summary,
+                field_info=field_info,
+            )
+            if type_default_match is not None:
+                provider = type_default_match.provider
+
+        if provider is None and self._heuristics_enabled and self._heuristics is not None:
             provider, heuristic_match = self._apply_heuristics(
                 model,
                 field_name,
@@ -236,6 +257,8 @@ class StrategyBuilder:
             p_none = self.optional_p_none
 
         provider_kwargs: dict[str, Any] = {}
+        if type_default_match and type_default_match.provider_kwargs:
+            provider_kwargs.update(dict(type_default_match.provider_kwargs))
         if heuristic_match and heuristic_match.provider_kwargs:
             provider_kwargs.update(heuristic_match.provider_kwargs)
 
@@ -252,6 +275,7 @@ class StrategyBuilder:
             provider_kwargs=provider_kwargs,
             p_none=p_none,
             heuristic=heuristic_match,
+            type_default=type_default_match,
         )
         if effective_summary.type == "numpy-array" and self._array_config is not None:
             strategy.provider_kwargs["array_config"] = self._array_config

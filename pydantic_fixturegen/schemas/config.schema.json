@@ -261,6 +261,156 @@
       "title": "PathSettingsSchema",
       "type": "object"
     },
+    "ProviderBundleSchema": {
+      "additionalProperties": false,
+      "description": "Schema describing reusable provider bundle definitions.",
+      "properties": {
+        "provider": {
+          "description": "Provider type identifier registered in the ProviderRegistry.",
+          "title": "Provider",
+          "type": "string"
+        },
+        "provider_format": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional provider format key for providers that differentiate formats.",
+          "title": "Provider Format"
+        },
+        "provider_kwargs": {
+          "additionalProperties": true,
+          "description": "Keyword arguments merged into the provider call when this bundle is used.",
+          "title": "Provider Kwargs",
+          "type": "object"
+        }
+      },
+      "required": [
+        "provider"
+      ],
+      "title": "ProviderBundleSchema",
+      "type": "object"
+    },
+    "ProviderDefaultRuleSchema": {
+      "additionalProperties": false,
+      "description": "Schema describing matching rules for provider defaults.",
+      "properties": {
+        "annotation_globs": {
+          "description": "Glob patterns matched against fully-qualified annotation paths (e.g., 'pydantic.*EmailStr').",
+          "items": {
+            "type": "string"
+          },
+          "title": "Annotation Globs",
+          "type": "array"
+        },
+        "bundle": {
+          "description": "Name of the bundle applied when the rule matches.",
+          "title": "Bundle",
+          "type": "string"
+        },
+        "formats": {
+          "description": "Optional FieldSummary.format values that must match (e.g., 'slug').",
+          "items": {
+            "type": "string"
+          },
+          "title": "Formats",
+          "type": "array"
+        },
+        "metadata": {
+          "description": "Metadata class paths that must all be present (alias for metadata_all).",
+          "items": {
+            "type": "string"
+          },
+          "title": "Metadata",
+          "type": "array"
+        },
+        "metadata_all": {
+          "description": "Additional metadata class paths that must all be present.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Metadata All",
+          "type": "array"
+        },
+        "metadata_any": {
+          "description": "Metadata class paths where at least one must be present.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Metadata Any",
+          "type": "array"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional identifier for the rule when defined inside an array of tables.",
+          "title": "Name"
+        },
+        "summary_types": {
+          "description": "FieldSummary.type values that must match (e.g., 'string', 'email').",
+          "items": {
+            "type": "string"
+          },
+          "title": "Summary Types",
+          "type": "array"
+        }
+      },
+      "required": [
+        "bundle"
+      ],
+      "title": "ProviderDefaultRuleSchema",
+      "type": "object"
+    },
+    "ProviderDefaultsSchema": {
+      "additionalProperties": false,
+      "description": "Schema describing provider default configuration.",
+      "properties": {
+        "bundles": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ProviderBundleSchema"
+          },
+          "description": "Named bundles referencing providers and kwargs that can be reused across rules.",
+          "title": "Bundles",
+          "type": "object"
+        },
+        "rules": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ProviderDefaultRuleSchema"
+              },
+              "type": "array"
+            },
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/ProviderDefaultRuleSchema"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "List or mapping of rules that map annotations/types onto bundles.",
+          "title": "Rules"
+        }
+      },
+      "title": "ProviderDefaultsSchema",
+      "type": "object"
+    },
     "PytestEmitterSchema": {
       "additionalProperties": false,
       "description": "Schema for pytest emitter settings.",
@@ -440,6 +590,10 @@
       "default": null,
       "description": "Privacy profile applied ahead of other configuration (e.g., 'pii-safe').",
       "title": "Profile"
+    },
+    "provider_defaults": {
+      "$ref": "#/$defs/ProviderDefaultsSchema",
+      "description": "Reusable provider bundles plus type/annotation matching rules applied ahead of heuristics."
     },
     "rng_mode": {
       "default": "portable",
