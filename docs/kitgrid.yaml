@@ -32,6 +32,8 @@ nav:
         path: docs/quickstart.md
       - title: Examples
         path: docs/examples.md
+      - title: Example projects
+        path: docs/example-projects/fastapi-marketplace/README.md
       - title: Install
         path: docs/install.md
       - title: Features

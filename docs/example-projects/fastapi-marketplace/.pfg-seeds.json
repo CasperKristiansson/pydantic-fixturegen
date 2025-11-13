@@ -1,0 +1,109 @@
+{
+  "models": {
+    "app.models.catalog.CatalogVariant": {
+      "model_digest": "002796d13b6e820b58e43890700557ab08a715ceef0984490b9e132b98be7222",
+      "seed": 23396013922233101848689317751688639311
+    },
+    "app.models.catalog.InventoryReservation": {
+      "model_digest": "6105dfdd794ee886b0de7287bcba611e56452556563d872e10ae843321ef9a1f",
+      "seed": 141235932819126619706635682893458757373
+    },
+    "app.models.catalog.Product": {
+      "model_digest": "45917d800297cd03b46a8daefea9f9f83a9364153069f31317523ca18fe5b96a",
+      "seed": 245982205357746435488655991895764774414
+    },
+    "app.models.catalog.VariantAttribute": {
+      "model_digest": "424330b0c73d5c61157de315d5834f7f3cd89bd1933051d5a8aeeac6145edf97",
+      "seed": 292787892004649686421209631022853452011
+    },
+    "app.models.customer.CustomerPortalSession": {
+      "model_digest": "be2aa2db117c2d79e3f01a2288af83d63d5f1d1010e46983c1cad9d00bc22824",
+      "seed": 250738965348982355377739925590292521185
+    },
+    "app.models.customer.CustomerProfile": {
+      "model_digest": "feb8036ca13491dea0859c22f03341abaeb9efafab8dea5a8c4cce3703a11aa5",
+      "seed": 9683592443407227273172935970505624216
+    },
+    "app.models.customer.DeliverySettings": {
+      "model_digest": "7f708c6ee4095e4ab8f60acabf2eef70895a65b2601f83c94e1488a4a1ad0914",
+      "seed": 256655928103087098340757841432573446300
+    },
+    "app.models.customer.Household": {
+      "model_digest": "ad13c714ade203795d3eda93faef03c9ac05764b048b87a796fa14ccbb2c647e",
+      "seed": 170893190929489687339588705843512910752
+    },
+    "app.models.notification.NotificationEvent": {
+      "model_digest": "9c4d3c7bf08c261f9f53e0f8f8ef2ed6e9ce246da6d64832a4a9683c18f98451",
+      "seed": 288516626169739474128428353121711071252
+    },
+    "app.models.notification.NotificationTemplate": {
+      "model_digest": "47fb6d0dc4ee3413d64cd5d05a1f3df821e4581f5b01bc1061171b50e3509f43",
+      "seed": 289841630202062669107801891492234746421
+    },
+    "app.models.order.LineDiscount": {
+      "model_digest": "71a13a6b69c233bb5a68db4507a23af0ea24e81c9868dbe45f30cf1922071b7e",
+      "seed": 77776653634900034555131476033732441849
+    },
+    "app.models.order.OrderEnvelope": {
+      "model_digest": "302c0a68c67e7447004b45e54be810c9fc8bd4e7620b8b2be7ae9ac30fd80586",
+      "seed": 44810767229468410197756566811150234064
+    },
+    "app.models.order.OrderLine": {
+      "model_digest": "e52e6e9226bd95c959613cdbee234795c9dbb0b5e22890bca4bcfc52659456f0",
+      "seed": 103422354264195980164066538958512922686
+    },
+    "app.models.order.ShipmentLeg": {
+      "model_digest": "0271d850c4c43c5d89932daf4f46eca4c3a938224929292fb1f6d5ae34083730",
+      "seed": 64151130976858001999663239771255511348
+    },
+    "app.models.order.StateTransition": {
+      "model_digest": "b28b9e76a9832c71ee4489de732d3c7914c0ab40a3877bd8e8a6b29845265edc",
+      "seed": 226165068578015860209678121896233294175
+    },
+    "app.models.payment.PaymentCapture": {
+      "model_digest": "8e880cdbbb9a23034326846ccdfbc9934901d0fda71ddc5b4c60f940d103969b",
+      "seed": 304014778740431501066144617703629860559
+    },
+    "app.models.payment.PaymentIntent": {
+      "model_digest": "b1293d0b557332f4b6feb6906da44d8c02caa30b1d773c698529d9befaab14a4",
+      "seed": 326215845432730247634430323363807240920
+    },
+    "app.models.payment.Refund": {
+      "model_digest": "bff52dc34914470100fbc5241b404928f1bace477a789074513c9fd18a4e46d2",
+      "seed": 305988939405237580066876162176904044049
+    },
+    "app.models.shared.Address": {
+      "model_digest": "b45dd3b475dd21dacdea4fda0ac06fe4accd043e2916fe49f471da8f97c14af5",
+      "seed": 263885223398966924115308016918396396542
+    },
+    "app.models.shared.AuditEvent": {
+      "model_digest": "d575385d3ba0b34ca2592064957c1c08b32c23b749063e2db6c9023b6ee8e035",
+      "seed": 130602249065111846563454213697419589566
+    },
+    "app.models.shared.FulfillmentWindow": {
+      "model_digest": "69a85077bafce262af03e32130b79f3dfc2d2fa091eaca8696c6f52aa7e1fa77",
+      "seed": 139736645042199012755146561450640303362
+    },
+    "app.models.shared.GeoFence": {
+      "model_digest": "fd2bd81e2c582f7675adffb55da8043845e1a374feeea6848b22afac32c0db90",
+      "seed": 52940983641256310902251519147313111467
+    },
+    "app.models.shared.LocalizedText": {
+      "model_digest": "7ffc92d9c6a19dcb20ee3befe1de06e1a7ea2526bf849ceee1ff4136b4da8551",
+      "seed": 212363116051572649870578838797980057793
+    },
+    "app.models.shared.MediaAsset": {
+      "model_digest": "6b86710a80b36ec1bfbbe34e83b5faf48828ec6d7a0068db3ce5356c9d5ec3fa",
+      "seed": 193719955492361315288637746638486684155
+    },
+    "app.models.shared.Money": {
+      "model_digest": "bd8454cfe62e771b84808ebfdb3100dadc7768e4044db580ed9f5e6d7b3a1f7f",
+      "seed": 184106487794816977490489896039435166086
+    },
+    "app.models.shared.Timestamped": {
+      "model_digest": "0740929cafad6f3d5870e14c8f8284b3da4149731a9b7e3bcdfdce64ba18b19e",
+      "seed": 294588209142520790799507163918308331320
+    }
+  },
+  "version": 1
+}

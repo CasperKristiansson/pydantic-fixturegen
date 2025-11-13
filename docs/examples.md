@@ -2,6 +2,14 @@
 
 This page collects end-to-end snippets you can copy straight into a shell, notebook, or CI pipeline. Every section reuses the same miniature domain so you can mix-and-match commands without rewriting the models.
 
+## Embedded example projects
+
+| Directory | Stack | Highlights |
+| --------- | ----- | ---------- |
+| [`docs/example-projects/fastapi-marketplace`](example-projects/fastapi-marketplace/README.md) | FastAPI + Polyfactory delegation | Realistic order/customer/payment models, Makefile targets for snapshots + fixtures, GitHub Actions recipe for `pfg snapshot verify`, bootstrap script for `.pfg-seeds.json`. |
+
+Clone the repo, `cd docs/example-projects/fastapi-marketplace`, and run `make install && make snapshots` to regenerate the JSON + pytest fixtures used in the docs. More embedded projects (datasets, anonymizer workflows, Hypothesis strategies) will live alongside this folder as they roll out.
+
 ## Shared model module
 
 ```python

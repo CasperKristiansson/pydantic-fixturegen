@@ -1,0 +1,44 @@
+[project]
+name = "fastapi-marketplace-example"
+version = "0.1.0"
+description = "Deterministic FastAPI marketplace demo for the pydantic-fixturegen docs."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "Fixturegen Docs", email = "docs@example.com" }
+]
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn>=0.30.0",
+  "pydantic>=2.9.0",
+  "pydantic-settings>=2.3.0",
+  "polyfactory>=2.17.0",
+  "pydantic-fixturegen>=1.2.0",
+]
+
+[tool.pydantic_fixturegen]
+seed = 7337
+freeze_seeds = true
+respect_validators = true
+log_format = "json"
+preset = "ci"
+
+[tool.pydantic_fixturegen.field_hints]
+mode = "examples-then-defaults"
+
+[tool.pydantic_fixturegen.collections]
+min_items = 1
+max_items = 4
+
+[tool.pydantic_fixturegen.presets."ci"]
+seed = 112358
+profile = "boundary"
+
+[[tool.pydantic_fixturegen.presets."ci".field_policies]]
+target = "app.models.OrderEnvelope.items"
+collection_min_items = 2
+collection_max_items = 5
+
+[[tool.pydantic_fixturegen.presets."ci".field_policies]]
+target = "app.models.CustomerProfile.tags"
+provider = "collection.tags"

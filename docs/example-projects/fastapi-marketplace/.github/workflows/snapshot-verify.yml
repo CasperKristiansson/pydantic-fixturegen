@@ -1,0 +1,71 @@
+name: Marketplace Snapshots
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: fastapi-marketplace-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
+
+      - name: Install dependencies
+        working-directory: docs/example-projects/fastapi-marketplace
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ../../..[all-dev]
+          pip install -e .
+
+      - name: Verify JSON snapshots
+        working-directory: docs/example-projects/fastapi-marketplace
+        run: |
+          pfg snapshot verify app/models/order.py \
+            --include app.models.order.OrderEnvelope \
+            --json-out snapshots/orders.json \
+            --seed 7337 --freeze-seeds \
+            --now 2025-01-01T00:00:00Z \
+            || (pfg snapshot write app/models/order.py \
+                  --include app.models.order.OrderEnvelope \
+                  --json-out snapshots/orders.json \
+                  --seed 7337 --freeze-seeds \
+                  --now 2025-01-01T00:00:00Z \
+                  && pfg snapshot verify app/models/order.py \
+                       --include app.models.order.OrderEnvelope \
+                       --json-out snapshots/orders.json \
+                       --seed 7337 --freeze-seeds \
+                       --now 2025-01-01T00:00:00Z)
+
+      - name: Verify fixture snapshots
+        working-directory: docs/example-projects/fastapi-marketplace
+        run: |
+          pfg snapshot verify app/models/order.py \
+            --include app.models.order.OrderEnvelope \
+            --fixtures-out tests/fixtures/test_orders.py \
+            --seed 7337 --freeze-seeds \
+            --now 2025-01-01T00:00:00Z \
+            || (pfg snapshot write app/models/order.py \
+                  --include app.models.order.OrderEnvelope \
+                  --fixtures-out tests/fixtures/test_orders.py \
+                  --seed 7337 --freeze-seeds \
+                  --now 2025-01-01T00:00:00Z \
+                  && pfg snapshot verify app/models/order.py \
+                       --include app.models.order.OrderEnvelope \
+                       --fixtures-out tests/fixtures/test_orders.py \
+                       --seed 7337 --freeze-seeds \
+                       --now 2025-01-01T00:00:00Z)
