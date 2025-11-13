@@ -412,7 +412,7 @@ def test_execute_diff_freeze_seed_handling(tmp_path: Path, monkeypatch: pytest.M
 
     assert reports and reports[0].summary == "JSON artifacts match"
     assert any(call[1]["event"] == "seed_freeze_invalid" for call in logger.warn_calls)
-    assert any(call[1]["event"] == "seed_freeze_missing" for call in logger.warn_calls)
+    assert not any(call[1].get("event") == "seed_freeze_missing" for call in logger.warn_calls)
     assert any("stale freeze" in warning for warning in captured_warnings)
     assert logger.info_calls and logger.info_calls[0][1]["event"] == "temporal_anchor_set"
 

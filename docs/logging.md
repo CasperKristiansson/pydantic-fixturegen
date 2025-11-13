@@ -37,7 +37,7 @@ pfg gen json ./models.py --out ./out/users.json --log-json
 - `fixtures_emitted`, `fixtures_skipped`
 - `schema_written`
 - `constraint_report` (includes details on fields that failed constraints)
-- `seed_freeze_missing`, `seed_freeze_stale`
+- `seed_freeze_stale` (missing entries are silent)
 - `sandbox_timeout`, `sandbox_violation`
 
 Inspect logs by piping to `jq`:

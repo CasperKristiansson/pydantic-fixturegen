@@ -338,11 +338,10 @@ def _build_model_artifact_plan(
         stored_seed, status = freeze_manager.resolve_seed(model_id, model_digest=model_digest)
         if status is FreezeStatus.VALID and stored_seed is not None:
             selected_seed = stored_seed
-        else:
-            event = "seed_freeze_missing" if status is FreezeStatus.MISSING else "seed_freeze_stale"
+        elif status is FreezeStatus.STALE:
             logger.warn(
                 "Seed freeze entry unavailable; deriving new seed",
-                event=event,
+                event="seed_freeze_stale",
                 model=model_id,
                 path=str(freeze_manager.path),
             )
@@ -1481,13 +1480,10 @@ def generate_fixtures_artifacts(
             stored_seed, status = freeze_manager.resolve_seed(model_id, model_digest=digest)
             if status is FreezeStatus.VALID and stored_seed is not None:
                 selected_seed = stored_seed
-            else:
-                event = (
-                    "seed_freeze_missing" if status is FreezeStatus.MISSING else "seed_freeze_stale"
-                )
+            elif status is FreezeStatus.STALE:
                 logger.warn(
                     "Seed freeze entry unavailable; deriving new seed",
-                    event=event,
+                    event="seed_freeze_stale",
                     model=model_id,
                     path=str(freeze_manager.path),
                 )

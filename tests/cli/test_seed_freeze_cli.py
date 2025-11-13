@@ -40,7 +40,7 @@ def test_json_freeze_creates_and_reuses_seeds() -> None:
         )
 
         assert result.exit_code == 0
-        assert "Seed freeze entry unavailable" in result.stderr
+        assert "Seed freeze entry unavailable" not in result.stderr
 
         freeze_path = Path(".pfg-seeds.json")
         assert freeze_path.is_file()
@@ -147,7 +147,7 @@ class Beta(BaseModel):
         )
 
         assert result.exit_code == 0
-        assert "Seed freeze entry unavailable" in result.stderr
+        assert "Seed freeze entry unavailable" not in result.stderr
 
         freeze_path = Path(".pfg-seeds.json")
         payload = json.loads(freeze_path.read_text(encoding="utf-8"))

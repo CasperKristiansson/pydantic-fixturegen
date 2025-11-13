@@ -13,7 +13,8 @@ from pydantic_fixturegen.core.config import IdentifierConfig
 from pydantic_fixturegen.core.providers.registry import ProviderRegistry
 from pydantic_fixturegen.core.schema import FieldSummary
 
-_EMAIL_LOCAL_CHARS = string.ascii_lowercase + string.digits + "._"
+_EMAIL_LOCAL_BOUNDARY = string.ascii_lowercase + string.digits + "_"
+_EMAIL_LOCAL_CHARS = _EMAIL_LOCAL_BOUNDARY + "."
 _HOST_CHARS = string.ascii_lowercase + string.digits
 _PATH_CHARS = string.ascii_lowercase + string.digits + "-_"
 _TLDS = ("com", "net", "org", "io", "dev")
@@ -139,11 +140,15 @@ def _generate_email(summary: FieldSummary, rng: Any, config: IdentifierConfig) -
     if config.mask_sensitive:
         local_part = _masked_local_part(rng, local_length)
     else:
-        local_part = _random_string(rng, local_length, _EMAIL_LOCAL_CHARS)
+        local_part = _random_email_local_part(rng, local_length)
+
+    total_length = len(local_part) + len(suffix)
+    if total_length < min_total:
+        local_part += "0" * (min_total - total_length)
+        total_length = len(local_part) + len(suffix)
+
     email = f"{local_part}{suffix}"
 
-    if len(email) < min_total:
-        email += _random_string(rng, min_total - len(email), _EMAIL_LOCAL_CHARS)
     if max_total is not None and len(email) > max_total:
         email = email[:max_total]
         if "@" not in email:
@@ -280,6 +285,20 @@ def _masked_local_part(rng: Any, target_length: int) -> str:
     if len(token) < target_length:
         token += "0" * (target_length - len(token))
     return token[: max(1, target_length)]
+
+
+def _random_email_local_part(rng: Any, target_length: int) -> str:
+    length = max(1, target_length)
+    chars: list[str] = []
+    for index in range(length):
+        if index == 0 or index == length - 1:
+            alphabet = _EMAIL_LOCAL_BOUNDARY
+        else:
+            alphabet = _EMAIL_LOCAL_CHARS
+            if chars[-1] == ".":
+                alphabet = _EMAIL_LOCAL_BOUNDARY
+        chars.append(rng.choice(alphabet))
+    return "".join(chars)
 
 
 def _random_string(rng: Any, length: int, alphabet: str) -> str:

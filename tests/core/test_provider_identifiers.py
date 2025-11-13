@@ -4,6 +4,7 @@ import ipaddress
 import random
 
 import pytest
+from pydantic import EmailStr, TypeAdapter
 from pydantic_fixturegen.core.config import IdentifierConfig
 from pydantic_fixturegen.core.providers import identifiers as identifiers_mod
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
@@ -172,6 +173,27 @@ def test_resolve_length_clamps_and_defaults() -> None:
 def test_generate_email_handles_short_max() -> None:
     summary = _summary("email", min_length=None, max_length=2)
     assert identifiers_mod._generate_email(summary, random.Random(0), IdentifierConfig()) == "a@"
+
+
+def test_generate_email_local_part_is_never_invalid() -> None:
+    rng = random.Random(10)
+    summary = _summary("email")
+    for _ in range(50):
+        value = identifiers_mod.generate_identifier(summary, random_generator=rng)
+        local, _, _ = value.partition("@")
+        assert local
+        assert not local.startswith(".")
+        assert not local.endswith(".")
+        assert ".." not in local
+
+
+def test_generate_email_validates_with_emailstr() -> None:
+    rng = random.Random(11)
+    summary = _summary("email")
+    adapter = TypeAdapter(EmailStr)
+    for _ in range(25):
+        value = identifiers_mod.generate_identifier(summary, random_generator=rng)
+        adapter.validate_python(value)
 
 
 def test_generate_url_without_path_padding() -> None:

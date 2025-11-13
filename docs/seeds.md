@@ -37,7 +37,7 @@ pfg gen json ./models.py --out ./out/users.json --freeze-seeds
 
 - Commit the freeze file for stable CI diffs, or add it to `.gitignore` when you want environment-specific runs.
 - When a model digest changes, the CLI logs `seed_freeze_stale` and regenerates a deterministic replacement.
-- If the file is missing, you see `seed_freeze_missing` and a fresh entry is created.
+- Missing entries are created silently on first use so quickstarts stay quiet.
 - Combine with `--preset boundary` to explore edge cases while keeping reproducible seeds.
 - Run `pfg diff ... --freeze-seeds` in CI to ensure outputs stay locked before merging.
 
