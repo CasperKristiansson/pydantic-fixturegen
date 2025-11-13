@@ -86,6 +86,16 @@ class ArrayConfig:
     dtypes: tuple[str, ...] = ("float64",)
 
 
+CollectionDistributionLiteral = Literal["uniform", "min-heavy", "max-heavy"]
+
+
+@dataclass(frozen=True)
+class CollectionConfig:
+    min_items: int = 1
+    max_items: int = 3
+    distribution: CollectionDistributionLiteral = "uniform"
+
+
 @dataclass(frozen=True)
 class IdentifierConfig:
     secret_str_length: int = 16
@@ -218,6 +228,7 @@ class AppConfig:
     field_policies: tuple[FieldPolicy, ...] = ()
     locale_policies: tuple[FieldPolicy, ...] = ()
     arrays: ArrayConfig = field(default_factory=ArrayConfig)
+    collections: CollectionConfig = field(default_factory=CollectionConfig)
     identifiers: IdentifierConfig = field(default_factory=IdentifierConfig)
     numbers: NumberDistributionConfig = field(default_factory=NumberDistributionConfig)
     paths: PathConfig = field(default_factory=PathConfig)
@@ -299,6 +310,11 @@ def _config_defaults_dict() -> dict[str, Any]:
             "max_side": DEFAULT_CONFIG.arrays.max_side,
             "max_elements": DEFAULT_CONFIG.arrays.max_elements,
             "dtypes": list(DEFAULT_CONFIG.arrays.dtypes),
+        },
+        "collections": {
+            "min_items": DEFAULT_CONFIG.collections.min_items,
+            "max_items": DEFAULT_CONFIG.collections.max_items,
+            "distribution": DEFAULT_CONFIG.collections.distribution,
         },
         "identifiers": {
             "secret_str_length": DEFAULT_CONFIG.identifiers.secret_str_length,
@@ -486,6 +502,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
     field_policies_value = _normalize_field_policies(data.get("field_policies"))
     locale_policies_value = _normalize_locale_policies(data.get("locales"))
     arrays_value = _normalize_array_config(data.get("arrays"))
+    collections_value = _normalize_collection_config(data.get("collections"))
     identifiers_value = _normalize_identifier_config(data.get("identifiers"))
     field_hints_value = _normalize_field_hints(data.get("field_hints"))
     provider_defaults_value = _normalize_provider_defaults(data.get("provider_defaults"))
@@ -529,6 +546,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         field_policies=field_policies_value,
         locale_policies=locale_policies_value,
         arrays=arrays_value,
+        collections=collections_value,
         identifiers=identifiers_value,
         field_hints=field_hints_value,
         provider_defaults=provider_defaults_value,
@@ -782,14 +800,66 @@ def _normalize_field_policies(value: Any) -> tuple[FieldPolicy, ...]:
                 f"Field policy '{pattern}' union_policy must be one of {sorted(UNION_POLICIES)}."
             )
 
-        allowed_keys = {"p_none", "enum_policy", "union_policy"}
+        collection_min = raw_options.get("collection_min_items")
+        if collection_min is not None:
+            try:
+                collection_min = int(collection_min)
+            except (TypeError, ValueError) as exc:
+                raise ConfigError(
+                    f"Field policy '{pattern}' collection_min_items must be an integer."
+                ) from exc
+            if collection_min < 0:
+                raise ConfigError(
+                    f"Field policy '{pattern}' collection_min_items must be >= 0."
+                )
+
+        collection_max = raw_options.get("collection_max_items")
+        if collection_max is not None:
+            try:
+                collection_max = int(collection_max)
+            except (TypeError, ValueError) as exc:
+                raise ConfigError(
+                    f"Field policy '{pattern}' collection_max_items must be an integer."
+                ) from exc
+            if collection_max < 0:
+                raise ConfigError(
+                    f"Field policy '{pattern}' collection_max_items must be >= 0."
+                )
+
+        collection_distribution = raw_options.get("collection_distribution")
+        if collection_distribution is not None:
+            if not isinstance(collection_distribution, str):
+                raise ConfigError(
+                    f"Field policy '{pattern}' collection_distribution must be a string."
+                )
+            collection_distribution = collection_distribution.strip().lower()
+            if collection_distribution not in {"uniform", "min-heavy", "max-heavy"}:
+                raise ConfigError(
+                    f"Field policy '{pattern}' collection_distribution must be one of: uniform, min-heavy, max-heavy."
+                )
+
+        allowed_keys = {
+            "p_none",
+            "enum_policy",
+            "union_policy",
+            "collection_min_items",
+            "collection_max_items",
+            "collection_distribution",
+        }
         for option_key in raw_options:
             if option_key not in allowed_keys:
                 raise ConfigError(
                     f"Field policy '{pattern}' contains unsupported option '{option_key}'."
                 )
 
-        options = {"p_none": p_none, "enum_policy": enum_policy, "union_policy": union_policy}
+        options = {
+            "p_none": p_none,
+            "enum_policy": enum_policy,
+            "union_policy": union_policy,
+            "collection_min_items": collection_min,
+            "collection_max_items": collection_max,
+            "collection_distribution": collection_distribution,
+        }
         policies.append(FieldPolicy(pattern=pattern, options=options, index=index))
 
     return tuple(policies)
@@ -910,6 +980,49 @@ def _normalize_array_config(value: Any) -> ArrayConfig:
         max_side=max_side,
         max_elements=max_elements,
         dtypes=dtype_values,
+    )
+
+
+def _normalize_collection_config(value: Any) -> CollectionConfig:
+    config = CollectionConfig()
+    if value is None:
+        return config
+    if not isinstance(value, Mapping):
+        raise ConfigError("collections configuration must be a mapping.")
+
+    min_raw = value.get("min_items", config.min_items)
+    max_raw = value.get("max_items", config.max_items)
+    distribution_raw = value.get("distribution", config.distribution)
+
+    try:
+        min_items = int(min_raw)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError("collections.min_items must be an integer.") from exc
+    if min_items < 0:
+        raise ConfigError("collections.min_items must be >= 0.")
+
+    try:
+        max_items = int(max_raw)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError("collections.max_items must be an integer.") from exc
+    if max_items < 0:
+        raise ConfigError("collections.max_items must be >= 0.")
+    if max_items < min_items:
+        max_items = min_items
+
+    if not isinstance(distribution_raw, str):
+        raise ConfigError("collections.distribution must be a string.")
+    distribution = distribution_raw.strip().lower() or config.distribution
+    valid_distributions = {"uniform", "min-heavy", "max-heavy"}
+    if distribution not in valid_distributions:
+        raise ConfigError(
+            "collections.distribution must be one of: uniform, min-heavy, max-heavy."
+        )
+
+    return CollectionConfig(
+        min_items=min_items,
+        max_items=max_items,
+        distribution=cast(CollectionDistributionLiteral, distribution),
     )
 
 

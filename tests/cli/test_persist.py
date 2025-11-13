@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
+import pytest
+from pydantic_fixturegen.api.models import ConfigSnapshot, PersistenceRunResult
 from pydantic_fixturegen.cli import app as cli_app
 from tests._cli import create_cli_runner
 from tests.persistence_helpers import SyncCaptureHandler
@@ -74,3 +77,48 @@ path = "tests.persistence_helpers:SyncCaptureHandler"
 
     assert result.exit_code == 0, result.stdout
     assert SyncCaptureHandler.emitted
+
+
+def test_persist_collection_flags_forwarded(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module_path = _write_module(tmp_path)
+
+    captured: dict[str, Any] = {}
+
+    def fake_persist(**kwargs: Any) -> PersistenceRunResult:
+        captured.update(kwargs)
+        return PersistenceRunResult(
+            handler="capture",
+            batches=1,
+            records=1,
+            retries=0,
+            duration=0.1,
+            model=type("Model", (), {}),
+            config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+            warnings=(),
+        )
+
+    monkeypatch.setattr("pydantic_fixturegen.cli.persist.persist_samples", fake_persist)
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "persist",
+            str(module_path),
+            "--handler",
+            "tests.persistence_helpers:SyncCaptureHandler",
+            "--collection-min-items",
+            "1",
+            "--collection-max-items",
+            "3",
+            "--collection-distribution",
+            "max-heavy",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["collection_min_items"] == 1
+    assert captured["collection_max_items"] == 3
+    assert captured["collection_distribution"] == "max-heavy"

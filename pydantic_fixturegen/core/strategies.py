@@ -10,7 +10,7 @@ from typing import Any, Union, get_args, get_origin
 import pluggy
 from pydantic.fields import FieldInfo
 
-from pydantic_fixturegen.core.config import ProviderDefaultsConfig
+from pydantic_fixturegen.core.config import CollectionConfig, ProviderDefaultsConfig
 from pydantic_fixturegen.core import schema as schema_module
 from pydantic_fixturegen.core.heuristics import (
     HeuristicMatch,
@@ -42,6 +42,7 @@ class Strategy:
     cycle_policy: str | None = None
     heuristic: HeuristicMatch | None = None
     type_default: ProviderDefaultMatch | None = None
+    collection_config: CollectionConfig | None = None
 
 
 @dataclass(slots=True)
@@ -89,6 +90,7 @@ class StrategyBuilder:
         heuristics_enabled: bool = True,
         cycle_policy: str = "reuse",
         provider_defaults: ProviderDefaultsConfig | None = None,
+        collection_config: CollectionConfig | None = None,
     ) -> None:
         self.registry = registry
         self.enum_policy = enum_policy
@@ -109,6 +111,7 @@ class StrategyBuilder:
             if provider_defaults and provider_defaults.rules
             else None
         )
+        self._collection_config = collection_config
 
     def build_model_strategies(self, model: type[Any]) -> Mapping[str, StrategyResult]:
         summaries = summarize_model_fields(model)
@@ -302,6 +305,9 @@ class StrategyBuilder:
         numeric_types = {"int", "float", "decimal"}
         if provider_type_id in numeric_types and self._number_config is not None:
             strategy.provider_kwargs["number_config"] = self._number_config
+        if summary.type in {"list", "set", "tuple", "mapping"} and self._collection_config is not None:
+            strategy.collection_config = self._collection_config
+            strategy.provider_kwargs.setdefault("collection_config", strategy.collection_config)
         return self._apply_strategy_plugins(model, field_name, strategy)
 
     # ------------------------------------------------------------------ utilities

@@ -46,4 +46,4 @@ If you extend the tasks or invoke `pfg` manually, add `--json-errors` so diagnos
 - To specify additional CLI flags, append them to the `args` array of a task.
 - If you prefer global tasks, copy these files to your global VS Code settings, or incorporate them into project templates.
 
-See [docs/cli.md](./cli.md) for more background on the underlying commands.\*\*\* End Patch
+See [docs/cli.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/cli.md) for more background on the underlying commands.

@@ -66,6 +66,7 @@ result: JsonGenerationResult = generate_json(
 | `freeze_seeds`, `freeze_seeds_file`                    | bool / path         | Manage per-model seeds via `.pfg-seeds.json`.                                                                                           |
 | `now`                                                  | ISO timestamp       | Overrides the deterministic “current time” anchor.                                                                                      |
 | `type_annotation`, `type_label`                        | any                 | Generate data for arbitrary type expressions (mirrors `pfg gen json --type`). Cannot be combined with relation helpers or freeze files. |
+| `collection_min_items`, `collection_max_items`, `collection_distribution` | scalars | Clamp collection lengths globally for the run (`uniform`, `min-heavy`, `max-heavy`). Defaults match `[collections]` config. |
 
 Return fields: `paths` (tuple of written files), `base_output`, `model` (when exactly one model was emitted), `config`, `warnings`.
 
@@ -101,6 +102,7 @@ dataset: DatasetGenerationResult = generate_dataset(
 | `relations`                                   | `Mapping[str, str]` | Equivalent to CLI `--link`.                                                       |
 | `respect_validators`, `validator_max_retries` | bool/int            | Enforce model validators with bounded retries.                                    |
 | `max_depth`, `cycle_policy`, `rng_mode`       | scalars             | Mirror CLI recursion + RNG controls.                                              |
+| `collection_min_items`, `collection_max_items`, `collection_distribution` | scalars | Same semantics as `generate_json`; governs list/set/tuple/mapping lengths before schema clamps. |
 
 The result mirrors `JsonGenerationResult` but includes dataset-specific metadata about shard counts and `format`.
 
@@ -130,6 +132,7 @@ fixtures = generate_fixtures(
 | `cases`       | Number of parametrized cases per fixture.                        |
 | `return_type` | `"model"` or `"dict"`.                                           |
 | `p_none`      | Overrides optional field probability.                            |
+| `collection_min_items`, `collection_max_items`, `collection_distribution` | Control how many elements collections inside fixtures contain (clamped by schema constraints). |
 
 Return values include `path` (written module), `metadata` (banner extras like digest, seed, style), and the resolved `style/scope/return_type/cases`.
 

@@ -40,6 +40,12 @@ __all__ = [
     "OVERRIDES_OPTION",
     "RNG_MODE_OPTION",
     "FIELD_HINTS_OPTION",
+    "COLLECTION_MIN_ITEMS_OPTION",
+    "COLLECTION_MAX_ITEMS_OPTION",
+    "COLLECTION_DISTRIBUTION_OPTION",
+    "COLLECTION_MIN_ITEMS_OPTION",
+    "COLLECTION_MAX_ITEMS_OPTION",
+    "COLLECTION_DISTRIBUTION_OPTION",
     "clear_module_cache",
     "discover_models",
     "load_model_class",
@@ -107,6 +113,40 @@ FIELD_HINTS_OPTION = typer.Option(
         "Prefer field hints when available: none, defaults, examples, defaults-then-examples, "
         "examples-then-defaults."
     ),
+)
+
+
+def _validate_collection_distribution(value: str | None) -> str | None:
+    if value is None:
+        return None
+    lowered = value.strip().lower()
+    valid = {"uniform", "min-heavy", "max-heavy"}
+    if lowered not in valid:
+        raise typer.BadParameter(
+            f"collection distribution must be one of {', '.join(sorted(valid))}."
+        )
+    return lowered
+
+
+COLLECTION_MIN_ITEMS_OPTION = typer.Option(
+    None,
+    "--collection-min-items",
+    min=0,
+    help="Override minimum items for generated collections (lists/sets/tuples/mappings).",
+)
+
+COLLECTION_MAX_ITEMS_OPTION = typer.Option(
+    None,
+    "--collection-max-items",
+    min=0,
+    help="Override maximum items for generated collections (lists/sets/tuples/mappings).",
+)
+
+COLLECTION_DISTRIBUTION_OPTION = typer.Option(
+    None,
+    "--collection-distribution",
+    callback=_validate_collection_distribution,
+    help="Distribution for collection lengths: uniform, min-heavy, max-heavy.",
 )
 
 

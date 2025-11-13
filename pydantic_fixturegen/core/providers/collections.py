@@ -7,10 +7,10 @@ from typing import Any
 
 from faker import Faker
 
+from pydantic_fixturegen.core.collection_utils import sample_collection_length
+from pydantic_fixturegen.core.config import CollectionConfig
 from pydantic_fixturegen.core.providers.registry import ProviderRegistry
-from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
-
-DEFAULT_COLLECTION_SIZE = 3
+from pydantic_fixturegen.core.schema import FieldSummary
 
 
 def generate_collection(
@@ -18,11 +18,15 @@ def generate_collection(
     *,
     faker: Faker | None = None,
     random_generator: random.Random | None = None,
+    collection_config: CollectionConfig | None = None,
 ) -> Any:
     rng = random_generator or random.Random()
     faker = faker or Faker()
 
-    length = _collection_length(summary.constraints, rng)
+    config = collection_config or CollectionConfig()
+    length = sample_collection_length(config, summary.constraints, rng)
+    if length < 0:
+        length = 0
     item_values = [_basic_value(summary.item_type, faker, rng) for _ in range(length)]
 
     if summary.type == "list":
@@ -45,14 +49,6 @@ def register_collection_providers(registry: ProviderRegistry) -> None:
             name=f"collection.{collection_type}",
             metadata={"type": collection_type},
         )
-
-
-def _collection_length(constraints: FieldConstraints, rng: random.Random) -> int:
-    minimum = constraints.min_length or 1
-    maximum = constraints.max_length or max(minimum, DEFAULT_COLLECTION_SIZE)
-    if minimum > maximum:
-        minimum = maximum
-    return rng.randint(minimum, maximum)
 
 
 def _basic_value(item_type: str | None, faker: Faker, rng: random.Random) -> Any:

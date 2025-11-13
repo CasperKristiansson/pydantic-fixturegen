@@ -188,3 +188,53 @@ def test_gen_dataset_field_hints_forwarded(
 
     assert result.exit_code == 0
     assert captured["field_hints"] == "defaults-then-examples"
+
+
+def test_gen_dataset_collection_flags_forwarded(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module_path = _write_models(tmp_path)
+    output_path = tmp_path / "users.csv"
+
+    captured: dict[str, Any] = {}
+
+    def fake_generate(**kwargs: Any) -> DatasetGenerationResult:
+        captured.update(kwargs)
+        return DatasetGenerationResult(
+            paths=(output_path,),
+            base_output=output_path,
+            model=None,  # type: ignore[arg-type]
+            config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+            warnings=(),
+            constraint_summary=None,
+            delegated=False,
+            format="csv",
+        )
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.gen.dataset.generate_dataset_artifacts",
+        fake_generate,
+    )
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "dataset",
+            str(module_path),
+            "--out",
+            str(output_path),
+            "--collection-min-items",
+            "1",
+            "--collection-max-items",
+            "6",
+            "--collection-distribution",
+            "min-heavy",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["collection_min_items"] == 1
+    assert captured["collection_max_items"] == 6
+    assert captured["collection_distribution"] == "min-heavy"

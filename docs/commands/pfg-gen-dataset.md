@@ -30,6 +30,10 @@
 - `--freeze-seeds`, `--freeze-seeds-file`: persist per-model seeds between runs.
 - `--field-hints`: prefer `Field` defaults/examples before providers (modes match `pfg gen json`).
 
+**Collection controls**
+- `--collection-min-items` / `--collection-max-items`: clamp global collection lengths before field-level constraints. Handy when you need denser arrays or when CSV tests only expect a couple of elements per list.
+- `--collection-distribution`: skew sampling toward smaller (`min-heavy`) or larger (`max-heavy`) collections, or keep it `uniform`.
+
 **Quality controls**
 - `--respect-validators`, `--validator-max-retries`: enforce Pydantic validators before rows hit disk.
 - `--link`, `--max-depth`, `--on-cycle`: keep relations and recursion behavior aligned with other emitters.
@@ -88,6 +92,44 @@ id,timestamp,event_type,metadata
 3014d4e8-75de-4b9a-8a5d-a3d4ab610e1a,2025-11-08T12:00:00Z,USER_SIGNED_IN,"{'ip':'203.0.113.42'}"
 fe71b998-6af3-4f68-90a2-615efa170f29,2025-11-08T12:00:00Z,PASSWORD_RESET,"{'ip':'203.0.113.87'}"
 ```
+
+### Additional examples
+
+```bash
+# Parquet export from a module that mixes BaseModel, dataclass, and TypedDict types
+pfg gen dataset examples/models.py \
+  --include examples.Order \
+  --format parquet --compression zstd \
+  --n 25000 --shard-size 5000 \
+  --out warehouse/{model}/{timestamp}.parquet \
+  --collection-min-items 1 --collection-max-items 3
+
+# CSV + gzip plus field hints for defaults/examples
+pfg gen dataset examples/models.py \
+  --format csv --compression gzip \
+  --n 1000 --out artifacts/{model}.csv.gz \
+  --field-hints defaults-then-examples
+```
+
+Python API equivalent:
+
+```python
+from pathlib import Path
+from pydantic_fixturegen.api import generate_dataset
+from pydantic_fixturegen.core.path_template import OutputTemplate
+
+generate_dataset(
+    target=Path("examples/models.py"),
+    output_template=OutputTemplate("warehouse/{model}-{case_index}.parquet"),
+    count=5000,
+    format="parquet",
+    compression="zstd",
+    include=["examples.Order"],
+    collection_distribution="max-heavy",
+)
+```
+
+More ready-to-run shells + notebooks live in [docs/examples.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/examples.md#cli-flows).
 
 ## Operational notes
 - Each run logs constraint summaries plus the resolved dataset format. For Parquet/Arrow the logger also captures the PyArrow version (when verbose logging is enabled) to aid reproducibility.

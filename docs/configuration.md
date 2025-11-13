@@ -147,6 +147,20 @@ Change these values to adjust generated module ergonomics. CLI flags `--style` a
 
 Install the optional `pydantic-fixturegen[numpy]` extra to enable array providers. When arrays are disabled the configuration is ignored.
 
+### Collection settings
+
+Control how many elements list/set/tuple/mapping providers emit before field-level constraints are applied. Defaults keep collections small (`1-3` items) so diffs stay readable, but presets/CLI flags can expand them for stress testing.
+
+| Key                | Type          | Default    | Description                                                                                      |
+| ------------------ | ------------- | ---------- | ------------------------------------------------------------------------------------------------ |
+| `min_items`        | `int`         | `1`        | Minimum number of elements to attempt before field constraints clamp the value.                  |
+| `max_items`        | `int`         | `3`        | Soft maximum (still clamped by field constraints). Set equal to `min_items` for fixed sizes.     |
+| `distribution`     | `"uniform" \ "min-heavy" \ "max-heavy"` | `"uniform"` | Bias random sampling toward the middle, the lower bound, or the upper bound of the configured span. |
+
+CLI/API overrides: `--collection-min-items`, `--collection-max-items`, and `--collection-distribution` apply the same settings for a single run of `pfg gen json/dataset/fixtures` or `pfg persist`. Field policies accept `collection_min_items`, `collection_max_items`, and `collection_distribution` keys when you need per-field overrides (for example, forcing `Order.items` to emit at least five entries while leaving every other list alone).
+
+Generation still honours schema constraints (`min_length`/`max_length`, tuple arity, typed `set[str]` etc.) by clamping whatever configuration you provide, so rules stay valid even when the overrides are aggressive.
+
 ### Identifier settings
 
 | Key                   | Type        | Default     | Description                                                                     |

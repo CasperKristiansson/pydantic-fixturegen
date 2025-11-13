@@ -641,6 +641,55 @@ def test_gen_json_field_hints_forwarded(
     assert captured["field_hints"] == "examples"
 
 
+def test_gen_json_collection_flags_forwarded(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "collection-flags.json"
+
+    captured: dict[str, Any] = {}
+
+    def fake_generate(**kwargs: Any) -> JsonGenerationResult:
+        captured.update(kwargs)
+        return JsonGenerationResult(
+            paths=(output,),
+            base_output=output,
+            model=None,
+            config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+            constraint_summary=None,
+            warnings=(),
+            delegated=False,
+        )
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.gen.json.generate_json_artifacts",
+        fake_generate,
+    )
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(output),
+            "--collection-min-items",
+            "2",
+            "--collection-max-items",
+            "4",
+            "--collection-distribution",
+            "max-heavy",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["collection_min_items"] == 2
+    assert captured["collection_max_items"] == 4
+    assert captured["collection_distribution"] == "max-heavy"
+
+
 def test_gen_json_mapping_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "out.json"

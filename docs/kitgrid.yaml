@@ -30,6 +30,8 @@ nav:
     children:
       - title: Quickstart
         path: docs/quickstart.md
+      - title: Examples
+        path: docs/examples.md
       - title: Install
         path: docs/install.md
       - title: Features

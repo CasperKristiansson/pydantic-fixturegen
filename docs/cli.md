@@ -380,7 +380,7 @@ pfg plugin new acme-colorizer \
 ## Editor integrations
 
 - Workspace tasks and problem matchers for Visual Studio Code live under `.vscode/`.
-- See [docs/vscode.md](./vscode.md) for details on running `pfg` commands directly from the editor with diagnostics surfaced in the Problems panel.
+- See [docs/vscode.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/vscode.md) for details on running `pfg` commands directly from the editor with diagnostics surfaced in the Problems panel.
 
 ## `pfg doctor`
 

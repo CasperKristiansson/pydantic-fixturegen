@@ -44,6 +44,11 @@
 - `--respect-validators` + `--validator-max-retries`: repeatedly attempt generation until model/dataclass validators pass.
 - `--rng-mode`: choose between `portable` (default) and `legacy` RNGs to match historical artifacts.
 
+**Collection controls**
+
+- `--collection-min-items` / `--collection-max-items`: clamp how many elements list/set/tuple/mapping fields emit before schema constraints run. Keep spans small for review-heavy snapshots or widen them when you need bulkier samples.
+- `--collection-distribution`: bias collection lengths toward `uniform`, `min-heavy`, or `max-heavy` sections of the configured span so you can stress empty-ish or near-capacity collections on demand.
+
 **Relations + recursion**
 
 - `--link source.field=target.field`: declare relation join keys so regenerated payloads match existing IDs.
@@ -125,6 +130,44 @@ Emits three JSON objects where each record contains deterministic data for the o
   }
 }
 ```
+
+### Additional examples
+
+```bash
+# Dataclass + TypedDict module with dense collections
+pfg gen json examples/models.py \
+  --include examples.Order \
+  --out artifacts/{model}/dense-{case_index}.json \
+  --n 10 --jsonl \
+  --collection-min-items 2 --collection-max-items 5 --collection-distribution max-heavy \
+  --field-hints defaults-then-examples
+
+# TypeAdapter mode with heuristics disabled
+pfg gen json --type "list[tuple[int, EmailStr]]" \
+  --out artifacts/email-tuples.json \
+  --n 3 --indent 0 --rng-mode portable
+```
+
+Python API equivalent:
+
+```python
+from pathlib import Path
+from pydantic_fixturegen.api import generate_json
+from pydantic_fixturegen.core.path_template import OutputTemplate
+
+generate_json(
+    target=Path("examples/models.py"),
+    output_template=OutputTemplate("artifacts/{model}.json"),
+    count=5,
+    jsonl=True,
+    include=["examples.Order"],
+    collection_min_items=2,
+    collection_max_items=4,
+    field_hints="defaults",
+)
+```
+
+Find more combinations (datasets, fixtures, persistence, Python APIs) in [docs/examples.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/examples.md).
 
 ## Operational notes
 

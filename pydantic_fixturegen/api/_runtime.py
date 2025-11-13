@@ -166,6 +166,9 @@ def _build_model_artifact_plan(
     rng_mode: str | None,
     field_overrides: Mapping[str, Mapping[str, Any]] | None = None,
     field_hints: str | None = None,
+    collection_min_items: int | None = None,
+    collection_max_items: int | None = None,
+    collection_distribution: str | None = None,
     payload_mode: Literal["python", "json"],
 ) -> ModelArtifactPlan:
     from ..cli.gen import _common as cli_common
@@ -242,7 +245,21 @@ def _build_model_artifact_plan(
         for model_key, field_map in field_overrides.items():
             merged_overrides[model_key] = dict(field_map)
         cli_overrides["overrides"] = merged_overrides
-
+    if field_hints is not None:
+        hint_overrides = cli_overrides.setdefault("field_hints", {})
+        hint_overrides["mode"] = field_hints
+    if (
+        collection_min_items is not None
+        or collection_max_items is not None
+        or collection_distribution is not None
+    ):
+        collection_overrides = cli_overrides.setdefault("collections", {})
+        if collection_min_items is not None:
+            collection_overrides["min_items"] = collection_min_items
+        if collection_max_items is not None:
+            collection_overrides["max_items"] = collection_max_items
+        if collection_distribution is not None:
+            collection_overrides["distribution"] = collection_distribution
     app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
     config_snapshot = _snapshot_config(app_config)
 
@@ -486,6 +503,7 @@ def _build_instance_generator(
         locale=app_config.locale,
         locale_policies=app_config.locale_policies,
         arrays=app_config.arrays,
+        collections=app_config.collections,
         identifiers=app_config.identifiers,
         numbers=app_config.numbers,
         paths=app_config.paths,
@@ -624,6 +642,9 @@ def generate_json_artifacts(
     rng_mode: str | None = None,
     field_overrides: Mapping[str, Mapping[str, Any]] | None = None,
     field_hints: str | None = None,
+    collection_min_items: int | None = None,
+    collection_max_items: int | None = None,
+    collection_distribution: str | None = None,
 ) -> JsonGenerationResult:
     logger = logger or get_logger()
 
@@ -678,6 +699,18 @@ def generate_json_artifacts(
         if field_hints is not None:
             hint_overrides = cli_overrides.setdefault("field_hints", {})
             hint_overrides["mode"] = field_hints
+        if (
+            collection_min_items is not None
+            or collection_max_items is not None
+            or collection_distribution is not None
+        ):
+            collection_overrides = cli_overrides.setdefault("collections", {})
+            if collection_min_items is not None:
+                collection_overrides["min_items"] = collection_min_items
+            if collection_max_items is not None:
+                collection_overrides["max_items"] = collection_max_items
+            if collection_distribution is not None:
+                collection_overrides["distribution"] = collection_distribution
         json_overrides: dict[str, Any] = {}
         if indent is not None:
             json_overrides["indent"] = indent
@@ -725,6 +758,9 @@ def generate_json_artifacts(
         rng_mode=rng_mode,
         field_overrides=field_overrides,
         field_hints=field_hints,
+        collection_min_items=collection_min_items,
+        collection_max_items=collection_max_items,
+        collection_distribution=collection_distribution,
         payload_mode="python",
     )
 
@@ -840,6 +876,9 @@ def generate_dataset_artifacts(
     rng_mode: str | None = None,
     field_overrides: Mapping[str, Mapping[str, Any]] | None = None,
     field_hints: str | None = None,
+    collection_min_items: int | None = None,
+    collection_max_items: int | None = None,
+    collection_distribution: str | None = None,
 ) -> DatasetGenerationResult:
     logger = logger or get_logger()
     fmt = format.lower()
@@ -867,6 +906,9 @@ def generate_dataset_artifacts(
         rng_mode=rng_mode,
         field_overrides=field_overrides,
         field_hints=field_hints,
+        collection_min_items=collection_min_items,
+        collection_max_items=collection_max_items,
+        collection_distribution=collection_distribution,
         payload_mode="json",
     )
 
@@ -981,6 +1023,9 @@ def persist_samples(
     max_depth: int | None,
     cycle_policy: str | None,
     rng_mode: str | None,
+    collection_min_items: int | None = None,
+    collection_max_items: int | None = None,
+    collection_distribution: str | None = None,
 ) -> PersistenceRunResult:
     logger = get_logger()
     plan = _build_model_artifact_plan(
@@ -1004,6 +1049,9 @@ def persist_samples(
         rng_mode=rng_mode,
         field_overrides=field_overrides,
         field_hints=field_hints,
+        collection_min_items=collection_min_items,
+        collection_max_items=collection_max_items,
+        collection_distribution=collection_distribution,
         payload_mode="python",
     )
 
@@ -1224,6 +1272,9 @@ def generate_fixtures_artifacts(
     rng_mode: str | None = None,
     field_overrides: Mapping[str, Mapping[str, Any]] | None = None,
     field_hints: str | None = None,
+    collection_min_items: int | None = None,
+    collection_max_items: int | None = None,
+    collection_distribution: str | None = None,
 ) -> FixturesGenerationResult:
     from ..cli.gen import _common as cli_common
 
@@ -1312,6 +1363,18 @@ def generate_fixtures_artifacts(
     if field_hints is not None:
         hint_overrides = cli_overrides.setdefault("field_hints", {})
         hint_overrides["mode"] = field_hints
+    if (
+        collection_min_items is not None
+        or collection_max_items is not None
+        or collection_distribution is not None
+    ):
+        collection_overrides = cli_overrides.setdefault("collections", {})
+        if collection_min_items is not None:
+            collection_overrides["min_items"] = collection_min_items
+        if collection_max_items is not None:
+            collection_overrides["max_items"] = collection_max_items
+        if collection_distribution is not None:
+            collection_overrides["distribution"] = collection_distribution
 
     app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
     config_snapshot = _snapshot_config(app_config)

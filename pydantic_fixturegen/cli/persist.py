@@ -113,6 +113,9 @@ def persist(  # noqa: PLR0913 - CLI mirrors documented parameters
     cycle_policy: str | None = CYCLE_POLICY_OPTION,
     rng_mode: str | None = cli_common.RNG_MODE_OPTION,
     field_hints: str | None = cli_common.FIELD_HINTS_OPTION,
+    collection_min_items: int | None = cli_common.COLLECTION_MIN_ITEMS_OPTION,
+    collection_max_items: int | None = cli_common.COLLECTION_MAX_ITEMS_OPTION,
+    collection_distribution: str | None = cli_common.COLLECTION_DISTRIBUTION_OPTION,
     override_entries: list[str] | None = cli_common.OVERRIDES_OPTION,
     json_errors: bool = cli_common.JSON_ERRORS_OPTION,
 ) -> None:
@@ -153,6 +156,9 @@ def persist(  # noqa: PLR0913 - CLI mirrors documented parameters
             max_depth=max_depth,
             cycle_policy=cycle_policy,
             rng_mode=rng_mode,
+            collection_min_items=collection_min_items,
+            collection_max_items=collection_max_items,
+            collection_distribution=collection_distribution,
         )
     except PFGError as exc:
         cli_common.render_cli_error(exc, json_errors=json_errors)

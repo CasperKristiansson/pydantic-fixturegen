@@ -31,6 +31,7 @@ from pydantic_extra_types.payment import (
 )
 from pydantic_fixturegen.core.config import (
     ArrayConfig,
+    CollectionConfig,
     ConfigError,
     FieldHintConfig,
     IdentifierConfig,
@@ -441,6 +442,44 @@ def test_field_policy_applies_via_model_alias() -> None:
     instance = generator.generate_one(OptionalModel)
     assert instance is not None
     assert instance.maybe is not None
+
+
+def test_collection_config_controls_length() -> None:
+    class Bag(BaseModel):
+        values: list[int]
+
+    generator = InstanceGenerator(
+        config=GenerationConfig(
+            seed=19,
+            collections=CollectionConfig(min_items=4, max_items=4),
+        )
+    )
+
+    instance = generator.generate_one(Bag)
+    assert instance is not None
+    assert len(instance.values) == 4
+
+
+def test_collection_field_policy_overrides_global_config() -> None:
+    class Bag(BaseModel):
+        values: list[int]
+
+    policy = FieldPolicy(
+        pattern=f"{Bag.__qualname__}.values",
+        options={"collection_min_items": 2, "collection_max_items": 2},
+        index=0,
+    )
+    generator = InstanceGenerator(
+        config=GenerationConfig(
+            seed=21,
+            collections=CollectionConfig(min_items=0, max_items=0),
+            field_policies=(policy,),
+        )
+    )
+
+    instance = generator.generate_one(Bag)
+    assert instance is not None
+    assert len(instance.values) == 2
 
 
 class TemporalModel(BaseModel):

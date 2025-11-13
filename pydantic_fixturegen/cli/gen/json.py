@@ -213,6 +213,9 @@ def register(app: typer.Typer) -> None:
         cycle_policy: str | None = CYCLE_POLICY_OPTION,
         rng_mode: str | None = RNG_MODE_OPTION,
         field_hints: str | None = cli_common.FIELD_HINTS_OPTION,
+        collection_min_items: int | None = cli_common.COLLECTION_MIN_ITEMS_OPTION,
+        collection_max_items: int | None = cli_common.COLLECTION_MAX_ITEMS_OPTION,
+        collection_distribution: str | None = cli_common.COLLECTION_DISTRIBUTION_OPTION,
         override_entries: list[str] | None = cli_common.OVERRIDES_OPTION,
         schema: Path | None = SCHEMA_OPTION,
     ) -> None:
@@ -313,6 +316,9 @@ def register(app: typer.Typer) -> None:
                     rng_mode=rng_mode,
                     field_overrides=field_overrides or None,
                     field_hints=field_hints,
+                    collection_min_items=collection_min_items,
+                    collection_max_items=collection_max_items,
+                    collection_distribution=collection_distribution,
                 )
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors, exit_app=exit_app)
@@ -384,6 +390,9 @@ def _execute_json_command(
     rng_mode: str | None = None,
     field_overrides: Mapping[str, Mapping[str, Any]] | None = None,
     field_hints: str | None = None,
+    collection_min_items: int | None = None,
+    collection_max_items: int | None = None,
+    collection_distribution: str | None = None,
 ) -> None:
     logger = get_logger()
 
@@ -449,6 +458,9 @@ def _execute_json_command(
             rng_mode=rng_mode,
             field_overrides=field_overrides or None,
             field_hints=field_hints,
+            collection_min_items=collection_min_items,
+            collection_max_items=collection_max_items,
+            collection_distribution=collection_distribution,
         )
     except PFGError as exc:
         _handle_generation_error(logger, exc)

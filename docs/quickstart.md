@@ -2,15 +2,17 @@
 
 > Install the CLI, generate JSON/datasets/fixtures, diff them, and lock in deterministic snapshots.
 
+Need ready-to-run snippets? Check the new [examples](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/examples.md) page for a shared model module plus CLI/Python variants of every command.
+
 ## 0. Before you begin
 
 ```bash
 python -m pip install --upgrade pip
-pip install "pydantic-fixturegen[openapi,fastapi,dataset,polyfactory]"
+pip install "pydantic-fixturegen"
 pfg --version
 ```
 
-- Add extras that match your stack (`openapi` for schema ingestion, `fastapi` for smoke/mock commands, `dataset` for CSV/Parquet/Arrow, `polyfactory` if you already have ModelFactory classes, `seed` for SQLModel + Beanie).
+- Add extras that match your stack (`openapi` for schema ingestion, `fastapi` for smoke/mock commands, `dataset` for CSV/Parquet/Arrow, `polyfactory` if you already have ModelFactory classes, `seed` for SQLModel + Beanie). E.g., `pip install "pydantic-fixturegen[openapi,fastapi,dataset]"`.
 - Run `pfg --help` once to ensure the entry point is on your PATH. All CLI examples assume a POSIX shell; on Windows, swap `\` for `^` when you wrap long commands.
 
 ## 1. Scaffold a model module

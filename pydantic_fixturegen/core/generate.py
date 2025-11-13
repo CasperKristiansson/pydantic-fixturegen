@@ -25,12 +25,14 @@ from pydantic_fixturegen.core.config import (
     FieldHintConfig,
     FieldHintModeLiteral,
     IdentifierConfig,
+    CollectionConfig,
     NumberDistributionConfig,
     PathConfig,
     ProviderDefaultsConfig,
     RelationLinkConfig,
 )
 from pydantic_fixturegen.core.constraint_report import ConstraintReporter
+from pydantic_fixturegen.core.collection_utils import clamp_collection_config, sample_collection_length
 from pydantic_fixturegen.core.cycle_report import CycleEvent, attach_cycle_events
 from pydantic_fixturegen.core.field_policies import (
     FieldPolicy,
@@ -74,6 +76,7 @@ class GenerationConfig:
     locale: str = DEFAULT_LOCALE
     locale_policies: tuple[FieldPolicy, ...] = ()
     arrays: ArrayConfig = field(default_factory=ArrayConfig)
+    collections: CollectionConfig = field(default_factory=CollectionConfig)
     identifiers: IdentifierConfig = field(default_factory=IdentifierConfig)
     numbers: NumberDistributionConfig = field(default_factory=NumberDistributionConfig)
     paths: PathConfig = field(default_factory=PathConfig)
@@ -285,6 +288,7 @@ class InstanceGenerator:
         self.faker = self.seed_manager.faker
         self._faker_cache: dict[tuple[str, str, tuple[Any, ...] | None], Faker] = {}
         self.array_config = self.config.arrays
+        self.collection_config = self.config.collections
         self.identifier_config = self.config.identifiers
         self.number_config = self.config.numbers
         self.path_config = self.config.paths
@@ -940,6 +944,46 @@ class InstanceGenerator:
             strategy.p_none = policy_values["p_none"]
         if "enum_policy" in policy_values and policy_values["enum_policy"] is not None:
             strategy.enum_policy = policy_values["enum_policy"]
+        if "union_policy" in policy_values and policy_values["union_policy"] is not None:
+            strategy.union_policy = policy_values["union_policy"]
+
+        min_override = policy_values.get("collection_min_items")
+        max_override = policy_values.get("collection_max_items")
+        distribution_override = policy_values.get("collection_distribution")
+
+        if (
+            min_override is not None
+            or max_override is not None
+            or distribution_override is not None
+        ):
+            base_config = strategy.collection_config or self.collection_config
+            if base_config is None:
+                base_config = CollectionConfig()
+
+            min_items = base_config.min_items
+            max_items = base_config.max_items
+            distribution = base_config.distribution
+
+            if min_override is not None:
+                min_items = max(0, int(min_override))
+            if max_override is not None:
+                max_items = max(0, int(max_override))
+            if max_items < min_items:
+                max_items = min_items
+            if distribution_override is not None:
+                candidate = str(distribution_override).strip().lower()
+                if candidate in {"uniform", "min-heavy", "max-heavy"}:
+                    distribution = candidate  # type: ignore[assignment]
+
+            strategy.collection_config = CollectionConfig(
+                min_items=min_items,
+                max_items=max_items,
+                distribution=distribution,
+            )
+            strategy.provider_kwargs.setdefault(
+                "collection_config",
+                strategy.collection_config,
+            )
 
     def _maybe_apply_field_hint(
         self,
@@ -1255,6 +1299,8 @@ class InstanceGenerator:
         if item_annotation is None or not self._is_model_like(item_annotation):
             return base_value
 
+        desired_length = self._determine_collection_length(summary, strategy, base_value)
+
         if summary.type == "mapping":
             return self._build_mapping_collection(
                 base_value,
@@ -1262,12 +1308,11 @@ class InstanceGenerator:
                 depth,
                 strategy.field_name,
                 parent_path,
+                desired_length,
             )
 
-        length = self._collection_length_from_value(base_value)
-        count = max(1, length)
         items: list[Any] = []
-        for index in range(count):
+        for index in range(desired_length):
             nested = self._build_model_instance(
                 item_annotation,
                 depth=depth + 1,
@@ -1295,16 +1340,21 @@ class InstanceGenerator:
         depth: int,
         field_name: str,
         parent_path: str,
+        length: int,
     ) -> dict[str, Any]:
+        if length <= 0:
+            return {}
+
+        existing_keys: list[str] = []
         if isinstance(base_value, dict) and base_value:
-            keys: Iterable[str] = base_value.keys()
-        else:
-            length = self._collection_length_from_value(base_value)
-            count = max(1, length)
-            keys = (self.faker.pystr(min_chars=3, max_chars=6) for _ in range(count))
+            existing_keys = [str(key) for key in base_value.keys()]
+
+        selected_keys: list[str] = existing_keys[:length]
+        while len(selected_keys) < length:
+            selected_keys.append(self.faker.pystr(min_chars=3, max_chars=6))
 
         result: dict[str, Any] = {}
-        for index, key in enumerate(keys):
+        for index, key in enumerate(selected_keys):
             nested = self._build_model_instance(
                 annotation,
                 depth=depth + 1,
@@ -1466,6 +1516,19 @@ class InstanceGenerator:
             return len(value)
         return 0
 
+    def _determine_collection_length(
+        self,
+        summary: FieldSummary,
+        strategy: Strategy,
+        base_value: Any,
+    ) -> int:
+        config = strategy.collection_config or self.collection_config
+        if config is None:
+            length = self._collection_length_from_value(base_value)
+            return max(1, length)
+        length = sample_collection_length(config, summary.constraints, self.random)
+        return max(0, length)
+
     @staticmethod
     def _is_model_like(annotation: Any) -> bool:
         if not isinstance(annotation, type):
@@ -1489,8 +1552,9 @@ class InstanceGenerator:
         locale, path_key = self._resolve_locale(field_name)
         faker = self._faker_for_locale(locale, path_key)
         numpy_rng = self.seed_manager.numpy_for("numpy-array", path_key)
+        summary = strategy.summary
         kwargs = {
-            "summary": strategy.summary,
+            "summary": summary,
             "faker": faker,
             "random_generator": self.random,
             "time_anchor": self.config.time_anchor,
@@ -1498,6 +1562,10 @@ class InstanceGenerator:
             "path_config": self.path_config,
             "model_type": model_type,
         }
+        if summary.type in {"list", "set", "tuple", "mapping"}:
+            collection_config = strategy.collection_config or self.collection_config
+            if collection_config is not None:
+                kwargs.setdefault("collection_config", collection_config)
         kwargs.update(strategy.provider_kwargs)
 
         sig = inspect.signature(func)

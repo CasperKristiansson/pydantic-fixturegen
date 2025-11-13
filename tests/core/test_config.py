@@ -692,6 +692,52 @@ def test_array_config_validation(tmp_path: Path) -> None:
         load_config(root=tmp_path, cli={"arrays": {"dtypes": []}})
 
 
+def test_collection_config_parsing(tmp_path: Path) -> None:
+    config = load_config(
+        root=tmp_path,
+        cli={
+            "collections": {
+                "min_items": 0,
+                "max_items": 5,
+                "distribution": "max-heavy",
+            }
+        },
+    )
+
+    assert config.collections.min_items == 0
+    assert config.collections.max_items == 5
+    assert config.collections.distribution == "max-heavy"
+
+
+def test_collection_config_validation(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"collections": {"min_items": -1}})
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"collections": {"max_items": -1}})
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"collections": {"distribution": "nope"}})
+
+
+def test_field_policy_collection_options(tmp_path: Path) -> None:
+    config = load_config(
+        root=tmp_path,
+        cli={
+            "field_policies": {
+                "Model.items": {
+                    "collection_min_items": 2,
+                    "collection_max_items": 3,
+                    "collection_distribution": "min-heavy",
+                }
+            }
+        },
+    )
+
+    policy = config.field_policies[0]
+    assert policy.options["collection_min_items"] == 2
+    assert policy.options["collection_max_items"] == 3
+    assert policy.options["collection_distribution"] == "min-heavy"
+
+
 def test_identifier_config_parsing(tmp_path: Path) -> None:
     config = load_config(
         root=tmp_path,

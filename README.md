@@ -18,6 +18,7 @@ Generate deterministic structured data, pytest fixtures, and JSON quickly with a
 - You keep tests reproducible with cascaded seeds across `random`, Faker, and optional NumPy.
 - You run untrusted models inside a safe-import sandbox with network, filesystem, and memory guards.
 - You drive JSON, pytest fixtures, schemas, and explanations from the CLI or Python helpers.
+- You dial collection sizes up or down (globally or per field) with deterministic min/max/distribution knobs when you need denser samples.
 - You extend generation with Pluggy providers and preset bundles without forking core code.
 
 You also stay observant while you work: every command can emit structured logs, diff artifacts against disk, and surface sandbox warnings so you catch regressions before they land.
@@ -43,6 +44,75 @@ Other flows → [docs/install.md](https://github.com/CasperKristiansson/pydantic
    Full steps → [docs/quickstart.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/quickstart.md)
 
 JSON, fixtures, and schema commands all share flags like `--include`, `--exclude`, `--seed`, `--preset`, and `--watch`, so once you learn one flow you can handle the rest without re-reading the help pages.
+
+### Example module + CLI tour
+
+```python
+# examples/models.py
+from dataclasses import dataclass
+from typing import TypedDict
+
+from pydantic import BaseModel, EmailStr
+
+
+class AuditTrail(TypedDict):
+    actor: str
+    event: str
+    ip: str
+
+
+@dataclass
+class ShippingWindow:
+    earliest: str
+    latest: str
+
+
+class Order(BaseModel):
+    id: int
+    email: EmailStr
+    items: list[str]
+    shipping: ShippingWindow
+    audit: AuditTrail
+
+
+class Address(BaseModel):
+    street: str
+    city: str
+```
+
+```bash
+# JSON + datasets
+pfg gen json examples/models.py --include examples.Order --n 5 --jsonl --out artifacts/{model}.jsonl
+pfg gen dataset examples/models.py --include examples.Order --format parquet --n 10000 --out warehouse/{model}.parquet
+
+# Pytest fixtures + persistence
+pfg gen fixtures examples/models.py --include examples.Order --cases 3 --out tests/fixtures/{model}_fixtures.py
+pfg persist examples/models.py --handler http-post --handler-config '{"url": "https://api.example.com/orders"}' --include examples.Order --n 25
+```
+
+Prefer Python APIs?
+
+```python
+from pathlib import Path
+from pydantic_fixturegen.api import generate_json
+from pydantic_fixturegen.core.path_template import OutputTemplate
+
+result = generate_json(
+    target=Path("examples/models.py"),
+    output_template=OutputTemplate("artifacts/{model}.json"),
+    count=10,
+    jsonl=True,
+    include=["examples.Order"],
+    field_hints="defaults",
+    collection_min_items=1,
+    collection_max_items=3,
+)
+
+for path in result.paths:
+    print("wrote", path)
+```
+
+See [docs/examples.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/examples.md) for more end-to-end snippets that cover datasets, fixtures, persistence handlers, and Python helpers.
 
 ### Supported model families
 
@@ -97,6 +167,8 @@ seed = 42
 indent = 2
 ```
 
+Need denser lists/sets? Add a `[tool.pydantic_fixturegen.collections]` block (or pass `--collection-*` flags) to clamp global min/max items and choose `uniform`, `min-heavy`, or `max-heavy` distributions before per-field constraints kick in.
+
 Full matrix and precedence → [docs/configuration.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md)
 
 ### Common tasks
@@ -113,7 +185,7 @@ Full matrix and precedence → [docs/configuration.md](https://github.com/Casper
 <a id="architecture"></a>
 <a id="comparison"></a>
 
-[Index](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/index.md) · [Quickstart](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/quickstart.md) · [Cookbook](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/cookbook.md) · [Configuration](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md) · [CLI](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/cli.md) · [Concepts](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/concepts.md) · [Features](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/features.md) · [Security](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/security.md) · [Architecture](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/architecture.md) · [Troubleshooting](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/troubleshooting.md) · [Alternatives](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/alternatives.md)
+[Index](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/index.md) · [Quickstart](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/quickstart.md) · [Examples](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/examples.md) · [Cookbook](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/cookbook.md) · [Configuration](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/configuration.md) · [CLI](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/cli.md) · [Concepts](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/concepts.md) · [Features](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/features.md) · [Security](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/security.md) · [Architecture](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/architecture.md) · [Troubleshooting](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/troubleshooting.md) · [Alternatives](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/alternatives.md)
 
 ## Community
 

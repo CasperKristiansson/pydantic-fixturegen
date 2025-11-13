@@ -26,6 +26,7 @@ Persist generated payloads (Pydantic v2 models, stdlib dataclasses, or TypedDict
 - `--max-retries`: number of retry attempts per batch (default 2).
 - `--retry-wait`: seconds to wait between retry attempts (default 0.5).
 - Generation flags reused from `pfg gen json`: `--include/--exclude`, `--seed`, `--preset`, `--profile`, `--field-hints`, `--link`, `--with-related`, `--override`, `--respect-validators`, `--validator-max-retries`, `--max-depth`, `--on-cycle`, `--rng-mode`, `--now`.
+- Collection knobs: `--collection-min-items`, `--collection-max-items`, and `--collection-distribution` bias list/set/tuple/mapping sizes before handler code sees batches.
 - `--json-errors`: emit structured JSON diagnostics on failure.
 
 ## Examples
@@ -63,3 +64,43 @@ pfg persist ./models.py \
 ```
 
 Handlers receive `PersistenceContext` objects (model metadata, batch size, config snapshot) before any batches stream through, so you can set up connections, transactions, or structured logging consistently across CLI runs.
+
+### Additional examples
+
+```bash
+# Stream generated orders into an HTTP endpoint while biasing collection sizes
+pfg persist examples/models.py \
+  --handler http-post \
+  --handler-config '{"url": "https://api.example.com/orders"}' \
+  --include examples.Order \
+  --n 100 --batch-size 25 \
+  --collection-min-items 1 --collection-max-items 2
+
+# Use a custom handler defined via dotted path
+pfg persist ./models.py \
+  --handler mypkg.handlers:KafkaPublisher \
+  --handler-config '{"brokers": "localhost:9092", "topic": "orders"}' \
+  --seed 7 --preset boundary
+```
+
+Python API equivalent:
+
+```python
+from pathlib import Path
+from pydantic_fixturegen.api import persist_samples
+
+run = persist_samples(
+    target=Path("examples/models.py"),
+    handler="http-post",
+    handler_options={"url": "https://api.example.com/orders"},
+    count=50,
+    batch_size=10,
+    include=["examples.Order"],
+    collection_min_items=1,
+    collection_max_items=2,
+)
+
+print(run.records, "records", "across", run.batches, "batches")
+```
+
+More persistence ideas (SQLite, Polyfactory delegation, anonymizer pipelines) are documented in [docs/examples.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/examples.md) and the [cookbook](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/cookbook.md).

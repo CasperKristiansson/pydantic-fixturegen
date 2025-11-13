@@ -30,6 +30,10 @@
 - `--freeze-seeds`, `--freeze-seeds-file`: persist per-model seeds so fixture diffs only change when inputs do.
 - `--field-hints`: honor `Field` defaults/examples before providers (modes mirror `pfg gen json`).
 
+**Collection controls**
+- `--collection-min-items` / `--collection-max-items`: drive how many entries lists/sets/tuples/mappings contain inside the emitted fixture payloads (clamped by schema constraints). Helpful when you want richer factory cases without editing config files.
+- `--collection-distribution`: bias fixture collections toward lower, upper, or even spans.
+
 **Relations + depth**
 - `--link` and `--with-related`: declare relationships and co-generate related fixtures (helpful when you want `Order` fixtures to bundle `User` instances in the same module).
 - `--max-depth`, `--on-cycle`: control recursion for nested models.
@@ -80,6 +84,43 @@ metadata:
   profile: pii-safe
   related: ['app.models.Address']
 ```
+
+### Additional examples
+
+```bash
+# Session-scoped fixtures for dataclasses/TypedDicts with dense collections
+pfg gen fixtures examples/models.py \
+  --include examples.Order \
+  --out tests/fixtures/{model}_fixtures.py \
+  --style factory --scope session --cases 4 \
+  --collection-min-items 1 --collection-max-items 3
+
+# Function-style fixtures that return dicts (easier to JSON serialize)
+pfg gen fixtures ./models.py \
+  --include app.schemas.User \
+  --style functions --return-type dict --cases 2
+```
+
+Python API equivalent:
+
+```python
+from pathlib import Path
+from pydantic_fixturegen.api import generate_fixtures
+from pydantic_fixturegen.core.path_template import OutputTemplate
+
+generate_fixtures(
+    target=Path("examples/models.py"),
+    output_template=OutputTemplate("tests/fixtures/{model}_fixtures.py"),
+    style="factory",
+    scope="module",
+    cases=3,
+    include=["examples.Order"],
+    collection_min_items=1,
+    collection_max_items=2,
+)
+```
+
+See [docs/examples.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/examples.md#cli-flows) for combined fixture + persistence pipelines.
 
 ### Watch mode for rapid iteration
 ```bash
