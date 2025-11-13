@@ -11,6 +11,16 @@ Generate deterministic structured data, pytest fixtures, and JSON quickly with a
 
 📘 Read the full docs and examples at [pydantic-fixturegen.kitgrid.dev](https://pydantic-fixturegen.kitgrid.dev/).
 
+## Install
+
+```bash
+pip install pydantic-fixturegen
+# Extras: orjson, regex, hypothesis, watch
+pip install 'pydantic-fixturegen[all]'
+```
+
+Other flows → [docs/install.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/install.md)
+
 ## ⚡️ 60-second quickstart
 
 Copy/paste the snippet below into a shell. It drops a tiny `User` model into `models.py`, lists it, generates JSON samples, and writes pytest fixtures—all with deterministic seeds.
@@ -65,16 +75,6 @@ Once those commands work, swap in your actual module path and tweak shared flags
 - You extend generation with Pluggy providers and preset bundles without forking core code.
 
 You also stay observant while you work: every command can emit structured logs, diff artifacts against disk, and surface sandbox warnings so you catch regressions before they land.
-
-## Install
-
-```bash
-pip install pydantic-fixturegen
-# Extras: orjson, regex, hypothesis, watch
-pip install 'pydantic-fixturegen[all]'
-```
-
-Other flows → [docs/install.md](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/install.md)
 
 ## Quick start
 
