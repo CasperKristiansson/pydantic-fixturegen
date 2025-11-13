@@ -690,6 +690,80 @@ def test_gen_json_collection_flags_forwarded(
     assert captured["collection_distribution"] == "max-heavy"
 
 
+def test_gen_json_locale_forwarded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "locale.json"
+    captured: dict[str, Any] = {}
+
+    def fake_generate(**kwargs: Any) -> JsonGenerationResult:
+        captured.update(kwargs)
+        return JsonGenerationResult(
+            paths=(output,),
+            base_output=output,
+            model=None,
+            config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+            constraint_summary=None,
+            warnings=(),
+            delegated=False,
+        )
+
+    monkeypatch.setattr(json_mod, "generate_json_artifacts", fake_generate)
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(output),
+            "--locale",
+            "sv_SE",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["locale"] == "sv_SE"
+
+
+def test_gen_json_locale_map_forwarded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "locale-map.json"
+    captured: dict[str, Any] = {}
+
+    def fake_generate(**kwargs: Any) -> JsonGenerationResult:
+        captured.update(kwargs)
+        return JsonGenerationResult(
+            paths=(output,),
+            base_output=output,
+            model=None,
+            config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+            constraint_summary=None,
+            warnings=(),
+            delegated=False,
+        )
+
+    monkeypatch.setattr(json_mod, "generate_json_artifacts", fake_generate)
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(output),
+            "--locale-map",
+            "app.*=sv_SE",
+            "--locale-map",
+            "*.email=en_GB",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["locale_overrides"] == {"app.*": "sv_SE", "*.email": "en_GB"}
+
+
 def test_gen_json_mapping_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "out.json"

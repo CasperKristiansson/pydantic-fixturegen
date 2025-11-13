@@ -118,6 +118,8 @@ def persist(  # noqa: PLR0913 - CLI mirrors documented parameters
     collection_distribution: str | None = cli_common.COLLECTION_DISTRIBUTION_OPTION,
     override_entries: list[str] | None = cli_common.OVERRIDES_OPTION,
     json_errors: bool = cli_common.JSON_ERRORS_OPTION,
+    locale: str | None = cli_common.LOCALE_OPTION,
+    locale_map_entries: list[str] | None = cli_common.LOCALE_MAP_OPTION,
 ) -> None:
     logger = get_logger()
     handler_options = _parse_handler_config(handler_config)
@@ -131,6 +133,7 @@ def persist(  # noqa: PLR0913 - CLI mirrors documented parameters
             related_patterns.extend(cli_common.split_patterns(entry))
 
     field_overrides = cli_common.parse_override_entries(override_entries)
+    locale_map = cli_common.parse_locale_entries(locale_map_entries)
 
     try:
         result = persist_samples(
@@ -159,6 +162,8 @@ def persist(  # noqa: PLR0913 - CLI mirrors documented parameters
             collection_min_items=collection_min_items,
             collection_max_items=collection_max_items,
             collection_distribution=collection_distribution,
+            locale=locale,
+            locale_overrides=locale_map or None,
         )
     except PFGError as exc:
         cli_common.render_cli_error(exc, json_errors=json_errors)

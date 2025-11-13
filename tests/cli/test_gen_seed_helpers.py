@@ -104,6 +104,8 @@ def test_create_plan_expands_with_related(tmp_path: Path, monkeypatch: pytest.Mo
         cycle_policy=None,
         rng_mode=None,
         logger=seed_cli.get_logger(),
+        locale=None,
+        locale_overrides=None,
     )
 
     assert plan == "plan"

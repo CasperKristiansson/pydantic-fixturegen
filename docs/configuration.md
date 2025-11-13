@@ -106,6 +106,7 @@ scope = "module"
 | `field_hints`           | object                      | `{mode = "none"}` | Prefer `Field` defaults/examples globally or per-model before falling back to providers.                                              |
 | `field_policies`        | `dict[str, FieldPolicy]`    | `{}`       | Pattern-based overrides for specific fields.                                                                                                  |
 | `locales`               | `dict[str, str]`            | `{}`       | Pattern-based Faker locale overrides for models or fields.                                                                                    |
+| `forward_refs`          | `dict[str, str]`            | `{}`       | Map forward reference names to fully-qualified Python types (e.g., `"RecursiveType" = "app.models:TreeNode"`).                              |
 | `emitters`              | object                      | see below  | Configure emitters such as pytest fixtures.                                                                                                   |
 | `json`                  | object                      | see below  | Configure JSON emitters (shared by JSON/JSONL).                                                                                               |
 | `paths`                 | object                      | see below  | Configure filesystem path providers (OS-specific generation).                                                                                 |
@@ -400,6 +401,21 @@ Add a `locales` mapping when you need region-specific Faker providers:
 - Field-level entries override broader model matches; unmatched paths fall back to the global `locale`.
 - You can omit the trailing `.*` for model-wide overrides — `"app.models.User"` and `"app.models.User.*"` behave the same, as does using bare class names such as `"User"`.
 - Configuration loading validates locales by instantiating `Faker(locale)`, so typos raise descriptive errors.
+- CLI commands expose matching overrides via `--locale` (global) and repeatable `--locale-map pattern=locale` flags, so you can experiment without editing config files.
+
+### Forward references
+
+Declare `[forward_refs]` entries when models use string-based annotations that fixturegen cannot resolve automatically (for example, recursive models that rely on `"TreeNode"` placeholders or legacy modules that expose different symbols than their annotations reference).
+
+```toml
+[tool.pydantic_fixturegen.forward_refs]
+"RecursiveType" = "app.schemas.tree:TreeNode"
+GraphEdge = "app.graph.models.GraphEdge"
+```
+
+- Targets accept either `module:Attr` or dotted paths; nested attributes such as `outer.Inner` work in both forms.
+- Fixturegen validates each entry the first time a generation command runs, so missing modules or attributes raise `ConfigError` with actionable messages instead of failing silently mid-generation.
+- Once registered, the resolver feeds both schema summarization and runtime generation, so nested models, dataclasses, and relation heuristics all see the resolved type.
 
 ### Profiles
 

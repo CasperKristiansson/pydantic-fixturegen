@@ -29,6 +29,7 @@
 - `--seed`, `--now`, `--preset`, `--profile`, `--rng-mode`: same semantics as `pfg gen json`.
 - `--freeze-seeds`, `--freeze-seeds-file`: persist per-model seeds between runs.
 - `--field-hints`: prefer `Field` defaults/examples before providers (modes match `pfg gen json`).
+- `--locale` / `--locale-map pattern=locale`: override the Faker locale globally or remap specific models/fields for international datasets without editing `pyproject.toml`.
 
 **Collection controls**
 - `--collection-min-items` / `--collection-max-items`: clamp global collection lengths before field-level constraints. Handy when you need denser arrays or when CSV tests only expect a couple of elements per list.

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -228,6 +228,8 @@ def seed_sqlmodel(  # noqa: PLR0913
     create_schema: bool = CREATE_SCHEMA_OPTION,
     echo: bool = ECHO_OPTION,
     allow_url: list[str] = SQLMODEL_ALLOW_URL_OPTION,
+    locale: str | None = cli_common.LOCALE_OPTION,
+    locale_map_entries: list[str] | None = cli_common.LOCALE_MAP_OPTION,
 ) -> None:
     apply_warning_filters()
     logger = get_logger()
@@ -235,6 +237,7 @@ def seed_sqlmodel(  # noqa: PLR0913
 
     dispose_engine: Callable[[], None] | None = None
     try:
+        locale_map = cli_common.parse_locale_entries(locale_map_entries)
         _validate_connection(database, allow_url)
         module_path = _resolve_target_module(target, schema)
         plan = _create_plan(
@@ -255,6 +258,8 @@ def seed_sqlmodel(  # noqa: PLR0913
             cycle_policy=cycle_policy,
             rng_mode=rng_mode,
             logger=logger,
+            locale=locale,
+            locale_overrides=locale_map or None,
         )
         session_factory, dispose_engine = _build_sqlmodel_session_factory(
             database,
@@ -312,12 +317,15 @@ def seed_beanie(  # noqa: PLR0913
     cleanup: bool = CLEANUP_OPTION,
     dry_run: bool = DRY_RUN_OPTION,
     allow_url: list[str] = BEANIE_ALLOW_URL_OPTION,
+    locale: str | None = cli_common.LOCALE_OPTION,
+    locale_map_entries: list[str] | None = cli_common.LOCALE_MAP_OPTION,
 ) -> None:
     apply_warning_filters()
     logger = get_logger()
     from pydantic_fixturegen.orm.beanie import BeanieSeeder
 
     try:
+        locale_map = cli_common.parse_locale_entries(locale_map_entries)
         _validate_connection(database, allow_url)
         module_path = _resolve_target_module(target, schema)
         plan = _create_plan(
@@ -338,6 +346,8 @@ def seed_beanie(  # noqa: PLR0913
             cycle_policy=cycle_policy,
             rng_mode=rng_mode,
             logger=logger,
+            locale=locale,
+            locale_overrides=locale_map or None,
         )
         database_name = _mongo_database_name(database)
 
@@ -413,6 +423,8 @@ def _create_plan(
     cycle_policy: str | None,
     rng_mode: str | None,
     logger: Logger,
+    locale: str | None,
+    locale_overrides: Mapping[str, str] | None,
 ) -> ModelArtifactPlan:
     include_patterns = cli_common.split_patterns(include)
     exclude_patterns = cli_common.split_patterns(exclude)
@@ -444,6 +456,8 @@ def _create_plan(
         rng_mode=rng_mode,
         field_hints=None,
         payload_mode="python",
+        locale=locale,
+        locale_overrides=locale_overrides,
     )
 
 

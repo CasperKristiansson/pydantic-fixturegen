@@ -587,6 +587,14 @@
       "title": "Field Policies",
       "type": "object"
     },
+    "forward_refs": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Mapping of forward reference names to their fully-qualified target types (e.g., 'app.schemas:Node').",
+      "title": "Forward Refs",
+      "type": "object"
+    },
     "heuristics": {
       "$ref": "#/$defs/HeuristicsSchema",
       "description": "Controls the heuristic provider mapping engine."

@@ -19,6 +19,7 @@ from pydantic import BaseModel, SecretBytes, SecretStr
 from pydantic.fields import FieldInfo, PydanticUndefined
 
 from pydantic_fixturegen.core.extra_types import resolve_type_id
+from pydantic_fixturegen.core.forward_refs import resolve_forward_ref
 from pydantic_fixturegen.core.model_utils import is_dataclass_type, is_typeddict_type
 from typing_extensions import NotRequired, Required
 
@@ -465,6 +466,9 @@ def _match_path_annotation(annotation: type[Any]) -> tuple[str, str | None, Any 
 
 
 def _resolve_forward_ref(target: str) -> Any | None:
+    resolved = resolve_forward_ref(target)
+    if resolved is not None:
+        return resolved
     candidate = getattr(pydantic, target, None)
     if isinstance(candidate, type):
         return candidate

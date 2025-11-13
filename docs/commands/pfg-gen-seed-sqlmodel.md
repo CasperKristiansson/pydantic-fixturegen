@@ -19,6 +19,7 @@
 - `--include/-i`, `--exclude/-e`: discovery filters.
 - `--schema`: ingest JSON Schema instead of importing.
 - Determinism flags: `--seed`, `--now`, `--freeze-seeds`, `--freeze-seeds-file`, `--preset`, `--profile`, `--rng-mode`.
+- Locale overrides: `--locale` for a global Faker locale and repeatable `--locale-map pattern=locale` for per-model overrides during seeding.
 - Relation/depth controls: `--link`, `--with-related`, `--max-depth`, `--on-cycle`.
 - Validator controls: `--respect-validators`, `--validator-max-retries`.
 

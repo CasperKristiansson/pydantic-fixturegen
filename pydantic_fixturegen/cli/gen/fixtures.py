@@ -210,6 +210,8 @@ def register(app: typer.Typer) -> None:
         collection_max_items: int | None = cli_common.COLLECTION_MAX_ITEMS_OPTION,
         collection_distribution: str | None = cli_common.COLLECTION_DISTRIBUTION_OPTION,
         override_entries: list[str] | None = cli_common.OVERRIDES_OPTION,
+        locale: str | None = cli_common.LOCALE_OPTION,
+        locale_map_entries: list[str] | None = cli_common.LOCALE_MAP_OPTION,
     ) -> None:
         logger = get_logger()
 
@@ -226,6 +228,7 @@ def register(app: typer.Typer) -> None:
         else:
             watch_output = output_template.preview_path()
         field_overrides = cli_common.parse_override_entries(override_entries)
+        locale_map = cli_common.parse_locale_entries(locale_map_entries)
 
         def invoke(exit_app: bool) -> None:
             try:
@@ -257,6 +260,8 @@ def register(app: typer.Typer) -> None:
                     collection_min_items=collection_min_items,
                     collection_max_items=collection_max_items,
                     collection_distribution=collection_distribution,
+                    locale=locale,
+                    locale_overrides=locale_map or None,
                 )
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors, exit_app=exit_app)
@@ -323,6 +328,8 @@ def _execute_fixtures_command(
     collection_min_items: int | None = None,
     collection_max_items: int | None = None,
     collection_distribution: str | None = None,
+    locale: str | None = None,
+    locale_overrides: Mapping[str, str] | None = None,
 ) -> None:
     logger = get_logger()
 
@@ -380,6 +387,8 @@ def _execute_fixtures_command(
             collection_min_items=collection_min_items,
             collection_max_items=collection_max_items,
             collection_distribution=collection_distribution,
+            locale=locale,
+            locale_overrides=locale_overrides,
         )
     except PFGError as exc:
         _handle_fixtures_error(logger, exc)

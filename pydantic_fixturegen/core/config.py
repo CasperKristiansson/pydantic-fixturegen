@@ -15,6 +15,7 @@ from typing import Any, Literal, TypeVar, cast
 from faker import Faker
 
 from .field_policies import FieldPolicy
+from .forward_refs import ForwardRefEntry
 from .presets import get_preset_spec, normalize_preset_name
 from .privacy_profiles import get_privacy_profile_spec, normalize_privacy_profile_name
 from .seed import DEFAULT_LOCALE, RNGModeLiteral
@@ -242,6 +243,7 @@ class AppConfig:
     relations: tuple[RelationLinkConfig, ...] = ()
     heuristics: HeuristicConfig = field(default_factory=HeuristicConfig)
     polyfactory: PolyfactoryConfig = field(default_factory=PolyfactoryConfig)
+    forward_refs: tuple[ForwardRefEntry, ...] = ()
 
 
 DEFAULT_CONFIG = AppConfig()
@@ -356,6 +358,7 @@ def _config_defaults_dict() -> dict[str, Any]:
         "heuristics": {
             "enabled": DEFAULT_CONFIG.heuristics.enabled,
         },
+        "forward_refs": {},
     }
 
 
@@ -501,6 +504,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
     json_value = _normalize_json(data.get("json"))
     field_policies_value = _normalize_field_policies(data.get("field_policies"))
     locale_policies_value = _normalize_locale_policies(data.get("locales"))
+    forward_refs_value = _normalize_forward_refs(data.get("forward_refs"))
     arrays_value = _normalize_array_config(data.get("arrays"))
     collections_value = _normalize_collection_config(data.get("collections"))
     identifiers_value = _normalize_identifier_config(data.get("identifiers"))
@@ -563,6 +567,7 @@ def _build_app_config(data: Mapping[str, Any]) -> AppConfig:
         rng_mode=rng_mode_value,
         heuristics=heuristics_value,
         polyfactory=polyfactory_value,
+        forward_refs=forward_refs_value,
     )
 
     return config
@@ -889,6 +894,25 @@ def _normalize_locale_policies(value: Any) -> tuple[FieldPolicy, ...]:
         policies.append(FieldPolicy(pattern=pattern, options={"locale": locale_value}, index=index))
 
     return tuple(policies)
+
+
+def _normalize_forward_refs(value: Any) -> tuple[ForwardRefEntry, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, Mapping):
+        raise ConfigError("forward_refs must be a mapping of name to target path strings.")
+
+    entries: list[ForwardRefEntry] = []
+    for name, target in value.items():
+        if not isinstance(name, str) or not name.strip():
+            raise ConfigError("Forward reference names must be non-empty strings.")
+        if not isinstance(target, str) or not target.strip():
+            raise ConfigError(
+                f"Forward reference '{name}' must specify a non-empty module path."
+            )
+        entries.append(ForwardRefEntry(name=name.strip(), target=target.strip()))
+
+    return tuple(entries)
 
 
 def _normalize_emitters(value: Any) -> EmittersConfig:

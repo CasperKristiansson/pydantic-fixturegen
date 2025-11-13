@@ -29,6 +29,7 @@
 - `--seed`, `--preset`, `--profile`, `--now`, `--rng-mode` identical to JSON command.
 - `--freeze-seeds`, `--freeze-seeds-file`: persist per-model seeds so fixture diffs only change when inputs do.
 - `--field-hints`: honor `Field` defaults/examples before providers (modes mirror `pfg gen json`).
+- `--locale` / `--locale-map pattern=locale`: change the Faker locale globally or for specific fixture paths at generation time (no need to edit config just to preview `sv_SE` fixtures).
 
 **Collection controls**
 - `--collection-min-items` / `--collection-max-items`: drive how many entries lists/sets/tuples/mappings contain inside the emitted fixture payloads (clamped by schema constraints). Helpful when you want richer factory cases without editing config files.

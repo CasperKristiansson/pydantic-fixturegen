@@ -350,6 +350,13 @@ class ConfigSchemaModel(BaseModel):
             "Mapping of glob or regex patterns (models or fields) to Faker locale identifiers."
         ),
     )
+    forward_refs: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Mapping of forward reference names to their fully-qualified target types "
+            "(e.g., 'app.schemas:Node')."
+        ),
+    )
     arrays: ArraySettingsSchema = Field(
         default_factory=ArraySettingsSchema,
         description=(

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from typing import Any
 
 import beanie  # noqa: F401
 import pytest
 from mongomock_motor import AsyncMongoMockClient
 from pydantic_fixturegen.cli import app as cli_app
+from pydantic_fixturegen.cli.gen import seed as seed_mod
 from sqlalchemy import text
 from sqlmodel import create_engine
 from tests._cli import create_cli_runner
@@ -151,3 +153,42 @@ def test_gen_seed_beanie_inserts_documents(tmp_path: Path, monkeypatch: pytest.M
 
     count = asyncio.run(_fetch())
     assert count == 2
+
+
+def test_create_plan_forwards_locale(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = tmp_path / "models.py"
+    module_path.write_text("class Placeholder: pass", encoding="utf-8")
+    captured: dict[str, Any] = {}
+    marker = object()
+
+    def fake_build(**kwargs):  # type: ignore[no-untyped-def]
+        captured.update(kwargs)
+        return marker
+
+    monkeypatch.setattr(seed_mod, "_build_model_artifact_plan", fake_build)
+
+    plan = seed_mod._create_plan(
+        module_path=module_path,
+        include=None,
+        exclude=None,
+        seed=None,
+        now=None,
+        freeze_seeds=False,
+        freeze_seeds_file=None,
+        preset=None,
+        profile=None,
+        respect_validators=None,
+        validator_max_retries=None,
+        links=None,
+        with_related=None,
+        max_depth=None,
+        cycle_policy=None,
+        rng_mode=None,
+        logger=object(),
+        locale="sv_SE",
+        locale_overrides={"*.User": "sv_SE"},
+    )
+
+    assert plan is marker
+    assert captured["locale"] == "sv_SE"
+    assert captured["locale_overrides"] == {"*.User": "sv_SE"}

@@ -26,6 +26,7 @@ Persist generated payloads (Pydantic v2 models, stdlib dataclasses, or TypedDict
 - `--max-retries`: number of retry attempts per batch (default 2).
 - `--retry-wait`: seconds to wait between retry attempts (default 0.5).
 - Generation flags reused from `pfg gen json`: `--include/--exclude`, `--seed`, `--preset`, `--profile`, `--field-hints`, `--link`, `--with-related`, `--override`, `--respect-validators`, `--validator-max-retries`, `--max-depth`, `--on-cycle`, `--rng-mode`, `--now`.
+- Locale overrides: `--locale` changes the Faker locale for the entire run, while `--locale-map pattern=locale` remaps matching models/fields so downstream handlers can ingest internationalized payloads without editing config files.
 - Collection knobs: `--collection-min-items`, `--collection-max-items`, and `--collection-distribution` bias list/set/tuple/mapping sizes before handler code sees batches.
 - `--json-errors`: emit structured JSON diagnostics on failure.
 

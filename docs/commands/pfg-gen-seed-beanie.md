@@ -17,6 +17,8 @@
 **Shared planning options**
 - `--n/-n`, `--include`, `--exclude`, `--seed`, `--now`, `--preset`, `--profile`, `--freeze-seeds`, `--freeze-seeds-file`, `--link`, `--with-related`, `--max-depth`, `--on-cycle`, `--rng-mode`, `--respect-validators`, `--validator-max-retries`, `--schema` — identical to the SQLModel command.
 
+General generation flags (include/exclude, `--seed`, `--preset`, `--profile`, `--freeze-seeds`, `--rng-mode`, `--link`, `--with-related`, etc.) mirror `pfg gen json`. You can also override locales on demand via `--locale` or repeatable `--locale-map pattern=locale` so seeded documents match regional Faker data without editing config files.
+
 **Beanie-specific controls**
 - `--database/-d`: Mongo connection string (can include credentials and query parameters).
 - `--allow-url`: repeatable whitelist of allowed URI prefixes. Extend this when targeting Atlas or SRV URIs.

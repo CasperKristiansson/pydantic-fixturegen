@@ -10,7 +10,7 @@ import pytest
 from pydantic_fixturegen.api import _runtime as runtime_mod
 from pydantic_fixturegen.api.models import FixturesGenerationResult, JsonGenerationResult
 from pydantic_fixturegen.cli.gen import _common as cli_common
-from pydantic_fixturegen.core.config import AppConfig
+from pydantic_fixturegen.core.config import AppConfig, ConfigError
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError
 from pydantic_fixturegen.core.io_utils import WriteResult
 from pydantic_fixturegen.core.path_template import OutputTemplate
@@ -1648,6 +1648,64 @@ class NotModel:
             freeze_seeds=False,
             freeze_seeds_file=None,
             preset=None,
+        )
+
+
+def test_generate_json_artifacts_forward_ref_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module_path = _write_module(
+        tmp_path,
+        """
+from pydantic import BaseModel
+
+
+class Sample(BaseModel):
+    value: int
+""",
+    )
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """
+[tool.pydantic_fixturegen.forward_refs]
+Missing = "tests.missing.module:Unknown"
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    with pytest.raises(ConfigError, match="Failed to import module"):
+        runtime_mod.generate_json_artifacts(
+            target=module_path,
+            output_template=OutputTemplate(str(tmp_path / "out.json")),
+            count=1,
+            jsonl=False,
+            indent=None,
+            use_orjson=None,
+            shard_size=None,
+            include=None,
+            exclude=None,
+            seed=None,
+            now=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
+            preset=None,
+            profile=None,
+            respect_validators=None,
+            validator_max_retries=None,
+            relations=None,
+            with_related=None,
+            logger=FakeLogger(),
+            max_depth=None,
+            cycle_policy=None,
+            rng_mode=None,
+            field_overrides=None,
+            field_hints=None,
+            collection_min_items=None,
+            collection_max_items=None,
+            collection_distribution=None,
         )
 
 

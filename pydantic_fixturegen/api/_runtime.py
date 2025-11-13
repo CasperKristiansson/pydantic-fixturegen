@@ -13,9 +13,13 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import BaseModel, TypeAdapter, ValidationError, create_model
 
-from pydantic_fixturegen.core.config import AppConfig, load_config
+from pydantic_fixturegen.core.config import AppConfig, ConfigError, load_config
 from pydantic_fixturegen.core.cycle_report import consume_cycle_events
 from pydantic_fixturegen.core.errors import DiscoveryError, EmitError, MappingError, PFGError
+from pydantic_fixturegen.core.forward_refs import (
+    ForwardReferenceError,
+    configure_forward_refs,
+)
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.introspect import IntrospectedModel
 from pydantic_fixturegen.core.overrides import build_field_override_set
@@ -164,6 +168,8 @@ def _build_model_artifact_plan(
     max_depth: int | None,
     cycle_policy: str | None,
     rng_mode: str | None,
+    locale: str | None,
+    locale_overrides: Mapping[str, str] | None,
     field_overrides: Mapping[str, Mapping[str, Any]] | None = None,
     field_hints: str | None = None,
     collection_min_items: int | None = None,
@@ -227,6 +233,10 @@ def _build_model_artifact_plan(
         cli_overrides["cycle_policy"] = cycle_policy
     if rng_mode is not None:
         cli_overrides["rng_mode"] = rng_mode
+    if locale is not None:
+        cli_overrides["locale"] = locale
+    if locale_overrides:
+        cli_overrides["locales"] = dict(locale_overrides)
     include_values = _resolve_patterns(include)
     exclude_values = _resolve_patterns(exclude)
     if include_values:
@@ -481,6 +491,11 @@ def _build_instance_generator(
     seed_override: int | None = None,
     relation_models: Mapping[str, type[Any]] | None = None,
 ) -> InstanceGenerator:
+    try:
+        configure_forward_refs(app_config.forward_refs)
+    except ForwardReferenceError as exc:
+        raise ConfigError(str(exc)) from exc
+
     if seed_override is not None:
         seed_value: int | None = seed_override
     else:
@@ -645,6 +660,8 @@ def generate_json_artifacts(
     collection_min_items: int | None = None,
     collection_max_items: int | None = None,
     collection_distribution: str | None = None,
+    locale: str | None = None,
+    locale_overrides: Mapping[str, str] | None = None,
 ) -> JsonGenerationResult:
     logger = logger or get_logger()
 
@@ -718,6 +735,10 @@ def generate_json_artifacts(
             json_overrides["orjson"] = use_orjson
         if json_overrides:
             cli_overrides["json"] = json_overrides
+        if locale is not None:
+            cli_overrides["locale"] = locale
+        if locale_overrides:
+            cli_overrides["locales"] = dict(locale_overrides)
 
         app_config = load_config(root=Path.cwd(), cli=cli_overrides if cli_overrides else None)
         config_snapshot = _snapshot_config(app_config)
@@ -762,6 +783,8 @@ def generate_json_artifacts(
         collection_max_items=collection_max_items,
         collection_distribution=collection_distribution,
         payload_mode="python",
+        locale=locale,
+        locale_overrides=locale_overrides,
     )
 
     indent_value = indent if indent is not None else plan.app_config.json.indent
@@ -879,6 +902,8 @@ def generate_dataset_artifacts(
     collection_min_items: int | None = None,
     collection_max_items: int | None = None,
     collection_distribution: str | None = None,
+    locale: str | None = None,
+    locale_overrides: Mapping[str, str] | None = None,
 ) -> DatasetGenerationResult:
     logger = logger or get_logger()
     fmt = format.lower()
@@ -910,6 +935,8 @@ def generate_dataset_artifacts(
         collection_max_items=collection_max_items,
         collection_distribution=collection_distribution,
         payload_mode="json",
+        locale=locale,
+        locale_overrides=locale_overrides,
     )
 
     columns = _dataset_columns(plan.model_cls)
@@ -1026,6 +1053,8 @@ def persist_samples(
     collection_min_items: int | None = None,
     collection_max_items: int | None = None,
     collection_distribution: str | None = None,
+    locale: str | None = None,
+    locale_overrides: Mapping[str, str] | None = None,
 ) -> PersistenceRunResult:
     logger = get_logger()
     plan = _build_model_artifact_plan(
@@ -1053,6 +1082,8 @@ def persist_samples(
         collection_max_items=collection_max_items,
         collection_distribution=collection_distribution,
         payload_mode="python",
+        locale=locale,
+        locale_overrides=locale_overrides,
     )
 
     registry = PersistenceRegistry()
@@ -1275,6 +1306,8 @@ def generate_fixtures_artifacts(
     collection_min_items: int | None = None,
     collection_max_items: int | None = None,
     collection_distribution: str | None = None,
+    locale: str | None = None,
+    locale_overrides: Mapping[str, str] | None = None,
 ) -> FixturesGenerationResult:
     from ..cli.gen import _common as cli_common
 
@@ -1335,6 +1368,10 @@ def generate_fixtures_artifacts(
         cli_overrides["validator_max_retries"] = validator_max_retries
     if rng_mode is not None:
         cli_overrides["rng_mode"] = rng_mode
+    if locale is not None:
+        cli_overrides["locale"] = locale
+    if locale_overrides:
+        cli_overrides["locales"] = dict(locale_overrides)
     emitter_overrides: dict[str, Any] = {}
     if style is not None:
         emitter_overrides["style"] = style

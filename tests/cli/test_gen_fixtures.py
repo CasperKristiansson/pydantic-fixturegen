@@ -850,6 +850,104 @@ def test_gen_fixtures_field_hints_forwarded(
     assert captured["field_hints"] == "examples"
 
 
+def test_gen_fixtures_locale_forwarded(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module_path = _write_module(tmp_path)
+    output_path = tmp_path / "fixtures.py"
+    captured: dict[str, Any] = {}
+
+    def fake_generate(**kwargs: Any) -> FixturesGenerationResult:
+        captured.update(kwargs)
+        return FixturesGenerationResult(
+            path=output_path,
+            base_output=output_path,
+            models=(),
+            config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+            metadata={},
+            warnings=(),
+            constraint_summary=None,
+            skipped=False,
+            delegated=False,
+            style="functions",
+            scope="function",
+            return_type="model",
+            cases=1,
+        )
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.gen.fixtures.generate_fixtures_artifacts",
+        fake_generate,
+    )
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "fixtures",
+            str(module_path),
+            "--out",
+            str(output_path),
+            "--locale",
+            "fr_FR",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["locale"] == "fr_FR"
+
+
+def test_gen_fixtures_locale_map_forwarded(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module_path = _write_module(tmp_path)
+    output_path = tmp_path / "fixtures.py"
+    captured: dict[str, Any] = {}
+
+    def fake_generate(**kwargs: Any) -> FixturesGenerationResult:
+        captured.update(kwargs)
+        return FixturesGenerationResult(
+            path=output_path,
+            base_output=output_path,
+            models=(),
+            config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+            metadata={},
+            warnings=(),
+            constraint_summary=None,
+            skipped=False,
+            delegated=False,
+            style="functions",
+            scope="function",
+            return_type="model",
+            cases=1,
+        )
+
+    monkeypatch.setattr(
+        "pydantic_fixturegen.cli.gen.fixtures.generate_fixtures_artifacts",
+        fake_generate,
+    )
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "fixtures",
+            str(module_path),
+            "--out",
+            str(output_path),
+            "--locale-map",
+            "*.Address=sv_SE",
+            "--locale-map",
+            "*.User=en_GB",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["locale_overrides"] == {"*.Address": "sv_SE", "*.User": "en_GB"}
+
+
 def test_gen_fixtures_collection_flags_forwarded(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

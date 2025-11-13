@@ -41,6 +41,8 @@
 - `--preset`: apply curated strategies like `boundary` or `boundary-max`.
 - `--profile`: apply privacy bundles (`pii-safe`, `realistic`, etc.).
 - `--field-hints`: choose how `Field(default=...)` / `Field(examples=...)` values influence output (`defaults`, `examples`, `defaults-then-examples`, `examples-then-defaults`, `none`).
+- `--locale`: override the default Faker locale for the run (e.g., `sv_SE`, `ja_JP`).
+- `--locale-map pattern=locale`: repeatable option that remaps matching models/fields to specific locales without touching config files.
 - `--respect-validators` + `--validator-max-retries`: repeatedly attempt generation until model/dataclass validators pass.
 - `--rng-mode`: choose between `portable` (default) and `legacy` RNGs to match historical artifacts.
 

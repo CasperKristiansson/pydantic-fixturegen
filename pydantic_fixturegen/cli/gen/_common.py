@@ -37,6 +37,8 @@ from pydantic_fixturegen.core.model_utils import (
 __all__ = [
     "JSON_ERRORS_OPTION",
     "NOW_OPTION",
+    "LOCALE_OPTION",
+    "LOCALE_MAP_OPTION",
     "OVERRIDES_OPTION",
     "RNG_MODE_OPTION",
     "FIELD_HINTS_OPTION",
@@ -53,6 +55,7 @@ __all__ = [
     "split_patterns",
     "emit_constraint_summary",
     "parse_override_entries",
+    "parse_locale_entries",
     "parse_relation_links",
     "evaluate_type_expression",
     "get_cached_module",
@@ -75,6 +78,19 @@ NOW_OPTION = typer.Option(
     None,
     "--now",
     help="Anchor timestamp (ISO 8601) used for temporal value generation.",
+)
+
+LOCALE_OPTION = typer.Option(
+    None,
+    "--locale",
+    help="Override the default Faker locale for this run (e.g., sv_SE).",
+)
+
+LOCALE_MAP_OPTION = typer.Option(
+    None,
+    "--locale-map",
+    "-L",
+    help="Pattern=locale mapping (repeatable) applied to matching models or fields.",
 )
 
 RNG_MODE_OPTION = typer.Option(
@@ -237,6 +253,28 @@ def parse_override_entries(entries: Sequence[str] | None) -> dict[str, dict[str,
             )
         overrides.setdefault(model_key, {})[field_key] = data
     return overrides
+
+
+def parse_locale_entries(entries: Sequence[str] | None) -> dict[str, str]:
+    mapping: dict[str, str] = {}
+    if not entries:
+        return mapping
+    for raw_entry in entries:
+        if not raw_entry:
+            continue
+        if "=" not in raw_entry:
+            raise typer.BadParameter(
+                "Locale map entries must be formatted as 'pattern=locale'."
+            )
+        pattern, locale = raw_entry.split("=", 1)
+        pattern = pattern.strip()
+        locale_value = locale.strip()
+        if not pattern or not locale_value:
+            raise typer.BadParameter(
+                "Locale map entries require both a pattern and locale value."
+            )
+        mapping[pattern] = locale_value
+    return mapping
 
 
 def _package_hierarchy(module_path: Path) -> list[Path]:

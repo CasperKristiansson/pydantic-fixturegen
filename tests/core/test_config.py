@@ -16,7 +16,12 @@ from pydantic_fixturegen.core.config import (
     PytestEmitterConfig,
     load_config,
 )
+from pydantic_fixturegen.core.forward_refs import ForwardRefEntry
 from pydantic_fixturegen.core.seed import DEFAULT_LOCALE
+
+
+class _ForwardModel:
+    pass
 
 
 def test_default_configuration(tmp_path: Path) -> None:
@@ -652,6 +657,28 @@ def test_locale_policies_parsing(tmp_path: Path) -> None:
 def test_locale_policies_invalid_locale(tmp_path: Path) -> None:
     with pytest.raises(ConfigError):
         load_config(root=tmp_path, cli={"locales": {"*.name": "not_a_locale"}})
+
+
+def test_forward_refs_parsing(tmp_path: Path) -> None:
+    config = load_config(
+        root=tmp_path,
+        cli={
+            "forward_refs": {
+                "Demo": "tests.core.test_config:_ForwardModel",
+                "Alias": "tests.core.test_config:_ForwardModel",
+            }
+        },
+    )
+
+    assert config.forward_refs == (
+        ForwardRefEntry(name="Demo", target="tests.core.test_config:_ForwardModel"),
+        ForwardRefEntry(name="Alias", target="tests.core.test_config:_ForwardModel"),
+    )
+
+
+def test_forward_refs_invalid_entries(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError):
+        load_config(root=tmp_path, cli={"forward_refs": {"Demo": ""}})
 
 
 def test_field_policies_invalid_option(tmp_path: Path) -> None:

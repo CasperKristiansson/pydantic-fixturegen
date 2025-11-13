@@ -197,6 +197,8 @@ def test_build_model_artifact_plan_validates_target(tmp_path: Path) -> None:
             field_overrides=None,
             field_hints=None,
             payload_mode="python",
+            locale=None,
+            locale_overrides=None,
         )
 
     directory = tmp_path / "pkg"
@@ -225,6 +227,8 @@ def test_build_model_artifact_plan_validates_target(tmp_path: Path) -> None:
             field_overrides=None,
             field_hints=None,
             payload_mode="python",
+            locale=None,
+            locale_overrides=None,
         )
 
 
