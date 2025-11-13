@@ -271,14 +271,14 @@ def register(app: typer.Typer) -> None:
                     cycle_policy=cycle_policy,
                     rng_mode=rng_mode,
                     logger=logger,
-                field_overrides=field_overrides or None,
-                field_hints=field_hints,
-                collection_min_items=collection_min_items,
-                collection_max_items=collection_max_items,
-                collection_distribution=collection_distribution,
-                locale=locale,
-                locale_overrides=locale_map or None,
-            )
+                    field_overrides=field_overrides or None,
+                    field_hints=field_hints,
+                    collection_min_items=collection_min_items,
+                    collection_max_items=collection_max_items,
+                    collection_distribution=collection_distribution,
+                    locale=locale,
+                    locale_overrides=locale_map or None,
+                )
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors, exit_app=exit_app)
             except ConfigError as exc:

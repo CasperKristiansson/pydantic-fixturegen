@@ -580,6 +580,8 @@ def test_time_anchor_produces_deterministic_temporal_values() -> None:
     # allow either naive or aware time depending on anchor tzinfo
     expected_time = anchor.timetz() if anchor.tzinfo else anchor.time()
     assert instance.alarm.isoformat() == expected_time.isoformat()
+
+
 def test_identifier_generation_is_deterministic() -> None:
     first_generator = InstanceGenerator(config=GenerationConfig(seed=2024))
     first = first_generator.generate_one(IdentifierExample)
@@ -598,6 +600,8 @@ def test_identifier_generation_is_deterministic() -> None:
     assert str(first.ip_interface) == str(second.ip_interface)
     assert str(first.ip_network) == str(second.ip_network)
     assert first.amount == second.amount
+
+
 def test_identifier_generation_respects_configuration() -> None:
     identifier_config = IdentifierConfig(
         secret_str_length=22,

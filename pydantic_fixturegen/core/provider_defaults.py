@@ -12,8 +12,8 @@ from pydantic.fields import FieldInfo
 from pydantic_fixturegen.core.config import (
     ConfigError,
     ProviderBundleConfig,
-    ProviderDefaultsConfig,
     ProviderDefaultRule,
+    ProviderDefaultsConfig,
 )
 from pydantic_fixturegen.core.providers import ProviderRef, ProviderRegistry
 from pydantic_fixturegen.core.schema import FieldSummary
@@ -69,10 +69,11 @@ class ProviderDefaultResolver:
         for rule in self._rules:
             if rule.summary_types and summary.type not in rule.summary_types:
                 continue
-            if rule.formats:
-                if summary.format is None or summary.format not in rule.formats:
-                    continue
-            if rule.annotation_globs and not _match_annotation(annotation_candidates, rule.annotation_globs):
+            if rule.formats and (summary.format is None or summary.format not in rule.formats):
+                continue
+            if rule.annotation_globs and not _match_annotation(
+                annotation_candidates, rule.annotation_globs
+            ):
                 continue
             if rule.metadata_all and not all(name in metadata_set for name in rule.metadata_all):
                 continue

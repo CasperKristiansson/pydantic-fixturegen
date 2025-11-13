@@ -16,29 +16,29 @@ from typing import Any, cast
 
 from faker import Faker
 from pydantic import BaseModel, ValidationError
-from pydantic.fields import PydanticUndefined
 
 from pydantic_fixturegen.core import schema as schema_module
+from pydantic_fixturegen.core.collection_utils import sample_collection_length
 from pydantic_fixturegen.core.config import (
     ArrayConfig,
+    CollectionConfig,
     ConfigError,
     FieldHintConfig,
     FieldHintModeLiteral,
     IdentifierConfig,
-    CollectionConfig,
     NumberDistributionConfig,
     PathConfig,
     ProviderDefaultsConfig,
     RelationLinkConfig,
 )
 from pydantic_fixturegen.core.constraint_report import ConstraintReporter
-from pydantic_fixturegen.core.collection_utils import clamp_collection_config, sample_collection_length
 from pydantic_fixturegen.core.cycle_report import CycleEvent, attach_cycle_events
 from pydantic_fixturegen.core.field_policies import (
     FieldPolicy,
     FieldPolicyConflictError,
     FieldPolicySet,
 )
+from pydantic_fixturegen.core.model_utils import is_typeddict_type
 from pydantic_fixturegen.core.overrides import (
     FieldOverride,
     FieldOverrideContext,
@@ -49,8 +49,7 @@ from pydantic_fixturegen.core.providers import (
     ProviderRegistry,
     create_default_registry,
 )
-from pydantic_fixturegen.core.model_utils import is_typeddict_type
-from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary, extract_constraints
+from pydantic_fixturegen.core.schema import FieldSummary
 from pydantic_fixturegen.core.seed import DEFAULT_LOCALE, RNGModeLiteral, SeedManager
 from pydantic_fixturegen.core.seed_freeze import canonical_module_name
 from pydantic_fixturegen.core.strategies import (
@@ -1347,7 +1346,7 @@ class InstanceGenerator:
 
         existing_keys: list[str] = []
         if isinstance(base_value, dict) and base_value:
-            existing_keys = [str(key) for key in base_value.keys()]
+            existing_keys = [str(key) for key in base_value]
 
         selected_keys: list[str] = existing_keys[:length]
         while len(selected_keys) < length:

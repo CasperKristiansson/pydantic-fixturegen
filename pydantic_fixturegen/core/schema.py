@@ -9,19 +9,19 @@ import enum
 import pathlib
 import types
 import uuid
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Annotated, Any, Callable, Union, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, Union, get_args, get_origin, get_type_hints
 
 import annotated_types
 import pydantic
 from pydantic import BaseModel, SecretBytes, SecretStr
 from pydantic.fields import FieldInfo, PydanticUndefined
+from typing_extensions import NotRequired, Required
 
 from pydantic_fixturegen.core.extra_types import resolve_type_id
 from pydantic_fixturegen.core.forward_refs import resolve_forward_ref
 from pydantic_fixturegen.core.model_utils import is_dataclass_type, is_typeddict_type
-from typing_extensions import NotRequired, Required
 
 _np: types.ModuleType | None
 try:  # Optional dependency
@@ -183,7 +183,7 @@ def _typeddict_field_info_map(model: type[Any]) -> Mapping[str, _SimpleFieldInfo
             default_value: Any = getattr(model, field_name, PydanticUndefined)
         else:
             default_value = getattr(model, field_name, None)
-            annotation = Union[annotation, type(None)]
+            annotation = annotation | type(None)
 
         result[field_name] = _SimpleFieldInfo(
             annotation=annotation,

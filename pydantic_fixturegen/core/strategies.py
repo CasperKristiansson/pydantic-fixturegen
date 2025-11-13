@@ -10,8 +10,8 @@ from typing import Any, Union, get_args, get_origin
 import pluggy
 from pydantic.fields import FieldInfo
 
-from pydantic_fixturegen.core.config import CollectionConfig, ProviderDefaultsConfig
 from pydantic_fixturegen.core import schema as schema_module
+from pydantic_fixturegen.core.config import CollectionConfig, ProviderDefaultsConfig
 from pydantic_fixturegen.core.heuristics import (
     HeuristicMatch,
     HeuristicRegistry,
@@ -305,7 +305,10 @@ class StrategyBuilder:
         numeric_types = {"int", "float", "decimal"}
         if provider_type_id in numeric_types and self._number_config is not None:
             strategy.provider_kwargs["number_config"] = self._number_config
-        if summary.type in {"list", "set", "tuple", "mapping"} and self._collection_config is not None:
+        if (
+            summary.type in {"list", "set", "tuple", "mapping"}
+            and self._collection_config is not None
+        ):
             strategy.collection_config = self._collection_config
             strategy.provider_kwargs.setdefault("collection_config", strategy.collection_config)
         return self._apply_strategy_plugins(model, field_name, strategy)

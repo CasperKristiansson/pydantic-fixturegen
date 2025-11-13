@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import random
 
-from pydantic_fixturegen.core.collection_utils import clamp_collection_config, sample_collection_length
+from pydantic_fixturegen.core.collection_utils import (
+    clamp_collection_config,
+    sample_collection_length,
+)
 from pydantic_fixturegen.core.config import CollectionConfig
 from pydantic_fixturegen.core.schema import FieldConstraints
 

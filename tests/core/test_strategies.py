@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 import enum
-
-from typing import Any, Annotated
+from typing import Annotated, Any
 
 import annotated_types
 from pydantic import BaseModel, Field
-from pydantic_fixturegen.core.providers import ProviderRegistry, create_default_registry
-from pydantic_fixturegen.core.strategies import Strategy, StrategyBuilder, UnionStrategy
 from pydantic_fixturegen.core.config import (
     ProviderBundleConfig,
     ProviderDefaultRule,
     ProviderDefaultsConfig,
 )
+from pydantic_fixturegen.core.providers import ProviderRegistry, create_default_registry
+from pydantic_fixturegen.core.strategies import Strategy, StrategyBuilder, UnionStrategy
 
 
 class Color(enum.Enum):

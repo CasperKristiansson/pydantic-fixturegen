@@ -5,7 +5,6 @@ import textwrap
 from pathlib import Path
 
 import pytest
-
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.cli import coverage as coverage_mod
 from pydantic_fixturegen.core.config import AppConfig, RelationLinkConfig
@@ -43,7 +42,10 @@ def test_coverage_report_text_summary(tmp_path: Path, monkeypatch: pytest.Monkey
     assert "Heuristic fields: user_uuid" in result.stdout
 
 
-def test_coverage_report_json_unused_overrides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_coverage_report_json_unused_overrides(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     module_path = _write_models(tmp_path)
     config = AppConfig(
         overrides={"models.User": {"missing": {"value": 1}}},
@@ -69,7 +71,10 @@ def test_coverage_report_json_unused_overrides(tmp_path: Path, monkeypatch: pyte
     assert payload["relation_issues"]
 
 
-def test_coverage_report_fail_on_heuristics(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_coverage_report_fail_on_heuristics(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     module_path = _write_models(tmp_path)
     monkeypatch.setattr(coverage_mod, "load_config", lambda **_: AppConfig())
 

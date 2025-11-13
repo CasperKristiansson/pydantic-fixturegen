@@ -6,7 +6,7 @@ import json
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from pydantic_fixturegen.core.model_utils import model_json_schema
 from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext

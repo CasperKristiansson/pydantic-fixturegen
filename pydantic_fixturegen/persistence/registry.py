@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import inspect
 import importlib
+import inspect
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any, Callable, Mapping
+from typing import Any
 
 from pydantic_fixturegen.plugins.loader import (
     get_plugin_manager,
@@ -20,7 +21,6 @@ from .handlers import (
     SQLiteJSONPersistenceHandler,
 )
 from .models import HandlerKind
-
 
 HandlerFactoryFunc = Callable[[Mapping[str, Any]], Any]
 

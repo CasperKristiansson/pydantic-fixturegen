@@ -3,11 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from pydantic import BaseModel
-
 from pydantic_fixturegen.api.models import ConfigSnapshot
 from pydantic_fixturegen.logging import get_logger
 from pydantic_fixturegen.persistence.runner import PersistenceRunner
-
 from tests.persistence_helpers import FlakyHandler, SyncCaptureHandler
 
 

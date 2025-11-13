@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import pytest
-
 from typing import ForwardRef
 
+import pytest
 from pydantic_fixturegen.core import schema as schema_module
 from pydantic_fixturegen.core.forward_refs import (
     ForwardRefEntry,

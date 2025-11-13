@@ -22,7 +22,10 @@ class SyncPersistenceHandler(Protocol):
     def open(self, context: PersistenceContext) -> None:  # pragma: no cover - protocol
         ...
 
-    def persist_batch(self, batch: Sequence[PersistenceRecord]) -> None:  # pragma: no cover - protocol
+    def persist_batch(
+        self,
+        batch: Sequence[PersistenceRecord],
+    ) -> None:  # pragma: no cover - protocol
         ...
 
     def close(self) -> None:  # pragma: no cover - protocol
@@ -35,7 +38,10 @@ class AsyncPersistenceHandler(Protocol):
     async def open(self, context: PersistenceContext) -> None:  # pragma: no cover - protocol
         ...
 
-    async def persist_batch(self, batch: Sequence[PersistenceRecord]) -> None:  # pragma: no cover - protocol
+    async def persist_batch(
+        self,
+        batch: Sequence[PersistenceRecord],
+    ) -> None:  # pragma: no cover - protocol
         ...
 
     async def close(self) -> None:  # pragma: no cover - protocol

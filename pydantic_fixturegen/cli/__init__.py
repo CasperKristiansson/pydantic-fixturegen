@@ -12,6 +12,7 @@ import pydantic_fixturegen.cli._typer_compat  # noqa: F401
 from pydantic_fixturegen._warnings import apply_warning_filters
 from pydantic_fixturegen.cli import anonymize as anonymize_cli
 from pydantic_fixturegen.cli import fastapi as fastapi_cli
+from pydantic_fixturegen.cli import polyfactory as polyfactory_cli
 from pydantic_fixturegen.cli import schema as schema_cli
 from pydantic_fixturegen.logging import DEFAULT_VERBOSITY_INDEX, LOG_LEVEL_ORDER, get_logger
 
@@ -150,5 +151,6 @@ _proxy(
 app.add_typer(schema_cli.app, name="schema")
 app.add_typer(fastapi_cli.app, name="fastapi")
 app.add_typer(anonymize_cli.app, name="anonymize")
+app.add_typer(polyfactory_cli.app, name="polyfactory")
 
 __all__ = ["app"]

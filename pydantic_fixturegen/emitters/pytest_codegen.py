@@ -26,10 +26,10 @@ from pydantic_fixturegen.core.errors import EmitError
 from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.io_utils import WriteResult, write_atomic_text
+from pydantic_fixturegen.core.model_utils import dump_model_instance
 from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
 from pydantic_fixturegen.core.seed import DEFAULT_LOCALE, RNGModeLiteral
 from pydantic_fixturegen.core.seed_freeze import canonical_module_name, model_identifier
-from pydantic_fixturegen.core.model_utils import dump_model_instance
 from pydantic_fixturegen.core.version import build_artifact_header
 from pydantic_fixturegen.polyfactory_support import (
     PolyfactoryBinding,

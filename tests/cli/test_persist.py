@@ -71,7 +71,7 @@ path = "tests.persistence_helpers:SyncCaptureHandler"
             "--handler",
             "capture",
             "--handler-config",
-            "{\"marker\": \"x\"}",
+            '{"marker": "x"}',
         ],
     )
 

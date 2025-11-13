@@ -23,6 +23,7 @@ You can append `-- --help` after any proxy command to view native Typer help bec
 | `pfg gen strategies`                               | Export Hypothesis strategies wired to `strategy_for`.                |
 | `pfg gen explain`                                  | Visualise generation plans (tree or JSON).                           |
 | `pfg gen polyfactory`                              | Scaffold Polyfactory classes that delegate to fixturegen.            |
+| `pfg polyfactory migrate`                          | Analyze Polyfactory factories and emit fixturegen override config.   |
 | `pfg fastapi smoke` / `serve`                      | Generate FastAPI smoke tests or launch a deterministic mock server.  |
 | `pfg anonymize`                                    | Rewrite JSON/JSONL payloads via rule-driven strategies.              |
 | `pfg persist`                                      | Stream generated payloads into HTTP/DB/custom handlers.              |
@@ -200,6 +201,16 @@ pfg gen polyfactory ./models.py --out tests/polyfactory_factories.py --seed 11 -
 - Emits a Python module full of `ModelFactory` subclasses whose `build()` methods delegate to a shared `InstanceGenerator`, so existing Polyfactory consumers can migrate gradually while keeping deterministic fixturegen data.
 - Supports `--include`/`--exclude`, `--seed`, `--max-depth`, `--on-cycle`, `--rng-mode`, and `--watch` just like other `gen` subcommands. Pass `--stdout` to stream the scaffold elsewhere.
 - Pair with the `[polyfactory]` config block: the CLI respects `prefer_delegation` and automatically registers any factories it exported the next time you run `gen json`, `gen fixtures`, or the FastAPI commands.
+
+### `pfg polyfactory migrate`
+
+```bash
+pfg polyfactory migrate ./models.py --include app.models.User --overrides-out overrides/polyfactory.toml
+```
+
+- Inspects Polyfactory `ModelFactory` subclasses, reports every `Use`/`Ignore`/`Require`/`PostGenerated` override, and shows which fixturegen provider would handle the same field.
+- Generates ready-to-paste `[tool.pydantic_fixturegen.overrides]` snippets using helper adapters so existing callables continue to work after the migration.
+- Flags unsupported patterns (lambda callables, nested factories, non-serializable values) so you know exactly where manual follow-up is required. See the dedicated guide for more examples.
 
 ### `pfg gen strategies`
 

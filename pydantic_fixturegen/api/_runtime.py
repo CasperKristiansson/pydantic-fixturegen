@@ -22,8 +22,10 @@ from pydantic_fixturegen.core.forward_refs import (
 )
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
 from pydantic_fixturegen.core.introspect import IntrospectedModel
+from pydantic_fixturegen.core.model_utils import dump_model_instance
 from pydantic_fixturegen.core.overrides import build_field_override_set
 from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
+from pydantic_fixturegen.core.schema import summarize_model_fields
 from pydantic_fixturegen.core.seed import SeedManager
 from pydantic_fixturegen.core.seed_freeze import (
     FreezeStatus,
@@ -33,17 +35,15 @@ from pydantic_fixturegen.core.seed_freeze import (
     model_identifier,
     resolve_freeze_path,
 )
-from pydantic_fixturegen.core.schema import summarize_model_fields
-from pydantic_fixturegen.core.model_utils import dump_model_instance
 from pydantic_fixturegen.emitters.dataset_out import DatasetFormat, emit_dataset_samples
 from pydantic_fixturegen.emitters.json_out import emit_json_samples
 from pydantic_fixturegen.emitters.pytest_codegen import PytestEmitConfig, emit_pytest_fixtures
 from pydantic_fixturegen.emitters.schema_out import emit_model_schema, emit_models_schema
 from pydantic_fixturegen.logging import get_logger
-from pydantic_fixturegen.plugins.hookspecs import EmitterContext
-from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
 from pydantic_fixturegen.persistence.registry import PersistenceRegistry
 from pydantic_fixturegen.persistence.runner import PersistenceRunner
+from pydantic_fixturegen.plugins.hookspecs import EmitterContext
+from pydantic_fixturegen.plugins.loader import emit_artifact, load_entrypoint_plugins
 
 from ..logging import Logger
 from .models import (
@@ -464,10 +464,7 @@ def _dataset_columns(model_cls: type[Any]) -> tuple[str, ...]:
         fields = tuple(summarize_model_fields(model_cls).keys())
     except (TypeError, AttributeError):
         fallback_fields = getattr(model_cls, "model_fields", None)
-        if isinstance(fallback_fields, Mapping):
-            fields = tuple(fallback_fields.keys())
-        else:
-            fields = ()
+        fields = tuple(fallback_fields.keys()) if isinstance(fallback_fields, Mapping) else ()
     if "__cycles__" in fields:
         return fields
     return fields + ("__cycles__",)

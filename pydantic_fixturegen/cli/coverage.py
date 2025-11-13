@@ -4,19 +4,25 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, Mapping
+from typing import Any, Literal
 
 import typer
 
-from pydantic_fixturegen.core.config import AppConfig, RelationLinkConfig, load_config
+from pydantic_fixturegen.core.config import RelationLinkConfig, load_config
 from pydantic_fixturegen.core.errors import DiscoveryError, PFGError
 from pydantic_fixturegen.core.overrides import FieldOverrideSet, build_field_override_set
 from pydantic_fixturegen.core.providers import create_default_registry
 from pydantic_fixturegen.core.schema import FieldSummary, summarize_model_fields
 from pydantic_fixturegen.core.seed_freeze import canonical_module_name
-from pydantic_fixturegen.core.strategies import Strategy, StrategyBuilder, StrategyResult, UnionStrategy
+from pydantic_fixturegen.core.strategies import (
+    Strategy,
+    StrategyBuilder,
+    StrategyResult,
+    UnionStrategy,
+)
 from pydantic_fixturegen.plugins.loader import get_plugin_manager
 
 from .doctor import _strategy_provider_label, _strategy_status
@@ -72,7 +78,10 @@ FAIL_ON_OPTION = typer.Option(
     "none",
     "--fail-on",
     case_sensitive=False,
-    help="Fail with exit code 2 when risks are detected (none, heuristics, relations, overrides, any).",
+    help=(
+        "Fail with exit code 2 when risks are detected "
+        "(none, heuristics, relations, overrides, any)."
+    ),
 )
 
 
@@ -99,7 +108,9 @@ class CoverageModel:
         return _model_label(self.model)
 
     def to_payload(self) -> dict[str, Any]:
-        provider_data = dict(sorted(self.provider_counts.items(), key=lambda item: (-item[1], item[0])))
+        provider_data = dict(
+            sorted(self.provider_counts.items(), key=lambda item: (-item[1], item[0]))
+        )
         return {
             "name": self.display_name,
             "coverage": {
@@ -490,8 +501,11 @@ def _render_text_report(report: CoverageReport) -> None:
 
     for model in report.models:
         typer.echo(f"Model: {model.display_name}")
+        coverage_percent = model.coverage_percent()
         typer.echo(
-            f"  Coverage: {model.covered_fields}/{model.total_fields} fields ({model.coverage_percent():.0f}%)"
+            "  Coverage: "
+            f"{model.covered_fields}/{model.total_fields} fields ("
+            f"{coverage_percent:.0f}%)"
         )
         if model.provider_counts:
             typer.echo("  Providers:")
@@ -532,9 +546,7 @@ def _render_text_report(report: CoverageReport) -> None:
     if report.relation_issues:
         typer.echo("\nRelation issues:")
         for issue in report.relation_issues:
-            typer.echo(
-                f"  - {issue['relation']} -> {issue['target']}: {issue['reason']}"
-            )
+            typer.echo(f"  - {issue['relation']} -> {issue['target']}: {issue['reason']}")
 
 
 def _render_list(label: str, values: list[str]) -> None:

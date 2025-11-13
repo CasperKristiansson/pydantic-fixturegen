@@ -184,8 +184,10 @@ class ProviderDefaultRuleSchema(BaseModel):
     )
     annotation_globs: list[str] = Field(
         default_factory=list,
-        description=
-        "Glob patterns matched against fully-qualified annotation paths (e.g., 'pydantic.*EmailStr').",
+        description=(
+            "Glob patterns matched against fully-qualified annotation paths "
+            "(e.g., 'pydantic.*EmailStr')."
+        ),
     )
     metadata: list[str] = Field(
         default_factory=list,
@@ -208,7 +210,9 @@ class ProviderDefaultsSchema(BaseModel):
 
     bundles: dict[str, ProviderBundleSchema] = Field(
         default_factory=dict,
-        description="Named bundles referencing providers and kwargs that can be reused across rules.",
+        description=(
+            "Named bundles referencing providers and kwargs that can be reused across rules."
+        ),
     )
     rules: list[ProviderDefaultRuleSchema] | dict[str, ProviderDefaultRuleSchema] | None = Field(
         default=None,
@@ -383,7 +387,10 @@ class ConfigSchemaModel(BaseModel):
     )
     provider_defaults: ProviderDefaultsSchema = Field(
         default_factory=ProviderDefaultsSchema,
-        description="Reusable provider bundles plus type/annotation matching rules applied ahead of heuristics.",
+        description=(
+            "Reusable provider bundles plus type/annotation matching rules "
+            "applied ahead of heuristics."
+        ),
     )
     persistence: PersistenceSchema = Field(
         default_factory=PersistenceSchema,

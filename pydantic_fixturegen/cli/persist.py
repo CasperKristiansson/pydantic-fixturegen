@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -36,14 +36,43 @@ HANDLER_CONFIG_OPTION = typer.Option(
 )
 
 COUNT_OPTION = typer.Option(1, "--n", "-n", min=1, help="Number of records to generate.")
-BATCH_SIZE_OPTION = typer.Option(50, "--batch-size", min=1, help="Number of records per handler batch.")
-MAX_RETRIES_OPTION = typer.Option(2, "--max-retries", min=0, help="Maximum attempts per batch before failing.")
-RETRY_WAIT_OPTION = typer.Option(0.5, "--retry-wait", min=0.0, help="Delay between retry attempts in seconds.")
-INCLUDE_OPTION = typer.Option(None, "--include", "-i", help="Comma-separated glob(s) of model names to include.")
-EXCLUDE_OPTION = typer.Option(None, "--exclude", "-e", help="Comma-separated glob(s) of model names to exclude.")
+BATCH_SIZE_OPTION = typer.Option(
+    50,
+    "--batch-size",
+    min=1,
+    help="Number of records per handler batch.",
+)
+MAX_RETRIES_OPTION = typer.Option(
+    2,
+    "--max-retries",
+    min=0,
+    help="Maximum attempts per batch before failing.",
+)
+RETRY_WAIT_OPTION = typer.Option(
+    0.5,
+    "--retry-wait",
+    min=0.0,
+    help="Delay between retry attempts in seconds.",
+)
+INCLUDE_OPTION = typer.Option(
+    None,
+    "--include",
+    "-i",
+    help="Comma-separated glob(s) of model names to include.",
+)
+EXCLUDE_OPTION = typer.Option(
+    None,
+    "--exclude",
+    "-e",
+    help="Comma-separated glob(s) of model names to exclude.",
+)
 SEED_OPTION = typer.Option(None, "--seed", help="Seed override for deterministic generation.")
 PRESET_OPTION = typer.Option(None, "--preset", help="Apply a named generation preset.")
-PROFILE_OPTION = typer.Option(None, "--profile", help="Apply a privacy profile before other settings.")
+PROFILE_OPTION = typer.Option(
+    None,
+    "--profile",
+    help="Apply a privacy profile before other settings.",
+)
 RESPECT_VALIDATORS_OPTION = typer.Option(
     None,
     "--respect-validators/--no-respect-validators",

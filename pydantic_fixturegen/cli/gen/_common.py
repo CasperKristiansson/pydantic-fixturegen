@@ -27,12 +27,12 @@ from pydantic_fixturegen.core.introspect import (
     IntrospectionResult,
     discover,
 )
-from pydantic_fixturegen.logging import Logger
 from pydantic_fixturegen.core.model_utils import (
     is_dataclass_type,
     is_pydantic_model,
     is_typeddict_type,
 )
+from pydantic_fixturegen.logging import Logger
 
 __all__ = [
     "JSON_ERRORS_OPTION",
@@ -263,16 +263,12 @@ def parse_locale_entries(entries: Sequence[str] | None) -> dict[str, str]:
         if not raw_entry:
             continue
         if "=" not in raw_entry:
-            raise typer.BadParameter(
-                "Locale map entries must be formatted as 'pattern=locale'."
-            )
+            raise typer.BadParameter("Locale map entries must be formatted as 'pattern=locale'.")
         pattern, locale = raw_entry.split("=", 1)
         pattern = pattern.strip()
         locale_value = locale.strip()
         if not pattern or not locale_value:
-            raise typer.BadParameter(
-                "Locale map entries require both a pattern and locale value."
-            )
+            raise typer.BadParameter("Locale map entries require both a pattern and locale value.")
         mapping[pattern] = locale_value
     return mapping
 
@@ -358,11 +354,7 @@ def load_model_class(model_info: IntrospectedModel) -> type[Any]:
             f"Attribute {model_info.name!r} in module "
             f"{module.__name__} is not a supported model class."
         )
-    if not (
-        is_pydantic_model(attr)
-        or is_dataclass_type(attr)
-        or is_typeddict_type(attr)
-    ):
+    if not (is_pydantic_model(attr) or is_dataclass_type(attr) or is_typeddict_type(attr)):
         raise RuntimeError(
             f"Attribute {model_info.name!r} in module {module.__name__} is not a "
             "Pydantic model, dataclass, or TypedDict."

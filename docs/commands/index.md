@@ -21,6 +21,7 @@ Browse the guides:
 | `pfg gen examples`                | [Inject OpenAPI examples](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/commands/pfg-gen-examples.md)                   |
 | `pfg gen strategies`              | [Export Hypothesis strategies](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/commands/pfg-gen-strategies.md)            |
 | `pfg gen polyfactory`             | [Scaffold Polyfactory delegates](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/commands/pfg-gen-polyfactory.md)         |
+| `pfg polyfactory migrate`         | [Polyfactory migration report](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/commands/pfg-polyfactory-migrate.md)      |
 | `pfg gen seed sqlmodel`           | [Seed SQLModel / SQLAlchemy databases](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/commands/pfg-gen-seed-sqlmodel.md) |
 | `pfg gen seed beanie`             | [Seed Beanie / MongoDB databases](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/commands/pfg-gen-seed-beanie.md)        |
 | `pfg gen explain` / `pfg explain` | [Inspect generation strategies](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/commands/pfg-gen-explain.md)              |

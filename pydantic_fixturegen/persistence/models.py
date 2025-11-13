@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Literal, Mapping, Sequence
+from typing import Any, Literal
 
-from pydantic_fixturegen.logging import Logger
 from pydantic_fixturegen.api.models import ConfigSnapshot
+from pydantic_fixturegen.logging import Logger
 
 HandlerKind = Literal["sync", "async"]
 

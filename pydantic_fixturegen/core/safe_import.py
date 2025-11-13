@@ -480,7 +480,11 @@ _RUNNER_SNIPPET = textwrap.dedent(
         for attr_name, attr_value in vars(module).items():
             if getattr(attr_value, "__module__", None) != module.__name__:
                 continue
-            if BaseModel is not None and isinstance(attr_value, type) and issubclass(attr_value, BaseModel):
+            if (
+                BaseModel is not None
+                and isinstance(attr_value, type)
+                and issubclass(attr_value, BaseModel)
+            ):
                 models.append(
                     {
                         "module": module.__name__,
@@ -500,7 +504,11 @@ _RUNNER_SNIPPET = textwrap.dedent(
                     }
                 )
                 continue
-            if is_typeddict is not None and isinstance(attr_value, type) and is_typeddict(attr_value):
+            if (
+                is_typeddict is not None
+                and isinstance(attr_value, type)
+                and is_typeddict(attr_value)
+            ):
                 models.append(
                     {
                         "module": module.__name__,

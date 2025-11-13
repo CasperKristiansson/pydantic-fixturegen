@@ -40,6 +40,8 @@ pfg gen polyfactory ./models.py --out factories_pfg.py --seed 7 --prefer-fixture
 
 `factories_pfg.py` exposes the same `ModelFactory` API but proxies through fixturegen’s `GenerationConfig`. Delete the custom Polyfactory factories in stages while reusing freeze files for CI.
 
+Need deeper insight before deleting factories? Run `pfg polyfactory migrate` to generate a per-field report and `[tool.pydantic_fixturegen.overrides]` snippet that mirrors `Use`/`Ignore`/`Require`/`PostGenerated` logic.
+
 ### Pydantic-Factories / Faker scripts → preset-based generation
 
 1. Translate “faker-heavy” defaults into presets:

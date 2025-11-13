@@ -814,9 +814,7 @@ def _normalize_field_policies(value: Any) -> tuple[FieldPolicy, ...]:
                     f"Field policy '{pattern}' collection_min_items must be an integer."
                 ) from exc
             if collection_min < 0:
-                raise ConfigError(
-                    f"Field policy '{pattern}' collection_min_items must be >= 0."
-                )
+                raise ConfigError(f"Field policy '{pattern}' collection_min_items must be >= 0.")
 
         collection_max = raw_options.get("collection_max_items")
         if collection_max is not None:
@@ -827,9 +825,7 @@ def _normalize_field_policies(value: Any) -> tuple[FieldPolicy, ...]:
                     f"Field policy '{pattern}' collection_max_items must be an integer."
                 ) from exc
             if collection_max < 0:
-                raise ConfigError(
-                    f"Field policy '{pattern}' collection_max_items must be >= 0."
-                )
+                raise ConfigError(f"Field policy '{pattern}' collection_max_items must be >= 0.")
 
         collection_distribution = raw_options.get("collection_distribution")
         if collection_distribution is not None:
@@ -840,7 +836,9 @@ def _normalize_field_policies(value: Any) -> tuple[FieldPolicy, ...]:
             collection_distribution = collection_distribution.strip().lower()
             if collection_distribution not in {"uniform", "min-heavy", "max-heavy"}:
                 raise ConfigError(
-                    f"Field policy '{pattern}' collection_distribution must be one of: uniform, min-heavy, max-heavy."
+                    "Field policy '"
+                    f"{pattern}' collection_distribution must be one of: "
+                    "uniform, min-heavy, max-heavy."
                 )
 
         allowed_keys = {
@@ -907,9 +905,7 @@ def _normalize_forward_refs(value: Any) -> tuple[ForwardRefEntry, ...]:
         if not isinstance(name, str) or not name.strip():
             raise ConfigError("Forward reference names must be non-empty strings.")
         if not isinstance(target, str) or not target.strip():
-            raise ConfigError(
-                f"Forward reference '{name}' must specify a non-empty module path."
-            )
+            raise ConfigError(f"Forward reference '{name}' must specify a non-empty module path.")
         entries.append(ForwardRefEntry(name=name.strip(), target=target.strip()))
 
     return tuple(entries)
@@ -1039,9 +1035,7 @@ def _normalize_collection_config(value: Any) -> CollectionConfig:
     distribution = distribution_raw.strip().lower() or config.distribution
     valid_distributions = {"uniform", "min-heavy", "max-heavy"}
     if distribution not in valid_distributions:
-        raise ConfigError(
-            "collections.distribution must be one of: uniform, min-heavy, max-heavy."
-        )
+        raise ConfigError("collections.distribution must be one of: uniform, min-heavy, max-heavy.")
 
     return CollectionConfig(
         min_items=min_items,
@@ -1156,9 +1150,7 @@ def _normalize_provider_defaults(value: Any) -> ProviderDefaultsConfig:
         if not isinstance(name, str) or not name.strip():
             raise ConfigError("provider bundle names must be non-empty strings.")
         if not isinstance(bundle_config, Mapping):
-            raise ConfigError(
-                f"provider_defaults.bundles['{name}'] must be a mapping of options."
-            )
+            raise ConfigError(f"provider_defaults.bundles['{name}'] must be a mapping of options.")
         provider = bundle_config.get("provider")
         if not isinstance(provider, str) or not provider.strip():
             raise ConfigError(f"provider_defaults.bundles['{name}'].provider must be a string.")

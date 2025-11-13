@@ -6,7 +6,7 @@ import asyncio
 import inspect
 import time
 import uuid
-from collections.abc import Callable, Mapping, Sequence, Iterator
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import Any
 
 from pydantic_fixturegen.api.models import ConfigSnapshot
@@ -88,7 +88,11 @@ class PersistenceRunner:
             await self._call_async(getattr(self.handler, "close", None))
 
     # ------------------------------------------------------------------ dispatch helpers
-    def _dispatch_batch_sync(self, batch: Sequence[PersistenceRecord], stats: PersistenceStats) -> None:
+    def _dispatch_batch_sync(
+        self,
+        batch: Sequence[PersistenceRecord],
+        stats: PersistenceStats,
+    ) -> None:
         attempt = 0
         while True:
             try:
@@ -110,7 +114,11 @@ class PersistenceRunner:
             )
             break
 
-    async def _dispatch_batch_async(self, batch: Sequence[PersistenceRecord], stats: PersistenceStats) -> None:
+    async def _dispatch_batch_async(
+        self,
+        batch: Sequence[PersistenceRecord],
+        stats: PersistenceStats,
+    ) -> None:
         attempt = 0
         while True:
             try:
@@ -136,7 +144,9 @@ class PersistenceRunner:
     def _build_context(self) -> PersistenceContext:
         metadata = {
             "model": f"{self.model_cls.__module__}.{self.model_cls.__qualname__}",
-            "related_models": [f"{model.__module__}.{model.__qualname__}" for model in self.related_models],
+            "related_models": [
+                f"{model.__module__}.{model.__qualname__}" for model in self.related_models
+            ],
         }
         return PersistenceContext(
             model=self.model_cls,

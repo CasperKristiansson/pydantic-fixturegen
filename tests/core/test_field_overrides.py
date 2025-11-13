@@ -130,11 +130,7 @@ def test_field_override_provider_takes_precedence_over_type_defaults() -> None:
     )
 
     overrides = build_field_override_set(
-        {
-            f"{SlugModel.__module__}.{SlugModel.__qualname__}": {
-                "slug": {"provider": "string"}
-            }
-        }
+        {f"{SlugModel.__module__}.{SlugModel.__qualname__}": {"slug": {"provider": "string"}}}
     )
 
     generator = InstanceGenerator(

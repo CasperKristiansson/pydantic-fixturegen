@@ -66,6 +66,7 @@ def model_json_schema(model_cls: type[Any]) -> dict[str, Any]:
     adapter = _type_adapter_for(model_cls)
     return adapter.json_schema()
 
+
 __all__ = [
     "dump_model_instance",
     "is_dataclass_type",
