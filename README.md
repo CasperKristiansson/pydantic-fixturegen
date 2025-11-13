@@ -3,12 +3,55 @@
 > Deterministic fixtures, pytest modules, datasets, and JSON from Pydantic v2 models **and** stdlib dataclasses/TypedDicts, all inside a sandboxed CLI with Pluggy providers.
 
 [![PyPI version](https://img.shields.io/pypi/v/pydantic-fixturegen.svg "PyPI")](https://pypi.org/project/pydantic-fixturegen/)
-![Python versions](https://img.shields.io/pypi/pyversions/pydantic-fixturegen.svg "Python 3.10–3.14")
+[![Python versions](https://img.shields.io/pypi/pyversions/pydantic-fixturegen.svg "Python 3.10–3.14")](#support)
+[![Pydantic v2](https://img.shields.io/badge/pydantic-v2-blue)](#support)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg "MIT License")
 
-Generate deterministic structured data, pytest fixtures, and JSON quickly with a safe, task-focused CLI built for modern testing workflows. Fixturegen still speaks Pydantic natively and now understands dataclasses and TypedDicts without extra adapters.
+Generate deterministic structured data, pytest fixtures, and JSON quickly with a safe, task-focused CLI built for modern testing workflows. Fixturegen still speaks Pydantic natively and now understands dataclasses and TypedDicts without extra adapters. Official support targets Python 3.10–3.14 and Pydantic v2.
 
 📘 Read the full docs and examples at [pydantic-fixturegen.kitgrid.dev](https://pydantic-fixturegen.kitgrid.dev/).
+
+## ⚡️ 60-second quickstart
+
+Copy/paste the snippet below into a shell. It drops a tiny `User` model into `models.py`, lists it, generates JSON samples, and writes pytest fixtures—all with deterministic seeds.
+
+```bash
+# 1) Create a minimal model file
+cat > models.py <<'PY'
+from pydantic import BaseModel, EmailStr
+
+
+class User(BaseModel):
+    id: int
+    email: EmailStr
+    tags: list[str]
+PY
+
+# 2) Discover models
+pfg list models.py
+
+# 3) Emit JSON samples (2 records) to ./out/User.json
+pfg gen json models.py \
+  --include models.User \
+  --n 2 --indent 2 \
+  --seed 7 --freeze-seeds \
+  --out out/{model}.json
+
+# 4) Emit pytest fixtures with 3 deterministic cases
+pfg gen fixtures models.py \
+  --include models.User \
+  --cases 3 \
+  --seed 7 --freeze-seeds \
+  --out tests/fixtures/{model}_fixtures.py
+```
+
+Expected results:
+
+- `pfg list` prints `models.User` so you know discovery works.
+- `out/User.json` contains two pretty-printed user records seeded with `--seed 7`.
+- `tests/fixtures/User_fixtures.py` exposes three pytest fixtures (`user_case_1`, etc.) you can import immediately.
+
+Once those commands work, swap in your actual module path and tweak shared flags like `--include`, `--seed`, `--watch`, or `--cases` as needed.
 
 ## Why
 
@@ -82,12 +125,19 @@ class Address(BaseModel):
 
 ```bash
 # JSON + datasets
-pfg gen json examples/models.py --include examples.Order --n 5 --jsonl --out artifacts/{model}.jsonl
-pfg gen dataset examples/models.py --include examples.Order --format parquet --n 10000 --out warehouse/{model}.parquet
+pfg gen json examples/models.py --include examples.Order --n 5 --jsonl \
+  --seed 11 --freeze-seeds \
+  --out artifacts/{model}.jsonl
+pfg gen dataset examples/models.py --include examples.Order --format parquet --n 10000 \
+  --seed 11 --freeze-seeds \
+  --out warehouse/{model}.parquet
 
 # Pytest fixtures + persistence
-pfg gen fixtures examples/models.py --include examples.Order --cases 3 --out tests/fixtures/{model}_fixtures.py
-pfg persist examples/models.py --handler http-post --handler-config '{"url": "https://api.example.com/orders"}' --include examples.Order --n 25
+pfg gen fixtures examples/models.py --include examples.Order --cases 3 \
+  --seed 11 --freeze-seeds \
+  --out tests/fixtures/{model}_fixtures.py
+pfg persist examples/models.py --handler http-post --handler-config '{"url": "https://api.example.com/orders"}' \
+  --include examples.Order --n 25 --seed 11 --freeze-seeds
 ```
 
 Prefer Python APIs?

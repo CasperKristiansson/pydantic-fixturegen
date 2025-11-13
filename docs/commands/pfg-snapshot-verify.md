@@ -68,6 +68,60 @@ Snapshots verified.
 - Under the hood, `SnapshotRunner` reuses safe-import discovery (respecting AST/hybrid settings) so verification never mutates files.
 - Use `pfg snapshot write` when you intentionally want to refresh snapshots after a failure.
 
+## GitHub Actions recipe
+
+The workflow below runs `pfg snapshot verify` across Python versions on Ubuntu. It assumes snapshots already live in the repo (for example under `artifacts/` and `tests/fixtures/`). Copy, adjust the paths, and wire it into your CI.
+
+```yaml
+name: Snapshot Verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            pip-${{ runner.os }}-${{ matrix.python-version }}-
+
+      - name: Install fixturegen (dev extras)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all-dev]"
+
+      - name: Verify snapshots
+        run: |
+          pfg snapshot verify ./app/models.py \
+            --json-out artifacts/users.json \
+            --fixtures-out tests/fixtures/test_users.py \
+            --seed 42 --freeze-seeds
+```
+
+Tips:
+
+- Keep `--seed`/`--freeze-seeds` in the command to make CI deterministic.
+- Add extra `--json-out`/`--fixtures-out` flags as needed; the step exits with code `1` when any snapshot drifts, failing the job automatically.
+- If your pipeline regenerates artifacts first (e.g., via `pfg gen json`), run that step before verification so the snapshots in the repo are up to date.
+
 ## Related docs
 - [CLI reference](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/cli.md#pfg-snapshot)
 - [Snapshot write](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/commands/pfg-snapshot-write.md)

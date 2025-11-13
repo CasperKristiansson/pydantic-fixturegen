@@ -2,6 +2,12 @@
 
 Compare popular fixture generators side-by-side, understand where pydantic-fixturegen shines, and borrow migration recipes when you are ready to switch.
 
+| Scenario                      | Command                                                  | When to use                                                                                        |
+| ----------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Deterministic CLI generator   | [`pfg gen json`](quickstart.md)                          | Need portable seeds plus ready-to-commit JSON/fixtures without authoring factory classes.          |
+| Polyfactory delegation/export | [`pfg gen polyfactory`](commands/pfg-gen-polyfactory.md) | Keep existing `ModelFactory` APIs while delegating or migrating logic into fixturegen determinism. |
+| Hypothesis strategy exporters | [`pfg gen strategies`](commands/pfg-gen-strategies.md)   | Ship Hypothesis strategies that mirror fixturegen heuristics for property-based or fuzz testing.   |
+
 ## Detailed comparison
 
 | Capability             | **pydantic-fixturegen**                                                                                                             | **Polyfactory**                                                          | **Pydantic-Factories**           | **factory_boy**                       |

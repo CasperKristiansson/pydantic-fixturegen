@@ -75,11 +75,16 @@ def _proxy(name: str, import_path: str, help_text: str) -> None:
         "ignore_unknown_options": True,
     }
 
-    @app.command(name, context_settings=context_settings)
-    def command(ctx: typer.Context) -> None:
+    def _command(ctx: typer.Context) -> None:
         _invoke(import_path, ctx)
 
-    command.__doc__ = help_text
+    decorator = app.command(
+        name,
+        context_settings=context_settings,
+        help=help_text,
+        add_help_option=False,
+    )
+    decorator(_command)
 
 
 _proxy(
