@@ -21,7 +21,7 @@ import typer
 from pydantic import BaseModel
 
 from pydantic_fixturegen.core.config import FIELD_HINT_MODES
-from pydantic_fixturegen.core.errors import PFGError
+from pydantic_fixturegen.core.errors import DiscoveryError, PFGError
 from pydantic_fixturegen.core.introspect import (
     IntrospectedModel,
     IntrospectionResult,
@@ -50,6 +50,7 @@ __all__ = [
     "COLLECTION_DISTRIBUTION_OPTION",
     "clear_module_cache",
     "discover_models",
+    "expand_target_paths",
     "load_model_class",
     "render_cli_error",
     "split_patterns",
@@ -197,6 +198,38 @@ def split_patterns(raw: str | None) -> list[str]:
     return [part.strip() for part in raw.split(",") if part.strip()]
 
 
+def expand_target_paths(target: Path) -> list[Path]:
+    """Return Python module files under the provided target path."""
+
+    resolved = target.resolve()
+    if not resolved.exists():
+        raise DiscoveryError(
+            f"Target path '{target}' does not exist.",
+            details={"path": str(target)},
+        )
+
+    if resolved.is_file():
+        return [resolved]
+
+    if resolved.is_dir():
+        python_files = sorted(
+            candidate
+            for candidate in resolved.rglob("*.py")
+            if candidate.is_file() and "__pycache__" not in candidate.parts
+        )
+        if not python_files:
+            raise DiscoveryError(
+                "Directory does not contain any Python modules.",
+                details={"path": str(target)},
+            )
+        return python_files
+
+    raise DiscoveryError(
+        "Target must be a Python module file or directory.",
+        details={"path": str(target)},
+    )
+
+
 def parse_relation_links(values: Sequence[str] | None) -> dict[str, str]:
     mapping: dict[str, str] = {}
     if not values:
@@ -328,8 +361,10 @@ def discover_models(
     timeout: float = 5.0,
     memory_limit_mb: int = 256,
 ) -> IntrospectionResult:
+    module_paths = expand_target_paths(path)
+
     return discover(
-        [path],
+        module_paths,
         method=method,
         include=list(include or ()),
         exclude=list(exclude or ()),

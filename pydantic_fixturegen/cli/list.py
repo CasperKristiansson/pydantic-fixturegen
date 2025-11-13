@@ -9,7 +9,12 @@ import typer
 from pydantic_fixturegen.core.errors import DiscoveryError, PFGError, UnsafeImportError
 from pydantic_fixturegen.core.introspect import DiscoveryMethod, IntrospectionResult, discover
 
-from .gen._common import JSON_ERRORS_OPTION, render_cli_error, split_patterns
+from .gen._common import (
+    JSON_ERRORS_OPTION,
+    expand_target_paths,
+    render_cli_error,
+    split_patterns,
+)
 
 PATH_ARGUMENT = typer.Argument(
     ...,
@@ -119,15 +124,11 @@ def _execute_list_command(
     memory_limit_mb: int,
 ) -> None:
     path = Path(target)
-    if not path.exists():
-        raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
-    if not path.is_file():
-        raise DiscoveryError("Target must be a Python module file.", details={"path": target})
-
+    module_paths = expand_target_paths(path)
     method = _resolve_method(ast_mode, hybrid_mode)
 
     result = discover(
-        [path],
+        module_paths,
         method=method,
         include=_split_patterns(include),
         exclude=_split_patterns(exclude),

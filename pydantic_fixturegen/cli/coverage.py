@@ -268,10 +268,6 @@ def _generate_coverage_report(
         raise DiscoveryError("Provide a module path to analyse.")
 
     module_path = Path(target)
-    if not module_path.exists():
-        raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
-    if not module_path.is_file():
-        raise DiscoveryError("Target must be a Python module file.", details={"path": target})
 
     cli_common.clear_module_cache()
 

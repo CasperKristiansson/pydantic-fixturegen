@@ -145,16 +145,10 @@ def _execute_explain(
     max_depth: int | None = None,
     emit_warnings: bool = True,
 ) -> dict[str, Any]:
-    path = Path(target)
-    if not path.exists():
-        raise ValueError(f"Target path '{target}' does not exist.")
-    if not path.is_file():
-        raise ValueError("Target must be a Python module file.")
-
     clear_module_cache()
 
     discovery = discover_models(
-        path,
+        Path(target),
         include=split_patterns(include),
         exclude=split_patterns(exclude),
     )

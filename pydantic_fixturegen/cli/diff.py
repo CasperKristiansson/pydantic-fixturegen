@@ -444,12 +444,6 @@ def _execute_diff(
     if not any((json_options.out, fixtures_options.out, schema_options.out)):
         raise DiscoveryError("Provide at least one artifact path to diff.")
 
-    target_path = Path(target)
-    if not target_path.exists():
-        raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
-    if not target_path.is_file():
-        raise DiscoveryError("Target must be a Python module file.", details={"path": target})
-
     clear_module_cache()
     load_entrypoint_plugins()
 
@@ -502,7 +496,7 @@ def _execute_diff(
 
     method = _resolve_method(ast_mode, hybrid_mode)
     discovery = discover_models(
-        target_path,
+        Path(target),
         include=include_patterns,
         exclude=exclude_patterns,
         method=method,

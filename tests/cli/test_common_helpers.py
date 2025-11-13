@@ -205,3 +205,24 @@ def test_parse_override_entries_parses_json_payloads() -> None:
 def test_parse_override_entries_rejects_invalid_payload() -> None:
     with pytest.raises(typer.BadParameter):
         common.parse_override_entries(["User.email={not-json}"])
+
+
+def test_expand_target_paths_accepts_directory(tmp_path: Path) -> None:
+    package = tmp_path / "models_pkg"
+    (package / "nested").mkdir(parents=True)
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "alpha.py").write_text("class A: ...", encoding="utf-8")
+    (package / "nested" / "beta.py").write_text("class B: ...", encoding="utf-8")
+
+    paths = common.expand_target_paths(package)
+
+    assert len(paths) == 3
+    assert set(path.name for path in paths) == {"__init__.py", "alpha.py", "beta.py"}
+
+
+def test_expand_target_paths_requires_python_modules(tmp_path: Path) -> None:
+    empty = tmp_path / "empty"
+    empty.mkdir()
+
+    with pytest.raises(DiscoveryError, match="does not contain any Python modules"):
+        common.expand_target_paths(empty)

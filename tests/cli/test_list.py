@@ -204,6 +204,38 @@ def test_list_handles_relative_imports(tmp_path: Path) -> None:
     assert "lib.models.example_model.ExampleRequest [import]" in result.stdout
 
 
+def test_list_accepts_directory_target(tmp_path: Path) -> None:
+    package = tmp_path / "service"
+    package.mkdir()
+    (package / "orders.py").write_text(
+        """
+from pydantic import BaseModel
+
+
+class Order(BaseModel):
+    id: int
+    total: float
+""",
+        encoding="utf-8",
+    )
+    (package / "customers.py").write_text(
+        """
+from pydantic import BaseModel
+
+
+class Customer(BaseModel):
+    email: str
+""",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(list_app, [str(package)])
+
+    assert result.exit_code == 0
+    assert "Order [import]" in result.stdout
+    assert "Customer [import]" in result.stdout
+
+
 def test_render_result_handles_network_errors() -> None:
     result = IntrospectionResult(models=[], warnings=[], errors=["Network unreachable"])
     with pytest.raises(UnsafeImportError):

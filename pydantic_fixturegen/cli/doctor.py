@@ -285,10 +285,6 @@ def _run_doctor_analysis(
     memory_limit_mb: int,
 ) -> tuple[list[ModelReport], GapSummary]:
     path = Path(target)
-    if not path.exists():
-        raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
-    if not path.is_file():
-        raise DiscoveryError("Target must be a Python module file.", details={"path": target})
 
     clear_module_cache()
 

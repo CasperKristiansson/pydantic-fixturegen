@@ -32,12 +32,15 @@ nav:
         path: docs/quickstart.md
       - title: Examples
         path: docs/examples.md
-      - title: Example projects
-        path: docs/example-projects/fastapi-marketplace/README.md
       - title: Install
         path: docs/install.md
       - title: Features
         path: docs/features.md
+  - title: Example projects
+    path: docs/example-projects/fastapi-marketplace/README.md
+    children:
+      - title: FastAPI marketplace
+        path: docs/example-projects/fastapi-marketplace/README.md
   - title: Workflow
     path: docs/cli.md
     children:

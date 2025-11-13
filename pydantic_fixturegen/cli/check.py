@@ -151,10 +151,6 @@ def _execute_check(
     schema_out: Path | None,
 ) -> None:
     target_path = Path(target)
-    if not target_path.exists():
-        raise DiscoveryError(f"Target path '{target}' does not exist.", details={"path": target})
-    if not target_path.is_file():
-        raise DiscoveryError("Target must be a Python module file.", details={"path": target})
 
     load_config(root=Path.cwd())
 
