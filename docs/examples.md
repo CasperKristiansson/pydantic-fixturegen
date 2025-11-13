@@ -7,8 +7,12 @@ This page collects end-to-end snippets you can copy straight into a shell, noteb
 | Directory | Stack | Highlights |
 | --------- | ----- | ---------- |
 | [`docs/example-projects/fastapi-marketplace`](example-projects/fastapi-marketplace/README.md) | FastAPI + Polyfactory delegation | Realistic order/customer/payment models, Makefile targets for snapshots + fixtures, GitHub Actions recipe for `pfg snapshot verify`, bootstrap script for `.pfg-seeds.json`. |
+| [`docs/example-projects/customer-analytics`](example-projects/customer-analytics/README.md) | Analytics datasets + Hypothesis strategies | Demonstrates dataset exports, Hypothesis strategy generation, deterministic seeds for JSONL outputs, and directory targets for CLI commands. |
 
-Clone the repo, `cd docs/example-projects/fastapi-marketplace`, and run `make install && make snapshots` to regenerate the JSON + pytest fixtures used in the docs. More embedded projects (datasets, anonymizer workflows, Hypothesis strategies) will live alongside this folder as they roll out.
+Clone the repo and explore whichever workflow fits your evaluation:
+- `fastapi-marketplace`: `cd docs/example-projects/fastapi-marketplace && make install && make snapshots` regenerates JSON + pytest fixtures for the FastAPI surface.
+- `customer-analytics`: `cd docs/example-projects/customer-analytics && make install && make datasets && make strategies` refreshes the JSONL dataset and exported Hypothesis strategies powering analytics tests.
+More embedded projects (anonymizer pipelines, persistence demos, etc.) will continue to land under `docs/example-projects/`.
 
 ## Shared model module
 

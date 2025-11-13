@@ -37,10 +37,12 @@ nav:
       - title: Features
         path: docs/features.md
   - title: Example projects
-    path: docs/example-projects/fastapi-marketplace/README.md
+    path: docs/example-projects/README.md
     children:
       - title: FastAPI marketplace
         path: docs/example-projects/fastapi-marketplace/README.md
+      - title: Customer analytics
+        path: docs/example-projects/customer-analytics/README.md
   - title: Workflow
     path: docs/cli.md
     children:

@@ -1,0 +1,17 @@
+[project]
+name = "customer-analytics-example"
+version = "0.1.0"
+description = "Example analytics project for the pydantic-fixturegen docs"
+requires-python = ">=3.10"
+dependencies = [
+  "pydantic-fixturegen>=1.2.0",
+  "hypothesis>=6.111",
+]
+
+[tool.pydantic_fixturegen]
+seed = 4142
+freeze_seeds = true
+log_format = "json"
+
+[tool.pydantic_fixturegen.field_hints]
+mode = "examples-then-defaults"

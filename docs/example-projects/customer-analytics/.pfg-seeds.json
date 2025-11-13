@@ -1,0 +1,9 @@
+{
+  "models": {
+    "models.segments.SegmentSnapshot": {
+      "model_digest": "0946ee47875ae5e13465e4d9591f68e24e49d747545ddb49c3acc89d7bc3a8b3",
+      "seed": 173039118032421003089410887493020576614
+    }
+  },
+  "version": 1
+}
