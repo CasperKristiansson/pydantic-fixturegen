@@ -157,6 +157,16 @@ def test_generate_identifier_masks_secret_and_ip() -> None:
     assert ip_value.startswith("192.0.2.")
 
 
+def test_generate_identifier_masks_secret_bytes() -> None:
+    config = IdentifierConfig(mask_sensitive=True, secret_bytes_length=3)
+    secret = identifiers_mod._generate_secret_bytes(
+        _summary("secret-bytes"),
+        random.Random(47),
+        config,
+    )
+    assert secret.get_secret_value() == b"\x00\x00\x00"
+
+
 def test_generate_identifier_unknown_type() -> None:
     with pytest.raises(ValueError):
         identifiers_mod.generate_identifier(_summary("custom"), random_generator=random.Random())
@@ -173,6 +183,81 @@ def test_resolve_length_clamps_and_defaults() -> None:
 def test_generate_email_handles_short_max() -> None:
     summary = _summary("email", min_length=None, max_length=2)
     assert identifiers_mod._generate_email(summary, random.Random(0), IdentifierConfig()) == "a@"
+
+
+def test_generate_email_truncates_domain_when_needed(monkeypatch: pytest.MonkeyPatch) -> None:
+    summary = _summary("email", max_length=6)
+    rng = random.Random(0)
+
+    def fake_choose_length(
+        rng_obj: random.Random,
+        minimum: int,
+        maximum: int | None,
+        default: int | None = None,
+    ) -> int:
+        if maximum == 10 and default is None:
+            return 5
+        if default == 8:
+            return 2
+        return minimum
+
+    monkeypatch.setattr(identifiers_mod, "_choose_length", fake_choose_length)
+    monkeypatch.setattr(
+        identifiers_mod,
+        "_random_string",
+        lambda rng_obj, length, alphabet: "z" * length,
+    )
+    monkeypatch.setattr(identifiers_mod, "_TLDS", ("xy",))
+
+    email = identifiers_mod._generate_email(summary, rng, IdentifierConfig(mask_sensitive=False))
+    domain = email.split("@", 1)[1]
+    assert len(domain) <= max(summary.constraints.max_length - 2, 1)
+
+
+def test_generate_email_truncation_preserves_at(monkeypatch: pytest.MonkeyPatch) -> None:
+    summary = _summary("email", min_length=5, max_length=5)
+    rng = random.Random(0)
+
+    def fake_choose_length(
+        rng_obj: random.Random,
+        minimum: int,
+        maximum: int | None,
+        default: int | None = None,
+    ) -> int:
+        if default == 8:
+            return 8
+        return 1
+
+    monkeypatch.setattr(identifiers_mod, "_choose_length", fake_choose_length)
+    monkeypatch.setattr(
+        identifiers_mod,
+        "_random_string",
+        lambda rng_obj, length, alphabet: "l" * length,
+    )
+    monkeypatch.setattr(identifiers_mod, "_TLDS", ("a",))
+
+    value = identifiers_mod._generate_email(summary, rng, IdentifierConfig(mask_sensitive=False))
+    assert value.endswith("@")
+
+
+def test_generate_email_pads_local_to_meet_minimum(monkeypatch: pytest.MonkeyPatch) -> None:
+    summary = _summary("email", min_length=20, max_length=None)
+    rng = random.Random(0)
+
+    def fake_choose_length(
+        rng_obj: random.Random,
+        minimum: int,
+        maximum: int | None,
+        default: int | None = None,
+    ) -> int:
+        if default == 8:
+            return 1
+        return minimum
+
+    monkeypatch.setattr(identifiers_mod, "_choose_length", fake_choose_length)
+
+    value = identifiers_mod._generate_email(summary, rng, IdentifierConfig(mask_sensitive=True))
+    assert len(value) >= 20
 
 
 def test_generate_email_local_part_is_never_invalid() -> None:
@@ -204,6 +289,14 @@ def test_generate_url_without_path_padding() -> None:
     assert len(value) >= 25
 
 
+def test_generate_url_truncates_but_keeps_scheme() -> None:
+    config = IdentifierConfig(url_schemes=("https",), url_include_path=True)
+    summary = _summary("url", min_length=0, max_length=9)
+    value = identifiers_mod._generate_url(summary, random.Random(1), config)
+    assert value.startswith("https://")
+    assert len(value) == summary.constraints.max_length
+
+
 def test_generate_uuid_invalid_version() -> None:
     with pytest.raises(ValueError):
         identifiers_mod._generate_uuid(random.Random(0), 2)
@@ -213,3 +306,13 @@ def test_choose_length_defaults_and_bounds() -> None:
     rng = random.Random(0)
     assert identifiers_mod._choose_length(rng, 5, 5) == 5
     assert identifiers_mod._choose_length(rng, 2, None, default=6) == 6
+
+
+def test_masked_local_part_pads_to_target_length() -> None:
+    token = identifiers_mod._masked_local_part(random.Random(50), target_length=4)
+    assert len(token) == 4
+
+
+def test_choose_length_returns_minimum_when_unbounded() -> None:
+    rng = random.Random(51)
+    assert identifiers_mod._choose_length(rng, 7, None) == 7
