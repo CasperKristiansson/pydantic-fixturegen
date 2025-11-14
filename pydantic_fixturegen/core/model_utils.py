@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Mapping
-from functools import lru_cache
 from typing import Any, Literal
 
 from pydantic import BaseModel, TypeAdapter
-from typing_extensions import is_typeddict  # type: ignore[attr-defined]
+
+try:  # typing_extensions < 4.5 compatibility
+    from typing_extensions import is_typeddict as _typing_extensions_is_typeddict
+except ImportError:  # pragma: no cover - typing extra not installed
+    def _typing_extensions_is_typeddict(tp: object) -> bool:
+        return False
 
 
 def is_pydantic_model(model_cls: type[Any]) -> bool:
@@ -24,14 +28,20 @@ def is_dataclass_type(model_cls: Any) -> bool:
 
 def is_typeddict_type(model_cls: Any) -> bool:
     try:
-        return is_typeddict(model_cls)
+        return _typing_extensions_is_typeddict(model_cls)
     except Exception:  # pragma: no cover - typing differences between versions
         return False
 
 
-@lru_cache(maxsize=256)
+_TYPE_ADAPTER_CACHE: dict[type[Any], TypeAdapter[Any]] = {}
+
+
 def _type_adapter_for(model_cls: type[Any]) -> TypeAdapter[Any]:
-    return TypeAdapter(model_cls)
+    adapter = _TYPE_ADAPTER_CACHE.get(model_cls)
+    if adapter is None:
+        adapter = TypeAdapter(model_cls)
+        _TYPE_ADAPTER_CACHE[model_cls] = adapter
+    return adapter
 
 
 def dump_model_instance(
@@ -62,9 +72,16 @@ def model_json_schema(model_cls: type[Any]) -> dict[str, Any]:
 
     schema_func = getattr(model_cls, "model_json_schema", None)
     if callable(schema_func):
-        return schema_func()
-    adapter = _type_adapter_for(model_cls)
-    return adapter.json_schema()
+        schema = schema_func()
+    else:
+        adapter = _type_adapter_for(model_cls)
+        schema = adapter.json_schema()
+
+    if isinstance(schema, Mapping):
+        return dict(schema)
+    raise TypeError(
+        f"Expected mapping schema for {model_cls.__qualname__}, got {type(schema).__qualname__}."
+    )
 
 
 __all__ = [

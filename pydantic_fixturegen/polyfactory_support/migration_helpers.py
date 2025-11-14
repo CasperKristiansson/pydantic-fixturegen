@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from importlib import import_module
-from typing import Any
+from typing import Any, cast
 
 
 def _resolve_callable(path: str) -> Callable[..., Any]:
@@ -24,7 +24,7 @@ def _resolve_callable(path: str) -> Callable[..., Any]:
         target = getattr(target, part)
     if not callable(target):
         raise TypeError(f"Target '{path}' is not callable.")
-    return target
+    return cast(Callable[..., Any], target)
 
 
 def invoke_use(

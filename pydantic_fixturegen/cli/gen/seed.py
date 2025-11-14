@@ -509,7 +509,7 @@ def _create_beanie_client(database: str) -> Any:
     if database.startswith("mongomock://"):
         from mongomock_motor import AsyncMongoMockClient
 
-        client = AsyncMongoMockClient()
+        client: Any = AsyncMongoMockClient()
         client._pfg_is_mongomock = True
         return client
 

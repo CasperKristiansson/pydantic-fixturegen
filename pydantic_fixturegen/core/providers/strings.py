@@ -65,16 +65,12 @@ def register_string_providers(registry: ProviderRegistry) -> None:
 
 def _regex_string(summary: FieldSummary, *, faker: Faker) -> str:
     pattern = summary.constraints.pattern or ".*"
-    candidate: str
+    candidate: str | None = None
     if rstr is not None:
         if hasattr(rstr, "Xeger"):
             candidate = rstr.Xeger(_random=faker.random).xeger(pattern)
         elif hasattr(rstr, "xeger"):
             candidate = rstr.xeger(pattern)
-        else:
-            candidate = None
-    else:
-        candidate = None
     if candidate is None:
         try:
             candidate = faker.regexify(pattern)

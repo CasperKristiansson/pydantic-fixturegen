@@ -11,12 +11,13 @@ import types
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal, Union, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, Literal, Union, cast, get_args, get_origin, get_type_hints
 
 import annotated_types
 import pydantic
 from pydantic import BaseModel, SecretBytes, SecretStr
-from pydantic.fields import FieldInfo, PydanticUndefined
+from pydantic.fields import FieldInfo
+from pydantic_core import PydanticUndefined
 from typing_extensions import NotRequired, Required
 
 from pydantic_fixturegen.core.extra_types import resolve_type_id
@@ -87,7 +88,10 @@ class _SimpleFieldInfo:
     examples: tuple[Any, ...] = ()
 
 
-def extract_constraints(field: FieldInfo) -> FieldConstraints:
+FieldInfoLike = FieldInfo | _SimpleFieldInfo
+
+
+def extract_constraints(field: FieldInfoLike) -> FieldConstraints:
     """Extract constraint metadata from a single Pydantic FieldInfo."""
     constraints = FieldConstraints()
 
@@ -110,16 +114,16 @@ def extract_model_constraints(model: type[BaseModel]) -> Mapping[str, FieldConst
     return result
 
 
-def summarize_field(field: FieldInfo) -> FieldSummary:
+def summarize_field(field: FieldInfoLike) -> FieldSummary:
     constraints = extract_constraints(field)
     annotation = field.annotation
     summary = _summarize_annotation(annotation, constraints, metadata=tuple(field.metadata))
     if field.default is not PydanticUndefined:
         summary.has_default = True
         summary.default_value = field.default
-    default_factory = getattr(field, "default_factory", None)
+    default_factory = getattr(field, "default_factory", PydanticUndefined)
     if default_factory is not None and default_factory is not PydanticUndefined:
-        summary.default_factory = default_factory  # type: ignore[assignment]
+        summary.default_factory = cast(Callable[[], Any], default_factory)
     examples = getattr(field, "examples", None)
     if examples:
         summary.examples = tuple(examples)
@@ -157,8 +161,10 @@ def _dataclass_field_info_map(model: type[Any]) -> Mapping[str, _SimpleFieldInfo
         default_factory: Callable[[], Any] | None = None
         if field.default is not dataclasses_module.MISSING:
             default_value = field.default
-        elif field.default_factory is not dataclasses_module.MISSING:  # type: ignore[attr-defined]
-            default_factory = field.default_factory  # type: ignore[attr-defined]
+        else:
+            default_factory_attr = getattr(field, "default_factory", dataclasses_module.MISSING)
+            if default_factory_attr is not dataclasses_module.MISSING:
+                default_factory = cast(Callable[[], Any], default_factory_attr)
         result[field.name] = _SimpleFieldInfo(
             annotation=annotation,
             metadata=metadata_entries,

@@ -710,6 +710,12 @@ def _diff_json_artifact(
                     f"Failed to generate instance for {target_model.__name__}.",
                     details=details,
                 )
+            if not isinstance(instance, BaseModel):
+                raise MappingError(
+                    f"Generator returned unexpected instance type ({type(instance).__name__}) "
+                    f"for {target_model.__name__}.",
+                    details={"model": target_model.__name__},
+                )
             return instance
 
         indent_value = options.indent if options.indent is not None else app_config_indent

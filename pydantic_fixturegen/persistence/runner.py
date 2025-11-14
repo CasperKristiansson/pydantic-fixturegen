@@ -6,8 +6,8 @@ import asyncio
 import inspect
 import time
 import uuid
-from collections.abc import Callable, Iterator, Mapping, Sequence
-from typing import Any
+from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
+from typing import Any, cast
 
 from pydantic_fixturegen.api.models import ConfigSnapshot
 from pydantic_fixturegen.core.errors import PersistenceError
@@ -120,9 +120,10 @@ class PersistenceRunner:
         stats: PersistenceStats,
     ) -> None:
         attempt = 0
+        handler = cast(AsyncPersistenceHandler, self.handler)
         while True:
             try:
-                await self.handler.persist_batch(batch)  # type: ignore[func-returns-value]
+                await handler.persist_batch(batch)
             except Exception as exc:  # pragma: no cover - exercised via retry tests
                 attempt += 1
                 stats.record_retry()
@@ -194,9 +195,11 @@ class PersistenceRunner:
     async def _call_async(callable_obj: Callable[..., Any] | None, *args: Any) -> None:
         if callable_obj is None:
             return
-        result = callable_obj(*args)
-        if inspect.isawaitable(result):  # pragma: no cover - defensive
+        result: object = callable_obj(*args)
+        if isinstance(result, Awaitable):
             await result
+        elif inspect.isawaitable(result):  # pragma: no cover - defensive
+            await asyncio.ensure_future(result)
 
     def _failure_error(
         self,

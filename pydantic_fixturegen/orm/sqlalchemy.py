@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Any
 
 from pydantic_fixturegen.api._runtime import ModelArtifactPlan
@@ -139,14 +138,23 @@ def _clean_payload(
     return data
 
 
-@lru_cache(maxsize=128)
+_SQLMODEL_PK_FIELDS_CACHE: dict[type[Any], tuple[str, ...]] = {}
+
+
 def _sqlmodel_auto_primary_key_fields(model_cls: type[Any]) -> tuple[str, ...]:
+    cached = _SQLMODEL_PK_FIELDS_CACHE.get(model_cls)
+    if cached is not None:
+        return cached
     try:
         from sqlmodel import SQLModel
     except ModuleNotFoundError:  # pragma: no cover - optional dependency
-        return ()
+        result: tuple[str, ...] = ()
+        _SQLMODEL_PK_FIELDS_CACHE[model_cls] = result
+        return result
     if not isinstance(model_cls, type) or not issubclass(model_cls, SQLModel):
-        return ()
+        result = ()
+        _SQLMODEL_PK_FIELDS_CACHE[model_cls] = result
+        return result
     fields = getattr(model_cls, "model_fields", {})
     names: list[str] = []
     for field_name, field_info in fields.items():
@@ -162,4 +170,6 @@ def _sqlmodel_auto_primary_key_fields(model_cls: type[Any]) -> tuple[str, ...]:
                 default_is_none = False
         if default_is_none:
             names.append(field_name)
-    return tuple(names)
+    result = tuple(names)
+    _SQLMODEL_PK_FIELDS_CACHE[model_cls] = result
+    return result

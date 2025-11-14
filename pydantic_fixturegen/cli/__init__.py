@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import builtins
 from importlib import import_module
+from typing import Any, cast
 
+import click
 import typer
 from typer.main import get_command
 
@@ -91,13 +93,13 @@ def _proxy(name: str, import_path: str, help_text: str) -> None:
     _command.__doc__ = help_text
 
 
-def _append_docs_footer(command: typer.main.TyperCommand) -> None:
+def _append_docs_footer(command: click.Command) -> None:
     if getattr(command, "_pfg_docs_patched", False):
         return
     footer = f"\n\nDocs: {DOCS_URL}"
     help_text = getattr(command, "help", "") or ""
     command.help = f"{help_text}{footer}" if help_text else f"Docs: {DOCS_URL}"
-    command._pfg_docs_patched = True
+    cast(Any, command)._pfg_docs_patched = True
     children = getattr(command, "commands", None)
     if isinstance(children, dict):
         for child in children.values():

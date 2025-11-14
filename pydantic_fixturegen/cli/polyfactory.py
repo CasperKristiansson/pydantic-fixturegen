@@ -102,6 +102,7 @@ def migrate(  # noqa: PLR0913 - CLI surface mirrors documentation
     except RuntimeError as exc:
         render_cli_error(DiscoveryError(str(exc)), json_errors=json_errors)
         return
+    model_classes = tuple(model_lookup.values())
 
     format = format.lower()
     if format not in {"table", "json"}:
@@ -113,7 +114,7 @@ def migrate(  # noqa: PLR0913 - CLI surface mirrors documentation
     discovery_modules = [model.module for model in discovery.models]
     log_target = None if format == "json" else logger
     bindings = _discover_bindings(
-        model_lookup.values(),
+        model_classes,
         discovery_modules,
         extra_modules,
         log_target,
@@ -125,7 +126,7 @@ def migrate(  # noqa: PLR0913 - CLI surface mirrors documentation
         )
         return
 
-    relation_map = _build_relation_model_map(tuple(model_lookup.values()))
+    relation_map = _build_relation_model_map(model_classes)
     try:
         generator = _build_instance_generator(app_config, relation_models=relation_map)
     except PFGError as exc:

@@ -6,7 +6,7 @@ import dataclasses
 import enum
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol, cast
 
 from pydantic_fixturegen.core.seed_freeze import canonical_module_name
 from pydantic_fixturegen.core.strategies import StrategyResult, UnionStrategy
@@ -59,6 +59,12 @@ class FactoryReport:
         return overrides
 
 
+class _PolyfactoryIntrospectable(Protocol):
+    @classmethod
+    def get_model_fields(cls) -> Sequence[Any]:
+        ...
+
+
 def describe_strategy(strategy: StrategyResult | None) -> str | None:
     if strategy is None:
         return None
@@ -87,7 +93,8 @@ def analyze_binding(
 ) -> FactoryReport:
     fields: list[FieldReport] = []
     factory_dict = getattr(binding.factory, "__dict__", {})
-    model_fields = {field_meta.name for field_meta in binding.factory.get_model_fields()}
+    factory_cls = cast(_PolyfactoryIntrospectable, binding.factory)
+    model_fields = {field_meta.name for field_meta in factory_cls.get_model_fields()}
     for field_name in sorted(model_fields):
         declared = factory_dict.get(field_name)
         if declared is None:
@@ -205,20 +212,24 @@ def _serialize_mapping(kwargs: Mapping[str, Any]) -> dict[str, Any]:
     return {key: _serialize_value(val) for key, val in kwargs.items()}
 
 
+def _type_name(value: Any) -> str:
+    return type(value).__name__
+
+
 def _is_use(value: Any) -> bool:
-    return value.__class__.__name__ == "Use" and hasattr(value, "fn")
+    return _type_name(value) == "Use" and hasattr(value, "fn")
 
 
 def _is_ignore(value: Any) -> bool:
-    return value.__class__.__name__ == "Ignore"
+    return _type_name(value) == "Ignore"
 
 
 def _is_require(value: Any) -> bool:
-    return value.__class__.__name__ == "Require"
+    return _type_name(value) == "Require"
 
 
 def _is_post_generated(value: Any) -> bool:
-    return value.__class__.__name__ == "PostGenerated" and hasattr(value, "fn")
+    return _type_name(value) == "PostGenerated" and hasattr(value, "fn")
 
 
 def merge_override_maps(reports: Sequence[FactoryReport]) -> dict[str, dict[str, Any]]:

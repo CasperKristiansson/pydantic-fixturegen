@@ -18,7 +18,6 @@ from pydantic_fixturegen.core.providers import create_default_registry
 from pydantic_fixturegen.core.schema import FieldSummary, summarize_model_fields
 from pydantic_fixturegen.core.seed_freeze import canonical_module_name
 from pydantic_fixturegen.core.strategies import (
-    Strategy,
     StrategyBuilder,
     StrategyResult,
     UnionStrategy,
@@ -605,16 +604,15 @@ def _should_fail(report: CoverageReport, fail_on: str) -> bool:
                 report.has_unused_overrides(),
             )
         )
-    typer.secho(f"Unknown fail-on option: {fail_on}", err=True, fg=typer.colors.RED)
-    return True
+    else:
+        typer.secho(f"Unknown fail-on option: {fail_on}", err=True, fg=typer.colors.RED)
+        raise typer.BadParameter(f"Unknown fail-on option: {fail_on}")
 
 
 def _strategy_has_heuristic(strategy: StrategyResult) -> bool:
     if isinstance(strategy, UnionStrategy):
         return any(_strategy_has_heuristic(choice) for choice in strategy.choices)
-    if isinstance(strategy, Strategy):
-        return strategy.heuristic is not None
-    return False
+    return strategy.heuristic is not None
 
 
 def _model_identifier_keys(model_cls: type[Any]) -> tuple[str, ...]:

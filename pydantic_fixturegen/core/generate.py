@@ -12,7 +12,7 @@ import inspect
 import random
 from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field, is_dataclass
-from typing import Any, cast
+from typing import Any
 
 from faker import Faker
 from pydantic import BaseModel, TypeAdapter, ValidationError
@@ -491,7 +491,7 @@ class InstanceGenerator:
 
         report_model: type[Any] | None = None
         if isinstance(model_type, type):
-            report_model = cast(type[Any], model_type)
+            report_model = model_type
             self._constraint_reporter.begin_model(report_model)
 
         delegate = self._delegated_models.get(model_type)
@@ -943,8 +943,6 @@ class InstanceGenerator:
             strategy.p_none = policy_values["p_none"]
         if "enum_policy" in policy_values and policy_values["enum_policy"] is not None:
             strategy.enum_policy = policy_values["enum_policy"]
-        if "union_policy" in policy_values and policy_values["union_policy"] is not None:
-            strategy.union_policy = policy_values["union_policy"]
 
         min_override = policy_values.get("collection_min_items")
         max_override = policy_values.get("collection_max_items")
@@ -956,8 +954,6 @@ class InstanceGenerator:
             or distribution_override is not None
         ):
             base_config = strategy.collection_config or self.collection_config
-            if base_config is None:
-                base_config = CollectionConfig()
 
             min_items = base_config.min_items
             max_items = base_config.max_items
@@ -1602,9 +1598,6 @@ class InstanceGenerator:
         base_value: Any,
     ) -> int:
         config = strategy.collection_config or self.collection_config
-        if config is None:
-            length = self._collection_length_from_value(base_value)
-            return max(1, length)
         length = sample_collection_length(config, summary.constraints, self.random)
         return max(0, length)
 
