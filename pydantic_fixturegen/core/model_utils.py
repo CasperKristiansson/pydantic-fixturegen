@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Mapping
-from typing import Any, Callable, Literal, cast
-
 import typing as _typing
+from collections.abc import Callable, Mapping
+from typing import Any, Literal, cast
+
+from pydantic import BaseModel, TypeAdapter
 
 TypedDictChecker = Callable[[object], bool]
 _typing_is_typeddict_obj = getattr(_typing, "is_typeddict", None)
@@ -17,8 +18,6 @@ try:  # typing_extensions >= 4.5
     from typing_extensions import is_typeddict as _typing_extensions_is_typeddict
 except ImportError:  # pragma: no cover - optional dependency absent
     _typing_extensions_is_typeddict = None
-
-from pydantic import BaseModel, TypeAdapter
 
 _STRUCTURAL_TYPEDDICT_SENTINEL = "TypedDictMeta"
 
