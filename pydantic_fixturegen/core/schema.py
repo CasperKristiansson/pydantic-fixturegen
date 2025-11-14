@@ -11,7 +11,7 @@ import types
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Annotated, Any, Union, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, Literal, Union, get_args, get_origin, get_type_hints
 
 import annotated_types
 import pydantic
@@ -303,6 +303,9 @@ def _strip_optional(annotation: Any) -> tuple[Any, bool]:
 def _extract_enum_values(annotation: Any) -> list[Any] | None:
     if isinstance(annotation, type) and issubclass(annotation, enum.Enum):
         return [member.value for member in annotation]
+    origin = get_origin(annotation)
+    if origin is Literal:
+        return list(get_args(annotation))
     return None
 
 
@@ -343,6 +346,9 @@ def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None
         non_none = [arg for arg in args if arg is not type(None)]  # noqa: E721
         if len(non_none) == 1:
             return _infer_annotation_kind(non_none[0])
+
+    if origin is Literal:
+        return "enum", None, None
 
     if origin in {list, list[int]}:  # pragma: no cover - typing quirk
         origin = list

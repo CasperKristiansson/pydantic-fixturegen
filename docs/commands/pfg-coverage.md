@@ -52,7 +52,7 @@ Relation issues:
 
 ## Example (JSON + CI gating)
 ```bash
-pfg coverage ./app/models.py --format json --fail-on overrides > coverage.json
+pfg coverage ./app/models.py --format json --fail-on overrides --out coverage.json
 ```
 Abridged payload:
 ```json
@@ -105,3 +105,5 @@ Exit code is `2` whenever the requested `--fail-on` category contains entries, w
 ## Tips
 - The report respects your `pyproject.toml`/`pfg.yaml` configuration (overrides, provider defaults, relations, heuristic toggles), so keep it near your generation commands in automation.
 - Combine with `pfg doctor` for field-by-field remediation details; use the coverage JSON to feed dashboards or regression checks (`git diff coverage.json`).
+- Need different privacy controls on demand? Add `--profile pii-safe` (or any available profile) so the report mirrors the redaction/masking settings you intend to ship.
+- Prefer to avoid shell redirection? Use `--out coverage.json` with either text or JSON output and the CLI will write the report directly.

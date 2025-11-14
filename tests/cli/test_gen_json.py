@@ -690,6 +690,42 @@ def test_gen_json_collection_flags_forwarded(
     assert captured["collection_distribution"] == "max-heavy"
 
 
+def test_gen_json_relations_alias(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module_path = _write_module(tmp_path)
+    output = tmp_path / "relations.json"
+    captured: dict[str, Any] = {}
+
+    def fake_generate(**kwargs: Any) -> JsonGenerationResult:
+        captured.update(kwargs)
+        return JsonGenerationResult(
+            paths=(output,),
+            base_output=output,
+            model=None,
+            config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+            constraint_summary=None,
+            warnings=(),
+            delegated=False,
+        )
+
+    monkeypatch.setattr(json_mod, "generate_json_artifacts", fake_generate)
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "json",
+            str(module_path),
+            "--out",
+            str(output),
+            "--relations",
+            "models.Order.user_id=models.User.id",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stderr
+    assert captured["relations"] == {"models.Order.user_id": "models.User.id"}
+
+
 def test_gen_json_locale_forwarded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     module_path = _write_module(tmp_path)
     output = tmp_path / "locale.json"

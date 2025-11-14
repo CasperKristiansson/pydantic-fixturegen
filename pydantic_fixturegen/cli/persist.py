@@ -106,6 +106,24 @@ CYCLE_POLICY_OPTION = typer.Option(
     help="Cycle handling policy when recursion occurs (reuse, stub, null).",
 )
 
+FREEZE_SEEDS_OPTION = typer.Option(
+    False,
+    "--freeze-seeds",
+    help="Record per-model seeds inside the freeze file after persistence.",
+)
+
+FREEZE_FILE_OPTION = typer.Option(
+    None,
+    "--freeze-seeds-file",
+    help="Path to the seed freeze file (defaults to .pfg-seeds.json in the CWD).",
+)
+
+DRY_RUN_OPTION = typer.Option(
+    False,
+    "--dry-run",
+    help="Generate payloads but skip handler invocation (useful for smoke tests).",
+)
+
 
 def _parse_handler_config(raw: str | None) -> Mapping[str, Any] | None:
     if raw is None:
@@ -149,6 +167,9 @@ def persist(  # noqa: PLR0913 - CLI mirrors documented parameters
     json_errors: bool = cli_common.JSON_ERRORS_OPTION,
     locale: str | None = cli_common.LOCALE_OPTION,
     locale_map_entries: list[str] | None = cli_common.LOCALE_MAP_OPTION,
+    freeze_seeds: bool = FREEZE_SEEDS_OPTION,
+    freeze_seeds_file: Path | None = FREEZE_FILE_OPTION,
+    dry_run: bool = DRY_RUN_OPTION,
 ) -> None:
     logger = get_logger()
     handler_options = _parse_handler_config(handler_config)
@@ -193,6 +214,9 @@ def persist(  # noqa: PLR0913 - CLI mirrors documented parameters
             collection_distribution=collection_distribution,
             locale=locale,
             locale_overrides=locale_map or None,
+            freeze_seeds=freeze_seeds,
+            freeze_seeds_file=freeze_seeds_file,
+            dry_run=dry_run,
         )
     except PFGError as exc:
         cli_common.render_cli_error(exc, json_errors=json_errors)

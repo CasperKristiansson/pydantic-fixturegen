@@ -99,6 +99,42 @@ def test_snapshot_write_refreshes_artifact(tmp_path: Path) -> None:
     assert "Snapshots refreshed." in result.stdout
 
 
+def test_snapshot_update_alias(tmp_path: Path) -> None:
+    module = _write_module(tmp_path)
+    snapshot_path = tmp_path / "snapshots" / "users.json"
+    generate_json(
+        module,
+        out=snapshot_path,
+        include=["models.User"],
+        count=1,
+        indent=2,
+        seed=42,
+    )
+    snapshot_path.write_text("[]", encoding="utf-8")
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "snapshot",
+            "update",
+            str(module),
+            "--json-out",
+            str(snapshot_path),
+            "--include",
+            "models.User",
+            "--json-count",
+            "1",
+            "--json-indent",
+            "2",
+            "--seed",
+            "42",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert snapshot_path.read_text(encoding="utf-8") != "[]"
+
+
 def test_snapshot_cli_requires_artifact(tmp_path: Path) -> None:
     module = _write_module(tmp_path)
     result = runner.invoke(cli_app, ["snapshot", "verify", str(module)])

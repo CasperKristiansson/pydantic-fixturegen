@@ -61,6 +61,21 @@ def test_doctor_basic(tmp_path: Path) -> None:
     assert "Type coverage gaps: none" in result.stdout
 
 
+def test_doctor_json_output(tmp_path: Path) -> None:
+    module_path = _write_module(tmp_path)
+
+    result = runner.invoke(
+        cli_app,
+        ["doctor", "--json", str(module_path)],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["summary"]["total_models"] == 2
+    assert payload["summary"]["total_error_fields"] == 0
+    assert payload["models"][0]["coverage"]["total"] >= 2
+
+
 def test_doctor_reports_unknown_extra_type(tmp_path: Path) -> None:
     module_path = tmp_path / "extra_models.py"
     module_path.write_text(

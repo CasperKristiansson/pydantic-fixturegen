@@ -7,7 +7,7 @@
 ```bash
 pfg --verbose       # repeat -v to increase verbosity (info → debug)
 pfg --quiet         # repeat -q to reduce output (info → warning → error → silent)
-pfg --log-json      # emit structured JSON logs; combine with jq for CI parsing
+pfg --log-json ...  # prefix a specific command to emit structured logs; combine with jq for CI parsing
 ```
 
 You can append `-- --help` after any proxy command to view native Typer help because `pfg` forwards arguments to sub-apps.

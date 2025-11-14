@@ -3,9 +3,11 @@ from __future__ import annotations
 import datetime
 import itertools
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import orjson
+from pydantic import BaseModel
 from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
 from pydantic_fixturegen.emitters.json_out import emit_json_samples
 
@@ -44,6 +46,39 @@ def test_emit_jsonl_with_shards(tmp_path: Path) -> None:
 
     line_counts = [len(path.read_text(encoding="utf-8").splitlines()) for path in paths]
     assert line_counts == [2, 2, 1]
+
+
+def test_emit_json_serializes_temporal_types_without_orjson(tmp_path: Path) -> None:
+    class Payload(BaseModel):
+        created_at: datetime.datetime
+        due_date: datetime.date
+
+    item = Payload(
+        created_at=datetime.datetime(2024, 5, 1, 9, 30, tzinfo=datetime.timezone.utc),
+        due_date=datetime.date(2024, 5, 2),
+    )
+
+    @dataclass
+    class Wrapper:
+        payload: Payload
+        noted_at: datetime.datetime
+
+    wrapped = Wrapper(payload=item, noted_at=datetime.datetime(2024, 5, 1, 10, tzinfo=datetime.timezone.utc))
+    output = tmp_path / "temporal.json"
+
+    paths = emit_json_samples([wrapped], output_path=output, count=1, use_orjson=False)
+
+    assert paths == [output]
+    content = json.loads(output.read_text(encoding="utf-8"))
+    assert content[0]["payload"]["created_at"] in {
+        "2024-05-01T09:30:00+00:00",
+        "2024-05-01T09:30:00Z",
+    }
+    assert content[0]["payload"]["due_date"] == "2024-05-02"
+    assert content[0]["noted_at"] in {
+        "2024-05-01T10:00:00+00:00",
+        "2024-05-01T10:00:00Z",
+    }
 
 
 def test_emit_json_with_orjson(tmp_path: Path) -> None:

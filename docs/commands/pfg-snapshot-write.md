@@ -1,7 +1,7 @@
 # `pfg snapshot write`
 
 ## Capabilities
-`pfg snapshot write` regenerates artifacts and writes them back to disk, refreshing stored snapshots in place. It uses the same configuration as `pfg snapshot verify` but sets the update mode to `UPDATE`, so unchanged files remain untouched while drifted files are atomically rewritten.
+`pfg snapshot write` regenerates artifacts and writes them back to disk, refreshing stored snapshots in place. (`pfg snapshot update` is an exact alias for this command.) It uses the same configuration as `pfg snapshot verify` but sets the update mode to `UPDATE`, so unchanged files remain untouched while drifted files are atomically rewritten.
 
 ## Typical use cases
 - Refresh JSON/fixture/schema snapshots after intentional model changes.

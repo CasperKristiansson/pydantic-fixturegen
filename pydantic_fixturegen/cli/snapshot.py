@@ -209,6 +209,9 @@ def write_snapshots(  # noqa: PLR0913
     )
 
 
+app.command("update")(write_snapshots)
+
+
 def _run_snapshot_command(
     *,
     path: str,

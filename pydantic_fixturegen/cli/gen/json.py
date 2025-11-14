@@ -158,6 +158,7 @@ VALIDATOR_MAX_RETRIES_OPTION = typer.Option(
 LINK_OPTION = typer.Option(
     None,
     "--link",
+    "--relations",
     help="Declare relation link as source.field=target.field (repeatable).",
 )
 

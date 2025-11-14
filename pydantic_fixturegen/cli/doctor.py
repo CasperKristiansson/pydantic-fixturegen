@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -105,6 +106,11 @@ FAIL_ON_GAPS_OPTION = typer.Option(
     help="Exit with code 2 when uncovered fields exceed this number (errors only).",
 )
 
+JSON_OUTPUT_OPTION = typer.Option(
+    False,
+    "--json",
+    help="Emit structured JSON output instead of human-readable text.",
+)
 
 app = typer.Typer(invoke_without_command=True, subcommand_metavar="")
 
@@ -176,9 +182,11 @@ def doctor(  # noqa: D401 - Typer callback
     timeout: float = TIMEOUT_OPTION,
     memory_limit_mb: int = MEMORY_LIMIT_OPTION,
     json_errors: bool = JSON_ERRORS_OPTION,
+    json_output: bool = JSON_OUTPUT_OPTION,
     fail_on_gaps: int | None = FAIL_ON_GAPS_OPTION,
 ) -> None:
     _ = ctx  # unused
+    report_collection: list[ModelReport] | None = [] if json_output else None
     try:
         target_path, auto_include = _prepare_doctor_target(
             path_arg=path,
@@ -201,10 +209,16 @@ def doctor(  # noqa: D401 - Typer callback
             hybrid_mode=hybrid_mode,
             timeout=timeout,
             memory_limit_mb=memory_limit_mb,
+            render=not json_output,
+            collector=report_collection,
         )
     except PFGError as exc:
         render_cli_error(exc, json_errors=json_errors)
         return
+
+    if json_output and report_collection is not None:
+        payload = _doctor_json_payload(report_collection, gap_summary)
+        typer.echo(json.dumps(payload, indent=2))
 
     if fail_on_gaps is not None and gap_summary.total_error_fields > fail_on_gaps:
         raise typer.Exit(code=2)
@@ -338,6 +352,7 @@ def _execute_doctor(
     timeout: float,
     memory_limit_mb: int,
     render: bool = True,
+    collector: list[ModelReport] | None = None,
 ) -> GapSummary:
     reports, gap_summary = _run_doctor_analysis(
         target=target,
@@ -348,6 +363,8 @@ def _execute_doctor(
         timeout=timeout,
         memory_limit_mb=memory_limit_mb,
     )
+    if collector is not None:
+        collector.extend(reports)
     if render:
         _render_report(reports, gap_summary)
     return gap_summary
@@ -592,6 +609,74 @@ def _render_report(reports: list[ModelReport], gap_summary: GapSummary) -> None:
             typer.echo(f"      • {field_name}")
         typer.echo(f"    Remediation: {summary.remediation}")
     typer.echo("")
+
+
+def _doctor_json_payload(
+    reports: list[ModelReport],
+    gap_summary: GapSummary,
+) -> dict[str, Any]:
+    model_payloads = []
+    for report in reports:
+        covered, total = report.coverage
+        module = canonical_module_name(report.model)
+        field_payloads = [
+            {
+                "name": field.name,
+                "type": field.type_name,
+                "provider": field.provider,
+                "covered": field.covered,
+                "gaps": [
+                    {
+                        "type": gap.type_name,
+                        "reason": gap.reason,
+                        "remediation": gap.remediation,
+                        "severity": gap.severity,
+                    }
+                    for gap in field.gaps
+                ],
+            }
+            for field in report.fields
+        ]
+        gap_payloads = [
+            {
+                "field": gap.qualified_field,
+                "severity": gap.info.severity,
+                "type": gap.info.type_name,
+                "reason": gap.info.reason,
+                "remediation": gap.info.remediation,
+            }
+            for gap in report.gaps
+        ]
+        model_payloads.append(
+            {
+                "name": f"{module}.{report.model.__name__}",
+                "coverage": {
+                    "covered": covered,
+                    "total": total,
+                    "percent": (covered / total * 100) if total else 100.0,
+                },
+                "issues": report.issues,
+                "fields": field_payloads,
+                "gaps": gap_payloads,
+            }
+        )
+    summary_payload = {
+        "total_models": len(reports),
+        "total_error_fields": gap_summary.total_error_fields,
+        "total_warning_fields": gap_summary.total_warning_fields,
+        "type_gaps": [
+            {
+                "severity": entry.severity,
+                "type": entry.type_name,
+                "reason": entry.reason,
+                "remediation": entry.remediation,
+                "occurrences": entry.occurrences,
+                "fields": entry.fields,
+            }
+            for entry in gap_summary.summaries
+        ],
+    }
+    return {"models": model_payloads, "summary": summary_payload}
 
 
 __all__ = ["app", "get_plugin_manager", "ModelReport", "FieldReport", "_run_doctor_analysis"]

@@ -5,7 +5,7 @@
 ## Enable structured logging
 
 ```bash
-pfg gen json ./models.py --out ./out/users.json --log-json
+pfg --log-json gen json ./models.py --out ./out/users.json
 ```
 
 - Combine with `--verbose` (`-v`) to expose debug events or `--quiet` (`-q`) to restrict output.
@@ -43,7 +43,7 @@ pfg gen json ./models.py --out ./out/users.json --log-json
 Inspect logs by piping to `jq`:
 
 ```bash
-pfg gen fixtures ./models.py --out tests/fixtures/test_users.py --log-json | jq '.event'
+pfg --log-json gen fixtures ./models.py --out tests/fixtures/test_users.py | jq '.event'
 ```
 
 Use structured logs alongside [doctor diagnostics](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/doctor.md) and [presets](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/presets.md) to maintain observability across CI runs.

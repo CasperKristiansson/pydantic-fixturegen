@@ -84,6 +84,20 @@ FAIL_ON_OPTION = typer.Option(
     ),
 )
 
+PROFILE_OPTION = typer.Option(
+    None,
+    "--profile",
+    help="Apply a privacy profile (e.g., 'pii-safe').",
+)
+
+OUT_OPTION = typer.Option(
+    None,
+    "--out",
+    "-o",
+    help="Write the report to this file instead of stdout.",
+    show_default=False,
+)
+
 
 app = typer.Typer(help="Model coverage dashboards (heuristics, overrides, relations)")
 
@@ -225,6 +239,8 @@ def report(  # noqa: D401 - CLI entrypoint
     memory_limit_mb: int = MEMORY_LIMIT_OPTION,
     output_format: str = FORMAT_OPTION,
     fail_on: str = FAIL_ON_OPTION,
+    profile: str | None = PROFILE_OPTION,
+    output_path: Path | None = OUT_OPTION,
 ) -> None:
     try:
         report = _generate_coverage_report(
@@ -235,6 +251,7 @@ def report(  # noqa: D401 - CLI entrypoint
             hybrid_mode=hybrid_mode,
             timeout=timeout,
             memory_limit_mb=memory_limit_mb,
+            profile=profile,
         )
     except PFGError as exc:
         render_cli_error(exc, json_errors=output_format.lower() == "json")
@@ -246,9 +263,14 @@ def report(  # noqa: D401 - CLI entrypoint
         raise typer.Exit(code=2)
 
     if fmt == "json":
-        typer.echo(json.dumps(report.to_payload(), indent=2))
+        rendered = json.dumps(report.to_payload(), indent=2)
     else:
-        _render_text_report(report)
+        rendered = _render_text_report(report)
+
+    if output_path is not None:
+        _write_output(output_path, rendered)
+    else:
+        typer.echo(rendered)
 
     if _should_fail(report, fail_on.lower()):
         raise typer.Exit(code=2)
@@ -263,6 +285,7 @@ def _generate_coverage_report(
     hybrid_mode: bool,
     timeout: float,
     memory_limit_mb: int,
+    profile: str | None,
 ) -> CoverageReport:
     if target is None:
         raise DiscoveryError("Provide a module path to analyse.")
@@ -298,7 +321,13 @@ def _generate_coverage_report(
             relation_issues=[],
         )
 
-    app_config = load_config(root=Path.cwd())
+    cli_overrides: dict[str, Any] = {}
+    if profile:
+        cli_overrides["profile"] = profile
+    app_config = load_config(
+        root=Path.cwd(),
+        cli=cli_overrides if cli_overrides else None,
+    )
 
     registry = create_default_registry(load_plugins=True)
     builder = StrategyBuilder(
@@ -490,66 +519,73 @@ def _validate_relations(
     return issues
 
 
-def _render_text_report(report: CoverageReport) -> None:
-    if not report.models:
-        typer.echo("No models discovered.")
-        return
-
+def _render_text_report(report: CoverageReport) -> str:
+    lines: list[str] = []
     for model in report.models:
-        typer.echo(f"Model: {model.display_name}")
-        coverage_percent = model.coverage_percent()
-        typer.echo(
+        lines.append(f"Model: {model.display_name}")
+        lines.append(
             "  Coverage: "
-            f"{model.covered_fields}/{model.total_fields} fields ("
-            f"{coverage_percent:.0f}%)"
+            f"{model.covered_fields}/{model.total_fields} fields "
+            f"({model.coverage_percent():.0f}%)"
         )
         if model.provider_counts:
-            typer.echo("  Providers:")
+            lines.append("  Providers:")
             for provider, count in sorted(
                 model.provider_counts.items(), key=lambda item: (-item[1], item[0])
             ):
-                typer.echo(f"    - {provider}: {count}")
-        _render_list("  Heuristic fields", model.heuristic_fields)
-        _render_list("  Override matches", model.override_fields)
-        _render_list("  Uncovered fields", model.uncovered_fields)
-        typer.echo("")
+                lines.append(f"    - {provider}: {count}")
+        lines.append(_format_list("  Heuristic fields", model.heuristic_fields))
+        lines.append(_format_list("  Override matches", model.override_fields))
+        lines.append(_format_list("  Uncovered fields", model.uncovered_fields))
+        lines.append("")
 
-    typer.echo("Summary:")
-    typer.echo(f"  Models: {report.totals.total_models}")
-    typer.echo(
+    lines.append("Summary:")
+    lines.append(f"  Models: {report.totals.total_models}")
+    lines.append(
         f"  Fields: {report.totals.total_fields} (covered={report.totals.covered_fields},"
         f" {report.totals.coverage_percent():.0f}% deterministic)"
     )
-    typer.echo(f"  Heuristic fields: {report.totals.heuristic_fields}")
-    typer.echo(f"  Override matches: {report.totals.override_matches}")
-    typer.echo(f"  Uncovered fields: {report.totals.uncovered_fields}")
-    typer.echo(f"  Unused overrides: {len(report.unused_overrides)}")
-    typer.echo(f"  Relation issues: {len(report.relation_issues)}")
+    lines.append(f"  Heuristic fields: {report.totals.heuristic_fields}")
+    lines.append(f"  Override matches: {report.totals.override_matches}")
+    lines.append(f"  Uncovered fields: {report.totals.uncovered_fields}")
+    lines.append(f"  Unused overrides: {len(report.unused_overrides)}")
+    lines.append(f"  Relation issues: {len(report.relation_issues)}")
 
     if report.heuristic_details:
-        typer.echo("\nHeuristic-only fields:")
+        lines.append("")
+        lines.append("Heuristic-only fields:")
         for detail in report.heuristic_details:
             provider = detail.get("provider") or "<unassigned>"
-            typer.echo(f"  - {detail['model']}.{detail['field']} (provider={provider})")
+            lines.append(f"  - {detail['model']}.{detail['field']} (provider={provider})")
 
     if report.unused_overrides:
-        typer.echo("\nUnused overrides:")
+        lines.append("")
+        lines.append("Unused overrides:")
         for entry in report.unused_overrides:
-            typer.echo(
+            lines.append(
                 f"  - model={entry['model_pattern']} field={entry['field_pattern']} (no matches)"
             )
 
     if report.relation_issues:
-        typer.echo("\nRelation issues:")
+        lines.append("")
+        lines.append("Relation issues:")
         for issue in report.relation_issues:
-            typer.echo(f"  - {issue['relation']} -> {issue['target']}: {issue['reason']}")
+            lines.append(f"  - {issue['relation']} -> {issue['target']}: {issue['reason']}")
+
+    return "\n".join(lines).rstrip()
 
 
-def _render_list(label: str, values: list[str]) -> None:
+def _format_list(label: str, values: list[str]) -> str:
     if values:
-        typer.echo(f"{label}: {', '.join(sorted(values))}")
-    else:
-        typer.echo(f"{label}: none")
+        return f"{label}: {', '.join(sorted(values))}"
+    return f"{label}: none"
+
+
+def _write_output(path: Path, content: str) -> None:
+    destination = Path(path).expanduser()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    payload = content if content.endswith("\n") else f"{content}\n"
+    destination.write_text(payload, encoding="utf-8")
 
 
 def _should_fail(report: CoverageReport, fail_on: str) -> bool:

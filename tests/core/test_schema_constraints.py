@@ -4,7 +4,7 @@ import datetime
 import uuid
 from collections.abc import Callable
 from decimal import Decimal
-from typing import Annotated, Any, cast
+from typing import Annotated, Any, Literal, cast
 
 import annotated_types
 import email_validator  # noqa: F401
@@ -255,3 +255,13 @@ def test_summarize_field_for_nested_model() -> None:
 
     summary = schema_module.summarize_model_fields(Parent)
     assert summary["child"].type == "model"
+
+
+def test_summarize_field_for_literal_enum() -> None:
+    class LiteralModel(BaseModel):
+        status: Literal["a", "b", "c"]
+
+    summary = schema_module.summarize_model_fields(LiteralModel)
+    field = summary["status"]
+    assert field.type == "enum"
+    assert field.enum_values == ["a", "b", "c"]

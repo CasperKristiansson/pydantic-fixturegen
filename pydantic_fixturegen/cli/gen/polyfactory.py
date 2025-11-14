@@ -8,6 +8,14 @@ from pathlib import Path
 import typer
 
 from pydantic_fixturegen.core.errors import DiscoveryError, PFGError
+from pydantic_fixturegen.core.seed_freeze import (
+    FreezeStatus,
+    SeedFreezeFile,
+    compute_model_digest,
+    derive_default_model_seed,
+    model_identifier,
+    resolve_freeze_path,
+)
 from pydantic_fixturegen.logging import get_logger
 
 from ..watch import gather_default_watch_paths, run_with_watch
@@ -50,6 +58,18 @@ SEED_OPTION = typer.Option(
     None,
     "--seed",
     help="Seed embedded into the GenerationConfig template.",
+)
+
+FREEZE_SEEDS_OPTION = typer.Option(
+    False,
+    "--freeze-seeds",
+    help="Record per-model seeds into the freeze file after discovery (mirrors gen commands).",
+)
+
+FREEZE_FILE_OPTION = typer.Option(
+    None,
+    "--freeze-seeds-file",
+    help="Seed freeze file path (defaults to .pfg-seeds.json in the current directory).",
 )
 
 MAX_DEPTH_OPTION = typer.Option(
@@ -97,6 +117,8 @@ def register(app: typer.Typer) -> None:
         max_depth: int | None = MAX_DEPTH_OPTION,
         cycle_policy: str | None = CYCLE_POLICY_OPTION,
         rng_mode: str | None = RNG_MODE_OPTION,
+        freeze_seeds: bool = FREEZE_SEEDS_OPTION,
+        freeze_seeds_file: Path | None = FREEZE_FILE_OPTION,
         watch: bool = WATCH_OPTION,
         watch_debounce: float = WATCH_DEBOUNCE_OPTION,
         json_errors: bool = JSON_ERRORS_OPTION,
@@ -136,6 +158,8 @@ def register(app: typer.Typer) -> None:
                     max_depth=max_depth,
                     cycle_policy=cycle_policy,
                     rng_mode=rng_mode,
+                    freeze_seeds=freeze_seeds,
+                    freeze_seeds_file=freeze_seeds_file,
                 )
             except PFGError as exc:
                 render_cli_error(exc, json_errors=json_errors)
@@ -168,6 +192,8 @@ def _build_module_source(
     max_depth: int | None,
     cycle_policy: str | None,
     rng_mode: str | None,
+    freeze_seeds: bool,
+    freeze_seeds_file: Path | None,
 ) -> str:
     cli_common.clear_module_cache()
     discovery = cli_common.discover_models(
@@ -181,13 +207,38 @@ def _build_module_source(
     if not discovery.models:
         raise DiscoveryError("No models discovered.")
 
+    freeze_manager: SeedFreezeFile | None = None
+    if freeze_seeds:
+        freeze_path = resolve_freeze_path(freeze_seeds_file, root=Path.cwd())
+        freeze_manager = SeedFreezeFile.load(freeze_path)
+
     modules: dict[str, set[str]] = {}
+    model_lookup: dict[str, type[Any]] = {}
     for model in discovery.models:
         modules.setdefault(model.module, set()).add(model.name)
+        try:
+            model_lookup[model.qualname] = cli_common.load_model_class(model)
+        except RuntimeError as exc:
+            raise DiscoveryError(str(exc)) from exc
+
+    embedded_seed = seed
+    if freeze_manager is not None and discovery.models:
+        first = discovery.models[0]
+        model_cls = model_lookup[first.qualname]
+        identifier = model_identifier(model_cls)
+        digest = compute_model_digest(model_cls)
+        stored_seed, status = freeze_manager.resolve_seed(identifier, model_digest=digest)
+        if stored_seed is not None and status is FreezeStatus.VALID:
+            embedded_seed = stored_seed
+        else:
+            derived = derive_default_model_seed(seed, identifier)
+            embedded_seed = derived
+            freeze_manager.record_seed(identifier, derived, model_digest=digest)
+        freeze_manager.save()
 
     config_lines: list[str] = []
-    if seed is not None:
-        config_lines.append(f"    seed={seed},")
+    if embedded_seed is not None:
+        config_lines.append(f"    seed={embedded_seed},")
     if max_depth is not None:
         config_lines.append(f"    max_depth={max_depth},")
     if cycle_policy is not None:

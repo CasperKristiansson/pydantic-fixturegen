@@ -13,7 +13,7 @@ Persist generated payloads (Pydantic v2 models, stdlib dataclasses, or TypedDict
 - Built-in shortcuts:
   - `http-post`: synchronous HTTP POST/PUT with JSON batches (options: `url`, `method`, `headers`, `timeout`, `envelope`).
   - `http-post-async`: async wrapper around the HTTP handler, useful inside async-aware plugins.
-  - `sqlite-json`: writes payloads as JSON rows inside a SQLite table (options: `database`, `table`, `ensure_table`, `journal_mode`).
+  - `sqlite-json`: writes payloads as JSON rows inside a SQLite table (options: `database`, `table`, `ensure_table`, `journal_mode`). Use `"database": "/path/to/persist.db"` in `--handler-config` or `[options]` blocks rather than `path`.
 - Add named aliases via `[tool.pydantic_fixturegen.persistence.handlers.<name>]` and reference them with `--handler <name>`.
 - Provide ad-hoc dotted paths (e.g. `myapp.handlers:KafkaHandler`) or entry-point plugins that implement `pfg_register_persistence_handlers`.
 
@@ -26,6 +26,8 @@ Persist generated payloads (Pydantic v2 models, stdlib dataclasses, or TypedDict
 - `--max-retries`: number of retry attempts per batch (default 2).
 - `--retry-wait`: seconds to wait between retry attempts (default 0.5).
 - Generation flags reused from `pfg gen json`: `--include/--exclude`, `--seed`, `--preset`, `--profile`, `--field-hints`, `--link`, `--with-related`, `--override`, `--respect-validators`, `--validator-max-retries`, `--max-depth`, `--on-cycle`, `--rng-mode`, `--now`.
+- Deterministic options: `--freeze-seeds` (and optional `--freeze-seeds-file`) record the per-model seed into the shared `.pfg-seeds.json` so future runs stay aligned with other emitters.
+- `--dry-run`: generate payloads and walk the batching logic without invoking the target handler—handy for smoke tests or CI health checks.
 - Locale overrides: `--locale` changes the Faker locale for the entire run, while `--locale-map pattern=locale` remaps matching models/fields so downstream handlers can ingest internationalized payloads without editing config files.
 - Collection knobs: `--collection-min-items`, `--collection-max-items`, and `--collection-distribution` bias list/set/tuple/mapping sizes before handler code sees batches.
 - `--json-errors`: emit structured JSON diagnostics on failure.
@@ -82,6 +84,12 @@ pfg persist ./models.py \
   --handler mypkg.handlers:KafkaPublisher \
   --handler-config '{"brokers": "localhost:9092", "topic": "orders"}' \
   --seed 7 --preset boundary
+
+# Dry-run generation without invoking the handler
+pfg persist ./models.py \
+  --handler http-post \
+  --handler-config '{"url": "https://api.example.com/sink"}' \
+  --include app.models.User --n 25 --dry-run --freeze-seeds
 ```
 
 Python API equivalent:

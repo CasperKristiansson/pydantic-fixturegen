@@ -18,6 +18,7 @@
 - `--stdout`: stream module to stdout.
 - `--include/-i`, `--exclude/-e`: select models.
 - `--seed`: embed a deterministic seed in the exported `GenerationConfig`.
+- `--freeze-seeds`, `--freeze-seeds-file`: reuse and update the shared `.pfg-seeds.json` so repeated exports stay aligned with other generators.
 - `--max-depth`, `--on-cycle`, `--rng-mode`: control recursion/cycle policies baked into the generator.
 - `--watch`, `--watch-debounce`: regenerate module on changes.
 - `--json-errors`: structured errors for discovery problems.

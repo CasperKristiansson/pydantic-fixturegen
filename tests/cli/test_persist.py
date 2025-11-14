@@ -200,3 +200,46 @@ def test_persist_locale_map_forwarded(
 
     assert result.exit_code == 0
     assert captured["locale_overrides"] == {"*.User": "sv_SE", "Address.*": "en_GB"}
+
+
+def test_persist_freeze_and_dry_run_forwarded(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module_path = _write_module(tmp_path)
+    captured: dict[str, Any] = {}
+
+    def fake_persist(**kwargs: Any) -> PersistenceRunResult:
+        captured.update(kwargs)
+        return PersistenceRunResult(
+            handler="dry-run",
+            batches=0,
+            records=0,
+            retries=0,
+            duration=0.0,
+            model=type("Model", (), {}),
+            config=ConfigSnapshot(seed=None, include=(), exclude=(), time_anchor=None),
+            warnings=(),
+        )
+
+    monkeypatch.setattr("pydantic_fixturegen.cli.persist.persist_samples", fake_persist)
+    freeze_file = tmp_path / "custom.json"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "persist",
+            str(module_path),
+            "--handler",
+            "tests.persistence_helpers:SyncCaptureHandler",
+            "--freeze-seeds",
+            "--freeze-seeds-file",
+            str(freeze_file),
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["freeze_seeds"] is True
+    assert Path(captured["freeze_seeds_file"]) == freeze_file
+    assert captured["dry_run"] is True

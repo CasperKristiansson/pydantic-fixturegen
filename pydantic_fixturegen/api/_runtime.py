@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import datetime as _dt
 import hashlib
+import math
 import warnings as _warnings
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
@@ -1051,6 +1052,9 @@ def persist_samples(
     collection_distribution: str | None = None,
     locale: str | None = None,
     locale_overrides: Mapping[str, str] | None = None,
+    freeze_seeds: bool = False,
+    freeze_seeds_file: Path | None = None,
+    dry_run: bool = False,
 ) -> PersistenceRunResult:
     logger = get_logger()
     plan = _build_model_artifact_plan(
@@ -1060,8 +1064,8 @@ def persist_samples(
         exclude=_resolve_patterns(exclude),
         seed=seed,
         now=now,
-        freeze_seeds=False,
-        freeze_seeds_file=None,
+        freeze_seeds=freeze_seeds,
+        freeze_seeds_file=freeze_seeds_file,
         preset=preset,
         profile=profile,
         respect_validators=respect_validators,
@@ -1081,6 +1085,28 @@ def persist_samples(
         locale=locale,
         locale_overrides=locale_overrides,
     )
+
+    if dry_run:
+        logger.info(
+            "Dry run enabled; skipping handler execution",
+            event="persistence_dry_run",
+            handler=handler,
+            count=count,
+        )
+        for _ in range(count):
+            plan.sample_factory()
+        _record_plan_seed(plan)
+        batches = math.ceil(count / batch_size) if count else 0
+        return PersistenceRunResult(
+            handler="dry-run",
+            batches=batches,
+            records=count,
+            retries=0,
+            duration=0.0,
+            model=plan.model_cls,
+            config=plan.config_snapshot,
+            warnings=plan.warnings,
+        )
 
     registry = PersistenceRegistry()
     registry.load_entrypoint_plugins()
@@ -1120,6 +1146,7 @@ def persist_samples(
         options=effective_options,
     )
     stats = runner.run()
+    _record_plan_seed(plan)
 
     return PersistenceRunResult(
         handler=stats.handler_name,
@@ -1131,6 +1158,17 @@ def persist_samples(
         config=plan.config_snapshot,
         warnings=plan.warnings,
     )
+
+
+def _record_plan_seed(plan: ModelArtifactPlan) -> None:
+    if plan.freeze_manager is None or plan.selected_seed is None:
+        return
+    plan.freeze_manager.record_seed(
+        plan.model_id,
+        plan.selected_seed,
+        model_digest=plan.model_digest,
+    )
+    plan.freeze_manager.save()
 
 
 def _generate_type_adapter_json(

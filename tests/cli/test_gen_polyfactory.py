@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 import importlib
+import json
 import sys
 import warnings
 from pathlib import Path
@@ -237,6 +238,39 @@ def test_gen_polyfactory_watch_mode_invokes_runner(monkeypatch, tmp_path: Path) 
     assert calls["paths"] == ["models.py"]
 
 
+def test_gen_polyfactory_freeze_seeds(tmp_path: Path) -> None:
+    if polyfactory is None:
+        pytest.skip("polyfactory unavailable")
+    if POLYFACTORY_MODEL_FACTORY is None:
+        pytest.skip(POLYFACTORY_UNAVAILABLE_REASON or "polyfactory unavailable")
+
+    module_path = tmp_path / "models.py"
+    module_path.write_text(
+        "from pydantic import BaseModel\nclass User(BaseModel):\n    name: str\n",
+        encoding="utf-8",
+    )
+    freeze_file = tmp_path / "freeze.json"
+    output_path = tmp_path / "factories.py"
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "polyfactory",
+            str(module_path),
+            "--out",
+            str(output_path),
+            "--freeze-seeds",
+            "--freeze-seeds-file",
+            str(freeze_file),
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    payload = json.loads(freeze_file.read_text(encoding="utf-8"))
+    assert payload["models"]
+
+
 def test_build_module_source_propagates_discovery_errors(monkeypatch, tmp_path: Path) -> None:
     module_path = tmp_path / "models.py"
     module_path.write_text("# empty module\n")
@@ -256,18 +290,28 @@ def test_build_module_source_propagates_discovery_errors(monkeypatch, tmp_path: 
             max_depth=None,
             cycle_policy=None,
             rng_mode=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
         )
 
 
 def test_build_module_source_includes_config_options(monkeypatch, tmp_path: Path) -> None:
     module_path = tmp_path / "models.py"
     module_path.write_text("# empty module\n")
+    pkg_dir = tmp_path / "pkg"
+    pkg_dir.mkdir()
+    (pkg_dir / "__init__.py").write_text("", encoding="utf-8")
+    locator = pkg_dir / "models.py"
+    locator.write_text(
+        "from pydantic import BaseModel\nclass Sample(BaseModel):\n    name: str\n",
+        encoding="utf-8",
+    )
     models = [
         IntrospectedModel(
             module="pkg.models",
             name="Sample",
             qualname="pkg.models.Sample",
-            locator="pkg/models.py",
+            locator=str(locator),
             lineno=1,
             discovery="import",
             is_public=True,
@@ -288,6 +332,8 @@ def test_build_module_source_includes_config_options(monkeypatch, tmp_path: Path
         max_depth=3,
         cycle_policy="stub",
         rng_mode="legacy",
+        freeze_seeds=False,
+        freeze_seeds_file=None,
     )
 
     assert "seed=5" in source
@@ -316,4 +362,6 @@ def test_build_module_source_requires_models(monkeypatch, tmp_path: Path) -> Non
             max_depth=None,
             cycle_policy=None,
             rng_mode=None,
+            freeze_seeds=False,
+            freeze_seeds_file=None,
         )

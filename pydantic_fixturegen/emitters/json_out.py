@@ -12,6 +12,7 @@ from types import ModuleType
 from typing import Any, cast
 
 from pydantic import BaseModel
+from pydantic_core import to_jsonable_python
 
 from pydantic_fixturegen.core.cycle_report import consume_cycle_events
 from pydantic_fixturegen.core.path_template import OutputTemplate, OutputTemplateContext
@@ -401,13 +402,14 @@ class _JsonEncoder:
 
     def encode(self, obj: Any) -> str:
         normalized = _normalise_record(obj)
+        json_ready = _to_json_ready(normalized)
         if self.use_orjson:
             assert orjson is not None  # for type checkers
             options = self._options if self._options is not None else 0
-            bytes_payload = orjson.dumps(normalized, option=options)
+            bytes_payload = orjson.dumps(json_ready, option=options)
             return cast(bytes, bytes_payload).decode("utf-8")
         return json.dumps(
-            normalized,
+            json_ready,
             ensure_ascii=self.ensure_ascii,
             indent=self.indent,
             sort_keys=True,
@@ -423,6 +425,22 @@ def _orjson_options(indent: int | None) -> int:
             raise ValueError("orjson only supports indent=2.")
         options |= cast(int, orjson.OPT_INDENT_2)
     return options
+
+
+def _to_json_ready(value: Any) -> Any:
+    return to_jsonable_python(
+        value,
+        by_alias=True,
+        serialize_unknown=True,
+        fallback=_json_fallback,
+    )
+
+
+def _json_fallback(value: Any) -> Any:
+    try:
+        return str(value)
+    except Exception:  # pragma: no cover - defensive
+        return repr(value)
 
 
 def os_cpu_count() -> int | None:
