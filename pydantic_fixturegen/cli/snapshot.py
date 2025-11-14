@@ -277,7 +277,7 @@ def _run_snapshot_command(
         typer.secho(str(exc), fg=typer.colors.RED)
         raise typer.Exit(code=1) from exc
     except PFGError as exc:
-        render_cli_error(exc, json_errors=False)
+        render_cli_error(exc, json_errors=False, exit_app=False)
         raise typer.Exit(code=1) from exc
 
     _echo_result(result, success_message, update_mode)
