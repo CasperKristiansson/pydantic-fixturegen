@@ -101,6 +101,53 @@ def test_resolve_target_errors_for_missing_attribute() -> None:
         registry_mod._resolve_target("tests.persistence_helpers:Missing")
 
 
+def test_resolve_target_requires_path() -> None:
+    with pytest.raises(ValueError):
+        registry_mod._resolve_target("")
+
+
+def test_resolve_target_supports_dot_paths() -> None:
+    target = registry_mod._resolve_target("tests.persistence.test_registry._ConfigurableHandler")
+    assert target.__name__ == _ConfigurableHandler.__name__
+
+
+def test_registry_create_unknown_handler() -> None:
+    registry = PersistenceRegistry()
+    with pytest.raises(KeyError):
+        registry.create("missing")
+
+
+def test_registry_register_plugin_invokes_hooks(monkeypatch: pytest.MonkeyPatch) -> None:
+    registry = PersistenceRegistry()
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        registry_mod,
+        "register_plugin",
+        lambda plugin: calls.append({"plugin": plugin}),
+    )
+    registry._plugin_manager = SimpleNamespace(
+        hook=SimpleNamespace(
+            pfg_register_persistence_handlers=lambda **kwargs: calls.append(kwargs)
+        )
+    )
+    registry.register_plugin("demo")
+    assert any(call.get("plugin") == "demo" for call in calls)
+    assert any(call.get("registry") is registry for call in calls if "registry" in call)
+
+
+def test_registry_load_entrypoint_plugins_invokes_hook(monkeypatch: pytest.MonkeyPatch) -> None:
+    registry = PersistenceRegistry()
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(registry_mod, "load_entrypoint_plugins", lambda group, force: [object()])
+    registry._plugin_manager = SimpleNamespace(
+        hook=SimpleNamespace(
+            pfg_register_persistence_handlers=lambda **kwargs: calls.append(kwargs)
+        )
+    )
+    registry.load_entrypoint_plugins(force=True)
+    assert calls and calls[0]["registry"] is registry
+
+
 def test_detect_handler_kind_distinguishes_async() -> None:
     class AsyncHandler:
         async def persist_batch(self, batch):  # noqa: ANN001

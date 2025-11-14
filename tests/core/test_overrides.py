@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import random
-from types import MappingProxyType
 
 import pytest
 from faker import Faker
 from pydantic_fixturegen.core import overrides as overrides_mod
-from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
 
 
 def sample_factory(context: overrides_mod.FieldOverrideContext, prefix: str) -> str:
@@ -15,6 +13,9 @@ def sample_factory(context: overrides_mod.FieldOverrideContext, prefix: str) -> 
 
 def sample_post(value: str, context: overrides_mod.FieldOverrideContext, suffix: str) -> str:
     return f"{value}-{suffix}"
+
+
+NON_CALLABLE = "static"
 
 
 def _context() -> overrides_mod.FieldOverrideContext:
@@ -51,12 +52,19 @@ def test_field_override_missing_value_errors() -> None:
         override.resolve_value(_context())
 
 
+def test_field_override_apply_post_noop() -> None:
+    override = overrides_mod.FieldOverride(value="data")
+    context = _context()
+    assert override.apply_post(override.resolve_value(context), context) == "data"
+
+
 def test_pattern_matching_prefers_specificity() -> None:
     exact = overrides_mod._Pattern("models.User", 0)
     regex = overrides_mod._Pattern("re:.*", 1)
     assert exact.matches("models.User")
     assert not exact.matches("models.Account")
     assert regex.matches("anything")
+    assert not exact.matches(None)
     with pytest.raises(overrides_mod.ConfigError):
         overrides_mod._Pattern("", 0)
 
@@ -99,11 +107,22 @@ def test_build_field_override_set_validates_inputs() -> None:
     )
     assert override.provider == "string"
 
+    with pytest.raises(overrides_mod.ConfigError):
+        overrides_mod.build_field_override_set({"models.User": 123})
+    with pytest.raises(overrides_mod.ConfigError):
+        overrides_mod._build_field_override(
+            "models.User",
+            "field",
+            {"ignore": True, "value": 1},
+        )
+
 
 def test_coercion_helpers() -> None:
     assert overrides_mod._ensure_mapping({"key": "value"}, "label")["key"] == "value"
     with pytest.raises(overrides_mod.ConfigError):
         overrides_mod._ensure_mapping({1: "value"}, "label")
+    with pytest.raises(overrides_mod.ConfigError):
+        overrides_mod._ensure_mapping([], "label")
 
     assert overrides_mod._coerce_tuple([1, 2], "label") == (1, 2)
     with pytest.raises(overrides_mod.ConfigError):
@@ -111,6 +130,8 @@ def test_coercion_helpers() -> None:
 
     assert overrides_mod._coerce_optional_str(" data ", label="value") == "data"
     assert overrides_mod._coerce_optional_str(None, label="value") is None
+    with pytest.raises(overrides_mod.ConfigError):
+        overrides_mod._coerce_optional_str(123, label="value")
 
     assert overrides_mod._coerce_optional_float("0.25") == 0.25
     with pytest.raises(overrides_mod.ConfigError):
@@ -124,6 +145,7 @@ def test_coercion_helpers() -> None:
 
     assert overrides_mod._coerce_bool("yes")
     assert not overrides_mod._coerce_bool("no")
+    assert not overrides_mod._coerce_bool(None)
     with pytest.raises(overrides_mod.ConfigError):
         overrides_mod._coerce_bool("unknown")
 
@@ -133,10 +155,15 @@ def test_load_callable_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
     context = _context()
     assert func(context, "prefix") == "prefix:name"
 
+    dotted = overrides_mod._load_callable("tests.core.test_overrides.sample_post")
+    assert dotted("value", context, "sfx") == "value-sfx"
+
     with pytest.raises(overrides_mod.ConfigError):
         overrides_mod._load_callable("")
     with pytest.raises(overrides_mod.ConfigError):
         overrides_mod._load_callable("tests.core.test_overrides:missing")
+    with pytest.raises(overrides_mod.ConfigError):
+        overrides_mod._load_callable("tests.core.test_overrides:NON_CALLABLE")
 
 
 def test_field_override_affects_strategy_flag() -> None:
@@ -151,3 +178,21 @@ def test_override_set_describe_returns_detached_data() -> None:
     descriptors = override_set.describe()
     assert descriptors[0].model_pattern == "models.User"
     assert descriptors[0].field_pattern == "name"
+
+
+def test_model_entry_and_field_resolution_gaps() -> None:
+    override = overrides_mod.FieldOverride(value="data")
+    entry = overrides_mod._ModelEntry(
+        matcher=overrides_mod._Pattern("models.User", 0),
+        fields=(
+            overrides_mod._FieldEntry(
+                matcher=overrides_mod._Pattern("name", 0),
+                override=override,
+            ),
+        ),
+    )
+    assert entry.resolve(("models.User",), "name", None) is not None
+    assert entry.resolve(("models.Account",), "name", None) is None
+
+    override_set = overrides_mod.FieldOverrideSet((entry,))
+    assert override_set.resolve(model_keys=("models.Account",), field_name="name") is None

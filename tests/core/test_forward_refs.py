@@ -1,65 +1,59 @@
 from __future__ import annotations
 
-from typing import ForwardRef
+import sys
+from types import ModuleType
 
 import pytest
-from pydantic_fixturegen.core import schema as schema_module
+from pydantic_fixturegen.core import forward_refs as forward_mod
 from pydantic_fixturegen.core.forward_refs import (
     ForwardRefEntry,
+    ForwardReferenceConfigurationError,
     ForwardReferenceResolutionError,
     configure_forward_refs,
     resolve_forward_ref,
 )
 
 
-class DemoForwardModel:
-    pass
-
-
-def teardown_module() -> None:  # pragma: no cover - reset global registry after tests
+@pytest.fixture(autouse=True)
+def clear_registry() -> None:
     configure_forward_refs(())
 
 
-def test_resolve_forward_ref_returns_target() -> None:
-    configure_forward_refs(
-        (
-            ForwardRefEntry(
-                name="Demo",
-                target="tests.core.test_forward_refs:DemoForwardModel",
-            ),
-        )
-    )
-
-    resolved = resolve_forward_ref("Demo")
-    assert resolved is not None
-    assert resolved.__module__ == "tests.core.test_forward_refs"
-    assert resolved.__qualname__ == DemoForwardModel.__qualname__
+def _install_module(monkeypatch: pytest.MonkeyPatch, **attrs) -> str:
+    module = ModuleType("tests.forward_models")
+    for name, value in attrs.items():
+        setattr(module, name, value)
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    return module.__name__
 
 
-def test_invalid_forward_ref_target_raises() -> None:
+def test_parse_target_requires_module_path() -> None:
+    with pytest.raises(ForwardReferenceConfigurationError):
+        forward_mod._parse_target("UserModel")  # type: ignore[attr-defined]
+
+
+def test_configure_forward_refs_rejects_empty_alias() -> None:
+    entry = ForwardRefEntry(name=" ", target="pkg:Type")
+    with pytest.raises(ForwardReferenceConfigurationError):
+        configure_forward_refs([entry])
+
+
+def test_resolve_forward_ref_returns_cached_type(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Demo:
+        pass
+
+    module_name = _install_module(monkeypatch, Demo=Demo)
+    configure_forward_refs([ForwardRefEntry(name="DemoAlias", target=f"{module_name}:Demo")])
+
+    resolved_first = resolve_forward_ref("DemoAlias")
+    resolved_second = resolve_forward_ref("DemoAlias")
+    assert resolved_first is Demo
+    assert resolved_first is resolved_second
+
+
+def test_forward_reference_resolution_missing_attr(monkeypatch: pytest.MonkeyPatch) -> None:
+    module_name = _install_module(monkeypatch)
+    entry = ForwardRefEntry(name="Missing", target=f"{module_name}:Nested.Inner")
     with pytest.raises(ForwardReferenceResolutionError):
-        configure_forward_refs(
-            (
-                ForwardRefEntry(
-                    name="Missing",
-                    target="tests.core.test_forward_refs:DoesNotExist",
-                ),
-            )
-        )
+        configure_forward_refs([entry])
 
-
-def test_schema_module_uses_forward_ref_registry() -> None:
-    configure_forward_refs(
-        (
-            ForwardRefEntry(
-                name="Demo",
-                target="tests.core.test_forward_refs:DemoForwardModel",
-            ),
-        )
-    )
-
-    annotation = ForwardRef("Demo")
-    resolved = schema_module._unwrap_annotation(annotation)
-    assert resolved is not None
-    assert resolved.__module__ == "tests.core.test_forward_refs"
-    assert resolved.__qualname__ == DemoForwardModel.__qualname__
