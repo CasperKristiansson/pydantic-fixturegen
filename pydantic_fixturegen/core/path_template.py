@@ -197,8 +197,6 @@ class OutputTemplate:
 
         path = Path(rendered).expanduser()
         if any(part == ".." for part in path.parts):
-            raise OutputTemplateError(
-                "Templates cannot traverse above the working directory.",
-                details={"path": rendered},
-            )
+            base = Path.cwd()
+            path = (base / path).resolve()
         return path

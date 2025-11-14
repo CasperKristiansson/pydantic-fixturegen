@@ -49,14 +49,15 @@ def test_output_template_watch_parent_and_preview(tmp_path: Path) -> None:
     assert preview.parent.name == "preview"
 
 
-def test_output_template_blocks_parent_escape(tmp_path: Path) -> None:
-    template = OutputTemplate(tmp_path / "../{model}/data.json")
+def test_output_template_allows_parent_escape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    target_dir = tmp_path.parent / "outside"
+    template = OutputTemplate("../outside/{model}/data.json")
     context = OutputTemplateContext(model="User")
 
-    with pytest.raises(OutputTemplateError) as exc_info:
-        template.render(context=context)
+    rendered = template.render(context=context)
 
-    assert "cannot traverse" in str(exc_info.value)
+    assert rendered == target_dir / "User" / "data.json"
 
 
 def test_strict_formatter_missing_and_positional_fields() -> None:

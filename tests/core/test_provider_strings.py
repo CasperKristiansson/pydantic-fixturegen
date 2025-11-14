@@ -5,6 +5,7 @@ from dataclasses import replace
 import pytest
 from pydantic_fixturegen.core.providers import strings as strings_mod
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
+from faker import Faker
 
 
 class DummyFaker:
@@ -92,3 +93,17 @@ def test_apply_length_pads_and_truncates() -> None:
 def test_generate_string_unknown_type() -> None:
     with pytest.raises(ValueError):
         strings_mod.generate_string(replace(_summary(), type="uuid"))
+
+
+def test_regex_string_deterministic_with_seed() -> None:
+    summary = _summary(pattern=r"^\d{5}$")
+
+    faker_a = Faker()
+    faker_a.seed_instance(9876)
+    first = strings_mod.generate_string(summary, faker=faker_a)
+
+    faker_b = Faker()
+    faker_b.seed_instance(9876)
+    second = strings_mod.generate_string(summary, faker=faker_b)
+
+    assert first == second
