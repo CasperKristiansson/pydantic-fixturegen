@@ -6,7 +6,12 @@ import uuid
 from collections.abc import Callable
 from dataclasses import field as dc_field
 from decimal import Decimal
-from typing import Annotated, Any, Literal, NotRequired, TypedDict, cast
+from typing import Annotated, Any, Literal, TypedDict, cast
+
+try:
+    from typing import NotRequired  # type: ignore[attr-defined]
+except ImportError:  # pragma: no cover - Python <3.11
+    from typing_extensions import NotRequired
 
 import annotated_types
 import email_validator  # noqa: F401

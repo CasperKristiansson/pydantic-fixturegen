@@ -4,23 +4,38 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Mapping
-from typing import Any, Literal
+from typing import Any, Callable, Literal, cast
+
+import typing as _typing
+
+TypedDictChecker = Callable[[object], bool]
+_typing_is_typeddict_obj = getattr(_typing, "is_typeddict", None)
+_typing_is_typeddict = cast("TypedDictChecker | None", _typing_is_typeddict_obj)
+
+_typing_extensions_is_typeddict: TypedDictChecker | None
+try:  # typing_extensions >= 4.5
+    from typing_extensions import is_typeddict as _typing_extensions_is_typeddict
+except ImportError:  # pragma: no cover - optional dependency absent
+    _typing_extensions_is_typeddict = None
 
 from pydantic import BaseModel, TypeAdapter
 
-try:  # typing_extensions < 4.5 compatibility
-    from typing_extensions import is_typeddict as _typing_extensions_is_typeddict
-except ImportError:  # pragma: no cover - typing extra not installed
-
-    def _typing_extensions_is_typeddict(tp: object) -> bool:
-        return False
+_STRUCTURAL_TYPEDDICT_SENTINEL = "TypedDictMeta"
 
 
 def is_pydantic_model(model_cls: type[Any]) -> bool:
     try:
-        return issubclass(model_cls, BaseModel)
+        if issubclass(model_cls, BaseModel):
+            return True
     except TypeError:
         return False
+    except Exception:  # pragma: no cover - defensive for exotic bases
+        pass
+    has_fields = isinstance(getattr(model_cls, "model_fields", None), Mapping)
+    has_validator = callable(getattr(model_cls, "model_validate", None)) or callable(
+        getattr(model_cls, "parse_obj", None)
+    )
+    return isinstance(model_cls, type) and has_fields and has_validator
 
 
 def is_dataclass_type(model_cls: Any) -> bool:
@@ -28,9 +43,23 @@ def is_dataclass_type(model_cls: Any) -> bool:
 
 
 def is_typeddict_type(model_cls: Any) -> bool:
+    if not isinstance(model_cls, type):
+        return False
+    for checker in (_typing_is_typeddict, _typing_extensions_is_typeddict):
+        if checker is None:
+            continue
+        try:
+            if checker(model_cls):
+                return True
+        except Exception:  # pragma: no cover - typing differences
+            continue
+    meta = type(model_cls)
+    if getattr(meta, "__name__", "") == _STRUCTURAL_TYPEDDICT_SENTINEL:
+        return hasattr(model_cls, "__annotations__")
     try:
-        return _typing_extensions_is_typeddict(model_cls)
-    except Exception:  # pragma: no cover - typing differences between versions
+        has_annotations = hasattr(model_cls, "__annotations__")
+        return has_annotations and meta.__qualname__ == _STRUCTURAL_TYPEDDICT_SENTINEL
+    except AttributeError:
         return False
 
 
