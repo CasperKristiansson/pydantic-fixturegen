@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import BaseModel
 from pydantic_fixturegen.emitters import json_out
 
 
@@ -105,3 +106,82 @@ def test_normalise_record_dataclass_and_model(monkeypatch: pytest.MonkeyPatch) -
 def test_normalise_indent_negative() -> None:
     with pytest.raises(ValueError):
         json_out._normalise_indent(-1, jsonl=False)
+
+
+def test_collect_samples_limits_iterables() -> None:
+    iterator = json_out._collect_samples([1, 2, 3], count=1)
+    assert list(iterator) == [1]
+
+
+def test_write_empty_shard_emits_placeholder(tmp_path: Path) -> None:
+    encoder = json_out._JsonEncoder(indent=None, ensure_ascii=True, use_orjson=False)
+    path = json_out._write_empty_shard(tmp_path / "payload", jsonl=False, encoder=encoder)
+    assert path.read_text(encoding="utf-8") == "[]"
+
+
+def test_prepare_payload_handles_empty_jsonl() -> None:
+    encoder = json_out._JsonEncoder(indent=None, ensure_ascii=False, use_orjson=False)
+    payload = json_out._prepare_payload([], jsonl=True, encoder=encoder, workers=1)
+    assert payload == ""
+
+
+def test_write_chunked_samples_writes_empty_shard(tmp_path: Path) -> None:
+    encoder = json_out._JsonEncoder(indent=None, ensure_ascii=False, use_orjson=False)
+    config = json_out.JsonEmitConfig(
+        output_path=tmp_path / "data",
+        count=0,
+        shard_size=5,
+        jsonl=False,
+    )
+    paths = json_out._write_chunked_samples(iter(()), config, encoder)
+    assert len(paths) == 1
+    assert paths[0].read_text(encoding="utf-8") == "[]"
+
+
+def test_chunk_path_prefers_single_file(tmp_path: Path) -> None:
+    config = json_out.JsonEmitConfig(output_path=tmp_path / "data", count=1)
+    path = json_out._chunk_path(config, index=1, is_last=True, jsonl=False)
+    assert path.suffix == ".json"
+
+
+def test_shard_path_single_shard(tmp_path: Path) -> None:
+    base = tmp_path / "items"
+    path = json_out._shard_path(base, shard_index=1, shard_count=1, jsonl=True)
+    assert path.suffix == ".jsonl"
+
+
+def test_normalise_record_includes_cycle_events(monkeypatch: pytest.MonkeyPatch) -> None:
+    class DummyEvent:
+        def to_payload(self) -> dict[str, str]:
+            return {"path": "root"}
+
+    monkeypatch.setattr(json_out, "consume_cycle_events", lambda _: [DummyEvent()])
+
+    @dataclasses.dataclass
+    class Example:
+        value: int
+
+    class Model(BaseModel):
+        value: int = 7
+
+    class Custom:
+        def model_dump(self) -> dict[str, str]:
+            return {"value": "ok"}
+
+    assert "__cycles__" in json_out._normalise_record(Example(1))
+    assert "__cycles__" in json_out._normalise_record(Model())
+    assert "__cycles__" in json_out._normalise_record(Custom())
+
+
+def test_json_encoder_requires_orjson(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(json_out, "orjson", None)
+    with pytest.raises(RuntimeError):
+        json_out._JsonEncoder(indent=None, ensure_ascii=False, use_orjson=True)
+
+
+def test_json_fallback_uses_str() -> None:
+    class Example:
+        def __str__(self) -> str:
+            return "example"
+
+    assert json_out._json_fallback(Example()) == "example"

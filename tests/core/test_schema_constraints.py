@@ -1,19 +1,23 @@
 from __future__ import annotations
 
+import dataclasses
 import datetime
 import uuid
 from collections.abc import Callable
+from dataclasses import field as dc_field
 from decimal import Decimal
-from typing import Annotated, Any, Literal, cast
+from typing import Annotated, Any, Literal, NotRequired, TypedDict, cast
 
 import annotated_types
 import email_validator  # noqa: F401
+import pytest
 from pydantic import AnyUrl, BaseModel, Field, SecretBytes, SecretStr
 from pydantic_fixturegen.core import schema as schema_module
 from pydantic_fixturegen.core.schema import (
     FieldConstraints,
     extract_constraints,
     extract_model_constraints,
+    summarize_model_fields,
 )
 
 
@@ -265,3 +269,63 @@ def test_summarize_field_for_literal_enum() -> None:
     field = summary["status"]
     assert field.type == "enum"
     assert field.enum_values == ["a", "b", "c"]
+
+
+def test_summarize_model_fields_supports_dataclass_metadata() -> None:
+    @dataclasses.dataclass
+    class DataClassExample:
+        code: Annotated[str, Field(pattern=r"^[A-Z]+$", min_length=2, max_length=5)]
+        alias: str = dc_field(default_factory=lambda: "ZZ")
+
+    summaries = summarize_model_fields(DataClassExample)
+    assert summaries["alias"].default_factory is not None
+
+
+def test_summarize_model_fields_supports_typeddict_optionals() -> None:
+    class TypedExample(TypedDict):
+        required: int
+        optional: NotRequired[str]
+
+    summaries = summarize_model_fields(TypedExample)
+    optional = summaries["optional"]
+    assert optional.is_optional is True
+    assert optional.default_value is None
+
+
+def test_decimal_constraints_normalize_under_limits() -> None:
+    class DecimalModel(BaseModel):
+        value: Annotated[Decimal, Field(max_digits=2, decimal_places=4)]
+
+    summary = summarize_model_fields(DecimalModel)["value"]
+    assert summary.constraints.max_digits == 2
+    assert summary.constraints.decimal_places == 2
+
+
+def test_apply_metadata_with_numeric_bounds() -> None:
+    constraints = FieldConstraints()
+    schema_module._apply_metadata(constraints, annotated_types.Interval(ge=1, le=5))
+    assert constraints.ge == 1 and constraints.le == 5
+
+    class Meta:
+        def __init__(self) -> None:
+            self.pattern = "^data"
+            self.min_length = 2
+            self.max_length = 4
+            self.max_digits = 6
+            self.decimal_places = 8
+
+    info = Meta()
+    schema_module._apply_metadata(constraints, info)
+    assert constraints.pattern == "^data"
+    assert constraints.min_length == 2
+    assert constraints.max_length == 4
+    schema_module._normalize_decimal_constraints(constraints)
+    assert constraints.decimal_places == 6
+
+
+def test_summarize_model_fields_rejects_unknown_types() -> None:
+    class Plain:
+        value: int
+
+    with pytest.raises(TypeError):
+        summarize_model_fields(Plain)
