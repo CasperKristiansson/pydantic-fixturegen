@@ -180,6 +180,12 @@ TRUNCATE_OPTION = typer.Option(
     help="Delete existing rows for the selected models before seeding.",
 )
 
+AUTO_PRIMARY_KEYS_OPTION = typer.Option(
+    True,
+    "--auto-primary-keys/--keep-primary-keys",
+    help="Null out SQLModel primary keys whose default is None so the database can autoincrement them.",
+)
+
 CREATE_SCHEMA_OPTION = typer.Option(
     False,
     "--create-schema/--no-create-schema",
@@ -225,6 +231,7 @@ def seed_sqlmodel(  # noqa: PLR0913
     rollback: bool = ROLLBACK_OPTION,
     dry_run: bool = DRY_RUN_OPTION,
     truncate: bool = TRUNCATE_OPTION,
+    auto_primary_keys: bool = AUTO_PRIMARY_KEYS_OPTION,
     create_schema: bool = CREATE_SCHEMA_OPTION,
     echo: bool = ECHO_OPTION,
     allow_url: list[str] = SQLMODEL_ALLOW_URL_OPTION,
@@ -273,6 +280,7 @@ def seed_sqlmodel(  # noqa: PLR0913
             rollback=rollback,
             dry_run=dry_run,
             truncate=truncate,
+            auto_primary_keys=auto_primary_keys,
         )
         _log_seed_summary(
             logger,
@@ -495,6 +503,13 @@ def _build_sqlmodel_session_factory(
 
 
 def _create_beanie_client(database: str) -> Any:
+    if database.startswith("mongomock://"):
+        from mongomock_motor import AsyncMongoMockClient
+
+        client = AsyncMongoMockClient()
+        setattr(client, "_pfg_is_mongomock", True)
+        return client
+
     from motor.motor_asyncio import AsyncIOMotorClient
 
     return AsyncIOMotorClient(database)

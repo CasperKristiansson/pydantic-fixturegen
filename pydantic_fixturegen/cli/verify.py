@@ -33,14 +33,12 @@ LOCKFILE_OPTION = typer.Option(
 )
 
 app = typer.Typer(
-    invoke_without_command=True,
     help="Verify that the current coverage matches the stored lockfile.",
 )
 
 
-@app.callback(invoke_without_command=True)
+@app.command()
 def verify(  # noqa: PLR0913
-    ctx: typer.Context,
     path: str | None = DOCTOR_PATH_ARGUMENT,
     include: str | None = DOCTOR_INCLUDE_OPTION,
     exclude: str | None = DOCTOR_EXCLUDE_OPTION,
@@ -54,7 +52,6 @@ def verify(  # noqa: PLR0913
     lockfile: Path = LOCKFILE_OPTION,
     json_errors: bool = JSON_ERRORS_OPTION,
 ) -> None:
-    _ = ctx  # unused
     try:
         expected = _load_manifest(lockfile)
         target_path = Path(path).resolve() if path else None

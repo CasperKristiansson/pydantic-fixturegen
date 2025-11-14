@@ -97,6 +97,29 @@ def test_compare_manifests_equality(tmp_path: Path) -> None:
     assert diff == ""
 
 
+def test_compare_manifests_ignore_runtime_options(tmp_path: Path) -> None:
+    module_path = _write_model(tmp_path)
+    manifest = build_coverage_manifest(
+        target=module_path,
+        include=None,
+        exclude=None,
+        schema=None,
+        openapi=None,
+        routes=None,
+        ast_mode=False,
+        hybrid_mode=False,
+        timeout=2.0,
+        memory_limit_mb=128,
+    )
+    payload = manifest.to_payload()
+    modified = CoverageManifest.from_payload(json.loads(json.dumps(payload)))
+    modified.options["timeout"] = 60.0
+    modified.options["memory_limit_mb"] = 999
+    matches, diff = compare_manifests(manifest, modified)
+    assert matches
+    assert diff == ""
+
+
 def test_prepare_manifest_target_schema(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     schema_path = tmp_path / "schema.json"
     schema_path.write_text(

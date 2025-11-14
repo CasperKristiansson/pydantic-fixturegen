@@ -24,7 +24,14 @@ class SQLModelSeedRunner:
         self.plan = plan
         self._session_factory = session_factory
 
-    def seed(self, *, count: int = 1, rollback: bool = True, batch_size: int = 50) -> None:
+    def seed(
+        self,
+        *,
+        count: int = 1,
+        rollback: bool = True,
+        batch_size: int = 50,
+        auto_primary_keys: bool = True,
+    ) -> None:
         from pydantic_fixturegen.orm.sqlalchemy import SQLAlchemySeeder
 
         seeder = SQLAlchemySeeder(self.plan, self._session_factory)
@@ -34,6 +41,7 @@ class SQLModelSeedRunner:
             rollback=rollback,
             truncate=False,
             dry_run=False,
+            auto_primary_keys=auto_primary_keys,
         )
 
 

@@ -24,6 +24,7 @@ from pydantic_fixturegen.core.schema_ingest import SchemaIngester
 from pydantic_fixturegen.core.seed_freeze import canonical_module_name
 
 MANIFEST_VERSION = 1
+_IGNORED_OPTION_KEYS = {"timeout", "memory_limit_mb"}
 
 
 @dataclass(slots=True)
@@ -48,6 +49,10 @@ class CoverageManifest:
     def canonical_payload(self) -> dict[str, Any]:
         payload = self.to_payload()
         payload.pop("generated_at", None)
+        options = dict(payload.get("options") or {})
+        for key in _IGNORED_OPTION_KEYS:
+            options.pop(key, None)
+        payload["options"] = options
         return payload
 
     @classmethod

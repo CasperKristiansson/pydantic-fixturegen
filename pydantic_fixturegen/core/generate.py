@@ -15,7 +15,7 @@ from dataclasses import dataclass, field, is_dataclass
 from typing import Any, cast
 
 from faker import Faker
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from pydantic_fixturegen.core import schema as schema_module
 from pydantic_fixturegen.core.collection_utils import sample_collection_length
@@ -1294,8 +1294,12 @@ class InstanceGenerator:
         summary = strategy.summary
         base_value = self._call_strategy_provider(model_type, field_name, strategy)
 
+        item_strategy = strategy.collection_item_strategy
+        if item_strategy is None:
+            return base_value
+
         item_annotation = summary.item_annotation
-        if item_annotation is None or not self._is_model_like(item_annotation):
+        if item_annotation is None:
             return base_value
 
         desired_length = self._determine_collection_length(summary, strategy, base_value)
@@ -1304,41 +1308,39 @@ class InstanceGenerator:
             return self._build_mapping_collection(
                 base_value,
                 item_annotation,
+                item_strategy,
                 depth,
-                strategy.field_name,
-                parent_path,
+                model_type,
+                field_name,
                 desired_length,
             )
 
-        items: list[Any] = []
-        for index in range(desired_length):
-            nested = self._build_model_instance(
-                item_annotation,
-                depth=depth + 1,
-                via_field=strategy.field_name,
-                current_path=f"{parent_path}[{index}]",
-            )
-            if nested is not None:
-                items.append(nested)
+        values = self._build_sequence_collection(
+            base_value,
+            summary,
+            item_strategy,
+            desired_length,
+            depth,
+            model_type,
+            field_name,
+        )
 
         if summary.type == "list":
-            return items
+            return values
         if summary.type == "tuple":
-            return tuple(items)
+            return tuple(values)
         if summary.type == "set":
-            try:
-                return set(items)
-            except TypeError:
-                return set()
-        return base_value
+            return set(values)
+        return values
 
     def _build_mapping_collection(
         self,
         base_value: Any,
         annotation: Any,
+        item_strategy: StrategyResult,
         depth: int,
+        model_type: type[Any],
         field_name: str,
-        parent_path: str,
         length: int,
     ) -> dict[str, Any]:
         if length <= 0:
@@ -1354,15 +1356,93 @@ class InstanceGenerator:
 
         result: dict[str, Any] = {}
         for index, key in enumerate(selected_keys):
-            nested = self._build_model_instance(
-                annotation,
-                depth=depth + 1,
-                via_field=field_name,
-                current_path=f"{parent_path}[{index}]",
-            )
-            if nested is not None:
-                result[str(key)] = nested
+            existing_value = None
+            if isinstance(base_value, dict) and key in base_value:
+                existing_value = base_value[key]
+            if existing_value is not None:
+                coerced = self._coerce_inline_value(existing_value, annotation)
+            else:
+                coerced = _HINT_UNSET
+            if coerced is _HINT_UNSET:
+                coerced = self._evaluate_collection_strategy(
+                    item_strategy,
+                    depth + 1,
+                    model_type,
+                    f"{field_name}[{index}]",
+                )
+            if coerced is not None:
+                result[str(key)] = coerced
         return result
+
+    def _build_sequence_collection(
+        self,
+        base_value: Any,
+        summary: FieldSummary,
+        item_strategy: StrategyResult,
+        length: int,
+        depth: int,
+        model_type: type[Any],
+        field_name: str,
+    ) -> list[Any]:
+        if length <= 0:
+            return []
+
+        existing: list[Any] = []
+        if isinstance(base_value, (list, tuple, set)):
+            existing = list(base_value)
+
+        result: list[Any] = []
+        annotation = summary.item_annotation
+        for index in range(length):
+            base_item = existing[index] if index < len(existing) else _HINT_UNSET
+            if base_item is not _HINT_UNSET:
+                coerced = self._coerce_inline_value(base_item, annotation)
+            else:
+                coerced = _HINT_UNSET
+            if coerced is _HINT_UNSET:
+                coerced = self._evaluate_collection_strategy(
+                    item_strategy,
+                    depth + 1,
+                    model_type,
+                    f"{field_name}[{index}]",
+                )
+            result.append(coerced)
+        return result
+
+    def _evaluate_collection_strategy(
+        self,
+        strategy: StrategyResult,
+        depth: int,
+        model_type: type[Any],
+        field_name: str,
+    ) -> Any:
+        if isinstance(strategy, UnionStrategy):
+            return self._evaluate_union(
+                strategy,
+                depth,
+                model_type,
+                field_name,
+                report_model=None,
+            )
+        return self._evaluate_single(
+            strategy,
+            depth,
+            model_type,
+            field_name,
+            report_model=None,
+        )
+
+    def _coerce_inline_value(self, value: Any, annotation: Any | None) -> Any:
+        if annotation is None:
+            return value
+        try:
+            adapter = TypeAdapter(annotation)
+        except Exception:
+            return _HINT_UNSET
+        try:
+            return adapter.validate_python(value)
+        except ValidationError:
+            return _HINT_UNSET
 
     def _consume_object(self) -> bool:
         if getattr(self, "_objects_remaining", 0) <= 0:

@@ -3,6 +3,8 @@ from types import SimpleNamespace
 
 import pytest
 from pydantic import BaseModel
+from sqlmodel import Field, SQLModel
+
 from pydantic_fixturegen.api._runtime import ModelArtifactPlan
 from pydantic_fixturegen.core.path_template import OutputTemplateContext
 from pydantic_fixturegen.orm.sqlalchemy import _clean_payload, _expand_sample
@@ -62,4 +64,22 @@ def test_expand_sample_rejects_non_mappings() -> None:
 
 def test_clean_payload_drops_cycle_metadata() -> None:
     payload = {"value": 1, "__cycles__": [{"path": "Primary"}]}
-    assert _clean_payload(payload) == {"value": 1}
+    assert _clean_payload(Primary, payload) == {"value": 1}
+
+
+class SQLPrimaryModel(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str
+
+
+def test_clean_payload_nulls_sqlmodel_auto_primary_keys() -> None:
+    payload = {"id": 99, "name": "alpha"}
+    cleaned = _clean_payload(SQLPrimaryModel, payload)
+    assert cleaned["id"] is None
+    assert cleaned["name"] == "alpha"
+
+
+def test_clean_payload_preserves_primary_keys_when_requested() -> None:
+    payload = {"id": 7, "name": "beta"}
+    cleaned = _clean_payload(SQLPrimaryModel, payload, auto_primary_keys=False)
+    assert cleaned["id"] == 7

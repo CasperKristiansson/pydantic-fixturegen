@@ -167,6 +167,7 @@ def test_seed_sqlmodel_cli_runs_with_stubs(tmp_path: Path, monkeypatch: pytest.M
             rollback: bool,
             dry_run: bool,
             truncate: bool,
+            auto_primary_keys: bool,
         ) -> SimpleNamespace:
             recorded["seed_args"] = {
                 "count": count,
@@ -174,6 +175,7 @@ def test_seed_sqlmodel_cli_runs_with_stubs(tmp_path: Path, monkeypatch: pytest.M
                 "rollback": rollback,
                 "dry_run": dry_run,
                 "truncate": truncate,
+                "auto_primary_keys": auto_primary_keys,
             }
             return SimpleNamespace(inserted=count, rollback=rollback, dry_run=dry_run)
 
@@ -197,7 +199,66 @@ def test_seed_sqlmodel_cli_runs_with_stubs(tmp_path: Path, monkeypatch: pytest.M
 
     assert result.exit_code == 0, result.output
     assert recorded["seed_args"]["dry_run"] is True
+    assert recorded["seed_args"]["auto_primary_keys"] is True
     assert recorded.get("disposed") is True
+
+
+def test_seed_sqlmodel_cli_allows_keeping_primary_keys(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = create_cli_runner()
+    module_path = tmp_path / "models.py"
+    module_path.write_text(
+        "from pydantic import BaseModel\nclass Model(BaseModel):\n    value: int\n",
+        encoding="utf-8",
+    )
+    recorded: dict[str, object] = {}
+
+    monkeypatch.setattr(seed_cli, "_resolve_target_module", lambda target, schema: module_path)
+    monkeypatch.setattr(seed_cli, "_create_plan", lambda **kwargs: "plan")
+    monkeypatch.setattr(
+        seed_cli,
+        "_build_sqlmodel_session_factory",
+        lambda *_, **__: (lambda: None, lambda: None),
+    )
+
+    class DummySeeder:
+        def __init__(self, plan: object, session_factory: callable, logger: object) -> None:
+            recorded["plan"] = plan
+
+        def seed(
+            self,
+            *,
+            count: int,
+            batch_size: int,
+            rollback: bool,
+            dry_run: bool,
+            truncate: bool,
+            auto_primary_keys: bool,
+        ) -> SimpleNamespace:
+            recorded["seed_args"] = {
+                "auto_primary_keys": auto_primary_keys,
+            }
+            return SimpleNamespace(inserted=count, rollback=rollback, dry_run=dry_run)
+
+    monkeypatch.setattr("pydantic_fixturegen.orm.sqlalchemy.SQLAlchemySeeder", DummySeeder)
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "gen",
+            "seed",
+            "sqlmodel",
+            str(module_path),
+            "--database",
+            "sqlite:///tmp.db",
+            "--keep-primary-keys",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert recorded["seed_args"]["auto_primary_keys"] is False
 
 
 def test_seed_beanie_cli_runs_with_stubs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -43,6 +43,7 @@ class Strategy:
     heuristic: HeuristicMatch | None = None
     type_default: ProviderDefaultMatch | None = None
     collection_config: CollectionConfig | None = None
+    collection_item_strategy: StrategyResult | None = None
 
 
 @dataclass(slots=True)
@@ -311,7 +312,31 @@ class StrategyBuilder:
         ):
             strategy.collection_config = self._collection_config
             strategy.provider_kwargs.setdefault("collection_config", strategy.collection_config)
+        if summary.type in {"list", "set", "tuple", "mapping"}:
+            strategy.collection_item_strategy = self._build_collection_item_strategy(
+                model,
+                field_name,
+                summary,
+            )
         return self._apply_strategy_plugins(model, field_name, strategy)
+
+    def _build_collection_item_strategy(
+        self,
+        model: type[Any],
+        field_name: str,
+        parent_summary: FieldSummary,
+    ) -> StrategyResult | None:
+        item_annotation = parent_summary.item_annotation
+        if item_annotation is None:
+            return None
+        item_summary = self._summarize_inline(item_annotation)
+        return self._build_single_strategy(
+            model,
+            f"{field_name}[]",
+            item_summary,
+            item_annotation,
+            field_info=None,
+        )
 
     # ------------------------------------------------------------------ utilities
     def _extract_union_args(self, annotation: Any) -> Sequence[Any]:

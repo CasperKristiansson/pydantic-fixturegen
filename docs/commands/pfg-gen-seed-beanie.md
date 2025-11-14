@@ -66,6 +66,19 @@ Generates documents, logs them, and skips writes because of `--dry-run`. Drop `-
 Cleanup enabled; generated payloads discarded (0 writes executed)
 ```
 
+### In-memory `mongomock` quickstart
+The repo ships runnable Beanie models at `docs/examples/beanie_models.py`. Copy them into your demo project and point fixturegen at `mongomock://...` to avoid running a real Mongo instance:
+
+```bash
+cp path/to/pydantic-fixturegen/docs/examples/beanie_models.py ./beanie_models.py
+pfg gen seed beanie ./beanie_models.py \
+  --database mongomock://localhost/pfg-demo \
+  --include beanie_models.DemoPurchase \
+  --with-related beanie_models.DemoCustomer \
+  --n 10 --cleanup
+```
+`mongomock_motor` keeps everything in memory, so the command is safe in CI and during local smoke tests. Pair it with `--cleanup` when you want to validate generation without persisting documents between runs.
+
 ## Operational notes
 - Fixturegen extracts the database name from the Mongo URI so Beanie can target the correct database even when SRV URIs are used.
 - Cleanup mode is invaluable when you want to observe generated payloads via MongoDB triggers without mutating long-lived data sets.

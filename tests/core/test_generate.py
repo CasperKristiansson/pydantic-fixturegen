@@ -107,6 +107,19 @@ def test_generate_user_instance() -> None:
     assert user.preference is not None
 
 
+def test_collection_items_follow_nested_types() -> None:
+    class Schedule(BaseModel):
+        windows: list[datetime.date] = Field(min_length=2)
+        stamps: list[datetime.datetime] = Field(min_length=2)
+
+    generator = InstanceGenerator(config=GenerationConfig(seed=21))
+    schedule = generator.generate_one(Schedule)
+
+    assert schedule is not None
+    assert all(isinstance(value, datetime.date) for value in schedule.windows)
+    assert all(isinstance(value, datetime.datetime) for value in schedule.stamps)
+
+
 def test_required_fields_ignore_global_p_none() -> None:
     class RequiredModel(BaseModel):
         value: int

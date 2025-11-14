@@ -30,6 +30,7 @@
 - `--rollback/--commit`: wrap the entire run in a transaction that rolls back at the end (default commit). Handy for smoke tests.
 - `--dry-run`: skip inserts entirely but log generated payloads.
 - `--truncate/--no-truncate`: delete existing rows for the selected models before seeding.
+- `--auto-primary-keys/--keep-primary-keys`: default `--auto-primary-keys` nulls SQLModel primary keys whose default is `None` so the database can autoincrement them. Pass `--keep-primary-keys` if you intentionally supply your own IDs.
 - `--create-schema/--no-create-schema`: call `SQLModel.metadata.create_all()` before inserts.
 - `--echo/--no-echo`: toggle SQLAlchemy engine echo logging to stdout.
 

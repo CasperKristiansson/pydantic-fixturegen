@@ -48,6 +48,7 @@ diff:
 ## Operational notes
 - Lockfile loading is strict: missing files raise `EmitError` with a helpful message.
 - When `--json-errors` is enabled the mismatch diff is attached to the JSON payload so you can parse it programmatically.
+- Runtime guard rails like `--timeout`/`--memory-limit-mb` are recorded in the lockfile but ignored during comparison, so CI jobs can override them without forcing a lock refresh.
 - Install plugin extras before verifying so plugin-provided providers match what was recorded when the lockfile was captured.
 
 ## Related docs

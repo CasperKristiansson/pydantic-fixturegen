@@ -45,6 +45,7 @@ def test_sqlmodel_seed_runner_invokes_sqlalchemy_seeder(monkeypatch):
             rollback: bool,
             truncate: bool,
             dry_run: bool,
+            auto_primary_keys: bool,
         ) -> None:
             captured["seed_args"] = {
                 "count": count,
@@ -52,12 +53,13 @@ def test_sqlmodel_seed_runner_invokes_sqlalchemy_seeder(monkeypatch):
                 "rollback": rollback,
                 "truncate": truncate,
                 "dry_run": dry_run,
+                "auto_primary_keys": auto_primary_keys,
             }
 
     monkeypatch.setattr("pydantic_fixturegen.orm.sqlalchemy.SQLAlchemySeeder", DummySeeder)
 
     runner = SQLModelSeedRunner(plan=_build_plan(), session_factory=lambda: "session")
-    runner.seed(count=3, batch_size=20, rollback=False)
+    runner.seed(count=3, batch_size=20, rollback=False, auto_primary_keys=False)
 
     assert isinstance(captured["plan"], ModelArtifactPlan)
     assert callable(captured["session_factory"])
@@ -67,4 +69,5 @@ def test_sqlmodel_seed_runner_invokes_sqlalchemy_seeder(monkeypatch):
         "rollback": False,
         "truncate": False,
         "dry_run": False,
+        "auto_primary_keys": False,
     }

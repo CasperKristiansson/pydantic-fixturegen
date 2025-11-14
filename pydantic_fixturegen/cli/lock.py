@@ -39,14 +39,12 @@ FORCE_OPTION = typer.Option(
 )
 
 app = typer.Typer(
-    invoke_without_command=True,
     help="Generate or refresh the coverage lockfile used by `pfg verify`.",
 )
 
 
-@app.callback(invoke_without_command=True)
+@app.command()
 def lock(  # noqa: PLR0913
-    ctx: typer.Context,
     path: str | None = DOCTOR_PATH_ARGUMENT,
     include: str | None = DOCTOR_INCLUDE_OPTION,
     exclude: str | None = DOCTOR_EXCLUDE_OPTION,
@@ -61,7 +59,6 @@ def lock(  # noqa: PLR0913
     force: bool = FORCE_OPTION,
     json_errors: bool = JSON_ERRORS_OPTION,
 ) -> None:
-    _ = ctx  # unused
     try:
         target_path = Path(path).resolve() if path else None
         if target_path is None and schema is None and openapi is None:
