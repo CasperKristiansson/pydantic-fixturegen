@@ -9,7 +9,7 @@ __pycache__/
 htmlcov/
 
 # Environments
-.venv/
+.venv*
 .tox/
 
 # Editors

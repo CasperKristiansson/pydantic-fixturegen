@@ -22,7 +22,11 @@ from typing_extensions import NotRequired, Required
 
 from pydantic_fixturegen.core.extra_types import resolve_type_id
 from pydantic_fixturegen.core.forward_refs import resolve_forward_ref
-from pydantic_fixturegen.core.model_utils import is_dataclass_type, is_typeddict_type
+from pydantic_fixturegen.core.model_utils import (
+    ensure_runtime_model,
+    is_dataclass_type,
+    is_typeddict_type,
+)
 
 _np: types.ModuleType | None
 try:  # Optional dependency
@@ -298,6 +302,7 @@ def _min_int(current: int | None, new: int | None) -> int | None:
 
 
 def _strip_optional(annotation: Any) -> tuple[Any, bool]:
+    annotation = _normalize_annotation(annotation)
     origin = get_origin(annotation)
     if origin in {Union, types.UnionType}:
         args = [arg for arg in get_args(annotation) if arg is not type(None)]  # noqa: E721
@@ -315,12 +320,19 @@ def _extract_enum_values(annotation: Any) -> list[Any] | None:
     return None
 
 
+def _normalize_annotation(annotation: Any) -> Any:
+    if isinstance(annotation, type):
+        return ensure_runtime_model(annotation)
+    return annotation
+
+
 def _summarize_annotation(
     annotation: Any,
     constraints: FieldConstraints | None = None,
     *,
     metadata: tuple[Any, ...] | None = None,
 ) -> FieldSummary:
+    annotation = _normalize_annotation(annotation)
     inner_annotation, is_optional = _strip_optional(annotation)
     type_name, fmt, item_annotation = _infer_annotation_kind(inner_annotation)
     item_type = None
@@ -344,6 +356,7 @@ def _summarize_annotation(
 
 
 def _infer_annotation_kind(annotation: Any) -> tuple[str, str | None, Any | None]:
+    annotation = _normalize_annotation(annotation)
     annotation = _unwrap_annotation(annotation)
     origin = get_origin(annotation)
     args = get_args(annotation)

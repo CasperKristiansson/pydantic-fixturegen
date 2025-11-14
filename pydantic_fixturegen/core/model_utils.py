@@ -3,11 +3,22 @@
 from __future__ import annotations
 
 import dataclasses
+import sys
 import typing as _typing
 from collections.abc import Callable, Mapping
+from contextlib import suppress
 from typing import Any, Literal, cast
 
 from pydantic import BaseModel, TypeAdapter
+
+if sys.version_info < (3, 12):
+    try:  # pragma: no cover - exercised via versioned CI
+        from typing_extensions import TypedDict as _CompatTypedDict
+    except Exception:  # pragma: no cover - typing extra missing
+        pass
+    else:  # pragma: no cover - version gate
+        with suppress(Exception):
+            _typing.TypedDict = _CompatTypedDict
 
 TypedDictChecker = Callable[[object], bool]
 _typing_is_typeddict_obj = getattr(_typing, "is_typeddict", None)
@@ -63,13 +74,44 @@ def is_typeddict_type(model_cls: Any) -> bool:
 
 
 _TYPE_ADAPTER_CACHE: dict[type[Any], TypeAdapter[Any]] = {}
+_TYPEDDICT_PROMOTIONS: dict[type[Any], type[Any]] = {}
+
+
+def ensure_runtime_model(model_cls: type[Any]) -> type[Any]:
+    if sys.version_info >= (3, 12):
+        return model_cls
+    cached = _TYPEDDICT_PROMOTIONS.get(model_cls)
+    if cached is not None:
+        return cached
+    if is_typeddict_type(model_cls) and type(model_cls).__module__ == "typing":
+        try:
+            from typing_extensions import TypedDict as _ExtTypedDict
+        except Exception:  # pragma: no cover - dependency missing
+            return model_cls
+        annotations = dict(getattr(model_cls, "__annotations__", {}))
+        total = bool(getattr(model_cls, "__total__", True))
+        typed_dict_factory = cast(Any, _ExtTypedDict)
+        promoted_cls = cast(
+            type[Any],
+            typed_dict_factory(model_cls.__name__, annotations, total=total),
+        )
+        promoted_cls.__module__ = getattr(model_cls, "__module__", "__main__")
+        for key, value in vars(model_cls).items():
+            if key.startswith("__"):
+                continue
+            if key in annotations:
+                setattr(promoted_cls, key, value)
+        _TYPEDDICT_PROMOTIONS[model_cls] = promoted_cls
+        return promoted_cls
+    return model_cls
 
 
 def _type_adapter_for(model_cls: type[Any]) -> TypeAdapter[Any]:
-    adapter = _TYPE_ADAPTER_CACHE.get(model_cls)
+    normalized = ensure_runtime_model(model_cls)
+    adapter = _TYPE_ADAPTER_CACHE.get(normalized)
     if adapter is None:
-        adapter = TypeAdapter(model_cls)
-        _TYPE_ADAPTER_CACHE[model_cls] = adapter
+        adapter = TypeAdapter(normalized)
+        _TYPE_ADAPTER_CACHE[normalized] = adapter
     return adapter
 
 
@@ -115,6 +157,7 @@ def model_json_schema(model_cls: type[Any]) -> dict[str, Any]:
 
 __all__ = [
     "dump_model_instance",
+    "ensure_runtime_model",
     "is_dataclass_type",
     "is_pydantic_model",
     "is_typeddict_type",

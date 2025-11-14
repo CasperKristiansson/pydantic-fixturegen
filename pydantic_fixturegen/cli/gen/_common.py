@@ -28,6 +28,7 @@ from pydantic_fixturegen.core.introspect import (
     discover,
 )
 from pydantic_fixturegen.core.model_utils import (
+    ensure_runtime_model,
     is_dataclass_type,
     is_pydantic_model,
     is_typeddict_type,
@@ -377,6 +378,11 @@ def discover_models(
 def load_model_class(model_info: IntrospectedModel) -> type[Any]:
     module = _load_module(model_info.module, Path(model_info.locator))
     attr = getattr(module, model_info.name, None)
+    if isinstance(attr, type):
+        normalized = ensure_runtime_model(attr)
+        if normalized is not attr:
+            setattr(module, model_info.name, normalized)
+            attr = normalized
     if (
         isinstance(attr, type)
         and not is_pydantic_model(attr)
