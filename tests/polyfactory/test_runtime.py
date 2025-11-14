@@ -13,6 +13,7 @@ from pydantic_fixturegen.polyfactory_support import (
     discover_polyfactory_bindings,
 )
 from pydantic_fixturegen.polyfactory_support import discovery as discovery_mod
+from pydantic_fixturegen.polyfactory_support import runtime as runtime_mod
 from pydantic_fixturegen.polyfactory_support.discovery import POLYFACTORY_MODEL_FACTORY
 
 warnings.filterwarnings(
@@ -100,3 +101,96 @@ def test_discover_polyfactory_bindings_picks_up_factories() -> None:
     )
 
     assert any(binding.factory is WidgetFactory for binding in bindings)
+
+
+def test_attach_polyfactory_bindings_logs_when_models_registered() -> None:
+    generator = InstanceGenerator()
+    logger = _FakeLogger()
+    binding = PolyfactoryBinding(model=Widget, factory=WidgetFactory, source="test.WidgetFactory")
+
+    attach_polyfactory_bindings(generator, (binding,), logger=logger)
+
+    assert logger.messages
+    assert logger.messages[0][1]["count"] == 1
+
+
+class AlternateModel(BaseModel):
+    name: str = "alt"
+
+
+class AlternateFactory(ModelFactory[AlternateModel]):
+    __model__ = AlternateModel
+    __check_model__ = False
+
+    @classmethod
+    def build(cls, **kwargs: Any) -> AlternateModel:  # noqa: ARG003
+        return AlternateModel(name="factory-alt")
+
+
+def test_delegate_converts_incompatible_model_types() -> None:
+    generator = InstanceGenerator()
+    binding = PolyfactoryBinding(
+        model=Widget,
+        factory=AlternateFactory,
+        source="test.AlternateFactory",
+    )
+    attach_polyfactory_bindings(generator, (binding,))
+
+    result = generator.generate_one(Widget)
+
+    assert isinstance(result, Widget)
+    assert result.name == "factory-alt"
+
+
+class BadFactory(ModelFactory[Widget]):
+    __model__ = Widget
+    __check_model__ = False
+
+    @classmethod
+    def build(cls, **kwargs: Any) -> Any:  # noqa: ANN401, ARG003
+        return {"not": "a model"}
+
+
+def test_delegate_raises_for_unexpected_instance_type() -> None:
+    class UnexpectedFactory:
+        __model__ = Widget
+        __check_model__ = False
+
+        @classmethod
+        def seed_random(cls, seed: int | None) -> None:  # pragma: no cover - no-op
+            cls._seed = seed  # type: ignore[attr-defined]
+
+        @classmethod
+        def build(cls, **kwargs: Any) -> Any:  # noqa: ANN401, ARG003
+            return object()
+
+    binding = PolyfactoryBinding(
+        model=Widget,
+        factory=UnexpectedFactory,
+        source="test.UnexpectedFactory",
+    )
+    delegate = runtime_mod._build_delegate(binding)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        delegate(InstanceGenerator(), Widget, "Widget")
+
+    assert "unexpected type" in str(excinfo.value)
+
+
+class RaisingFactory(ModelFactory[Widget]):
+    __model__ = Widget
+    __check_model__ = False
+
+    @classmethod
+    def build(cls, **kwargs: Any) -> Widget:  # noqa: ARG003
+        raise RuntimeError("fail")
+
+
+def test_delegate_reports_build_failures() -> None:
+    binding = PolyfactoryBinding(model=Widget, factory=RaisingFactory, source="test.RaisingFactory")
+    delegate = runtime_mod._build_delegate(binding)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        delegate(InstanceGenerator(), Widget, "Widget")
+
+    assert "Polyfactory build failed" in str(excinfo.value)

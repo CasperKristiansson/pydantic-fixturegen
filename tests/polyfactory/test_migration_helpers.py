@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from pydantic_fixturegen.polyfactory_support import migration_helpers as helpers
+
+CONSTANT = "noop"
 
 
 def sample_use(prefix: str, suffix: str) -> str:
@@ -38,3 +41,14 @@ def test_invoke_post_generate_mirrors_polyfactory() -> None:
         call_args=["x"],
     )
     assert result == "fixture-x"
+
+
+def test_resolve_callable_errors() -> None:
+    with pytest.raises(ValueError):
+        helpers._resolve_callable("")  # type: ignore[attr-defined]
+
+    with pytest.raises(AttributeError):
+        helpers._resolve_callable("tests.polyfactory.test_migration_helpers:missing")  # type: ignore[attr-defined]
+
+    with pytest.raises(TypeError):
+        helpers._resolve_callable("tests.polyfactory.test_migration_helpers:CONSTANT")  # type: ignore[attr-defined]

@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import typer
+from pydantic import BaseModel, Field
 from pydantic_fixturegen.cli import app as cli_app
 from pydantic_fixturegen.cli import coverage as coverage_mod
 from pydantic_fixturegen.core.config import AppConfig, RelationLinkConfig
@@ -131,3 +133,62 @@ def test_coverage_out_option_writes_file(
     assert result.stdout == ""
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     assert payload["summary"]["models"] == 1
+
+
+def test_should_fail_branches_and_errors() -> None:
+    report = coverage_mod.CoverageReport(
+        models=[],
+        totals=coverage_mod.CoverageTotals(0, 0, 0, 0, 0, 0),
+        heuristic_details=[{"field": "user_uuid"}],
+        unused_overrides=[{"model_pattern": "*", "field_pattern": "name"}],
+        relation_issues=[{"model": "User"}],
+    )
+
+    assert coverage_mod._should_fail(report, "heuristics") is True
+    assert coverage_mod._should_fail(report, "overrides") is True
+    assert coverage_mod._should_fail(report, "relations") is True
+    assert coverage_mod._should_fail(report, "any") is True
+    assert coverage_mod._should_fail(report, "none") is False
+
+    with pytest.raises(typer.BadParameter):
+        coverage_mod._should_fail(report, "unknown-mode")
+
+
+def test_write_output_appends_newline(tmp_path: Path) -> None:
+    path = tmp_path / "report.txt"
+
+    coverage_mod._write_output(path, "payload")
+    assert path.read_text(encoding="utf-8") == "payload\n"
+
+    coverage_mod._write_output(path, "payload\n")
+    assert path.read_text(encoding="utf-8") == "payload\n"
+
+
+def test_coverage_override_tracker_tracks_alias_matches() -> None:
+    class AliasModel(BaseModel):
+        actual: int = Field(default=0, alias="alias_value")
+
+    model_pattern = f"{AliasModel.__module__}.*AliasModel"
+    override_map = {
+        model_pattern: {
+            "alias_value": {"ignore": True},
+            "unused": {"ignore": True},
+        }
+    }
+    override_set = coverage_mod.build_field_override_set(override_map)
+    tracker = coverage_mod.CoverageOverrideTracker(override_set)
+    field_info = AliasModel.model_fields["actual"]
+
+    assert tracker.resolve(AliasModel, "actual", field_info) is True
+    unused = tracker.unused()
+    assert unused == [{"model_pattern": model_pattern, "field_pattern": "unused"}]
+
+
+def test_model_identifier_keys_include_variants() -> None:
+    class SampleModel(BaseModel):
+        value: int
+
+    keys = coverage_mod._model_identifier_keys(SampleModel)
+
+    assert SampleModel.__name__ in keys
+    assert SampleModel.__qualname__ in keys
