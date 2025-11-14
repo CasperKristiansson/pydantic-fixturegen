@@ -110,16 +110,16 @@ def _seed_orders() -> dict[str, OrderEnvelope]:
         payment_intent=intent,
         captures=[capture],
         state_history=[
-        StateTransition(
-            from_state=OrderState.draft,
-            to_state=OrderState.confirmed,
-            occurred_at=created_at,
-        ),
-        StateTransition(
-            from_state=OrderState.confirmed,
-            to_state=OrderState.allocated,
-            occurred_at=created_at + timedelta(minutes=2),
-        ),
+            StateTransition(
+                from_state=OrderState.draft,
+                to_state=OrderState.confirmed,
+                occurred_at=created_at,
+            ),
+            StateTransition(
+                from_state=OrderState.confirmed,
+                to_state=OrderState.allocated,
+                occurred_at=created_at + timedelta(minutes=2),
+            ),
         ],
         shipments=[
             ShipmentLeg(

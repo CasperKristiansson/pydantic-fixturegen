@@ -8,7 +8,6 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
-
 from pydantic_fixturegen.core import schema_ingest
 
 
@@ -46,7 +45,10 @@ def _patch_dcg(monkeypatch: pytest.MonkeyPatch, dcg_obj: object) -> None:
     monkeypatch.setattr(schema_ingest.importlib, "import_module", fake_import)
 
 
-def test_schema_ingester_invokes_datamodel_code_generator(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_schema_ingester_invokes_datamodel_code_generator(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     _patch_dcg(monkeypatch, _DummyDCG)
     schema_ingest._DCG_VERSION = _DummyDCG.__version__
     ingester = schema_ingest.SchemaIngester(root=tmp_path)
@@ -81,7 +83,10 @@ def test_schema_ingester_fallback_compiler(monkeypatch: pytest.MonkeyPatch, tmp_
     assert "class FallbackModel" in text
 
 
-def test_schema_ingester_ingest_openapi_writes_override(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_schema_ingester_ingest_openapi_writes_override(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     _patch_dcg(monkeypatch, _DummyDCG)
     schema_ingest._DCG_VERSION = _DummyDCG.__version__
     ingester = schema_ingest.SchemaIngester(root=tmp_path)
@@ -161,11 +166,13 @@ def test_ensure_pydantic_compatibility_shims_base_model(monkeypatch: pytest.Monk
         assert instance.model_dump() == {"value": "abc"}
         dumped = json.loads(instance.model_dump_json())
         assert dumped == {"value": "abc"}
-        assert instance.model_validate({"value": "from-validate"}) == {"parsed": {"value": "from-validate"}}
+        assert instance.model_validate({"value": "from-validate"}) == {
+            "parsed": {"value": "from-validate"}
+        }
         assert instance.model_validate_json("null") == {"raw": "null"}
 
     assert sys.modules["pydantic"] is fake_pydantic
-    assert getattr(fake_v1.BaseModel, "__pfg_v2_shim__") is True  # type: ignore[attr-defined]
+    assert fake_v1.BaseModel.__pfg_v2_shim__ is True  # type: ignore[attr-defined]
 
 
 def test_load_schema_document_reads_json(tmp_path: Path) -> None:

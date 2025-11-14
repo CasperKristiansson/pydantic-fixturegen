@@ -6,7 +6,6 @@ from typing import Any
 
 import pytest
 import typer
-
 from pydantic_fixturegen.cli.gen import _common as gen_common
 from pydantic_fixturegen.core.errors import DiscoveryError
 
@@ -43,7 +42,9 @@ def test_expand_target_paths_handles_files_and_directories(tmp_path: Path) -> No
 
 
 def test_parse_relation_links_and_locales() -> None:
-    relations = gen_common.parse_relation_links(["Model.User.id=Account.user_id", " Other.field = Target.value "])
+    relations = gen_common.parse_relation_links(
+        ["Model.User.id=Account.user_id", " Other.field = Target.value "]
+    )
     assert relations["Model.User.id"] == "Account.user_id"
     assert relations["Other.field"] == "Target.value"
 
@@ -66,7 +67,7 @@ def test_parse_override_entries_validates_payloads() -> None:
         gen_common.parse_override_entries(["models.User=id"])
 
     with pytest.raises(typer.BadParameter):
-        gen_common.parse_override_entries(["modelsUserField={\"value\": 1}"])
+        gen_common.parse_override_entries(['modelsUserField={"value": 1}'])
 
     with pytest.raises(typer.BadParameter):
         gen_common.parse_override_entries(["models.User.id={not-json}"])
@@ -90,8 +91,16 @@ def test_evaluate_type_expression_with_module(tmp_path: Path) -> None:
 def test_emit_constraint_summary_warns_and_reports(monkeypatch: pytest.MonkeyPatch) -> None:
     logger = LoggerStub()
     captured: list[tuple[str, tuple[Any, ...], dict[str, Any]]] = []
-    monkeypatch.setattr(gen_common.typer, "secho", lambda *args, **kwargs: captured.append(("secho", args, kwargs)))
-    monkeypatch.setattr(gen_common.typer, "echo", lambda *args, **kwargs: captured.append(("echo", args, kwargs)))
+    monkeypatch.setattr(
+        gen_common.typer,
+        "secho",
+        lambda *args, **kwargs: captured.append(("secho", args, kwargs)),
+    )
+    monkeypatch.setattr(
+        gen_common.typer,
+        "echo",
+        lambda *args, **kwargs: captured.append(("echo", args, kwargs)),
+    )
 
     failure_report = {
         "models": [
@@ -105,14 +114,23 @@ def test_emit_constraint_summary_warns_and_reports(monkeypatch: pytest.MonkeyPat
                         "attempts": 1,
                         "successes": 0,
                         "failures": [
-                            {"message": "invalid", "location": ["email"], "value": "bad@example.com"}
+                            {
+                                "message": "invalid",
+                                "location": ["email"],
+                                "value": "bad@example.com",
+                            }
                         ],
                     }
                 ],
             }
         ]
     }
-    gen_common.emit_constraint_summary(failure_report, logger=logger, json_mode=False, heading="Report")
+    gen_common.emit_constraint_summary(
+        failure_report,
+        logger=logger,
+        json_mode=False,
+        heading="Report",
+    )
     assert logger.warns
     assert any(entry[0] == "secho" for entry in captured)
 
@@ -128,4 +146,3 @@ def test_emit_constraint_summary_warns_and_reports(monkeypatch: pytest.MonkeyPat
     }
     gen_common.emit_constraint_summary(success_report, logger=logger, json_mode=False)
     assert logger.debugs
-

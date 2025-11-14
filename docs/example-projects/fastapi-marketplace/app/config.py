@@ -1,4 +1,5 @@
 """Example Settings model consumed by FastAPI dependency overrides."""
+
 from __future__ import annotations
 
 from functools import lru_cache

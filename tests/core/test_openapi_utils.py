@@ -125,11 +125,7 @@ def test_select_openapi_schemas_requires_refs() -> None:
             "/bare": {
                 "get": {
                     "responses": {
-                        "200": {
-                            "content": {
-                                "application/json": {"schema": {"type": "object"}}
-                            }
-                        }
+                        "200": {"content": {"application/json": {"schema": {"type": "object"}}}}
                     }
                 }
             }
@@ -218,13 +214,7 @@ def test_component_graph_handles_missing_components() -> None:
             "/unused": {"get": []},
         },
         "components": {
-            "schemas": {
-                "User": {
-                    "properties": {
-                        "friend": {"$ref": "#/components/schemas/User"}
-                    }
-                }
-            },
+            "schemas": {"User": {"properties": {"friend": {"$ref": "#/components/schemas/User"}}}},
             "parameters": [],
             "headers": {},
         },

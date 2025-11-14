@@ -16,4 +16,4 @@ segments_segmentsnapshot_strategy = strategy_for(
     profile="typical",
 )
 
-__all__ = ['segments_segmentsnapshot_strategy']
+__all__ = ["segments_segmentsnapshot_strategy"]

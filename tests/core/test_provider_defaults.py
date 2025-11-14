@@ -3,14 +3,13 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-
+from pydantic_fixturegen.core import provider_defaults as provider_defaults_mod
 from pydantic_fixturegen.core.config import (
     ConfigError,
     ProviderBundleConfig,
     ProviderDefaultRule,
     ProviderDefaultsConfig,
 )
-from pydantic_fixturegen.core import provider_defaults as provider_defaults_mod
 from pydantic_fixturegen.core.provider_defaults import ProviderDefaultResolver
 from pydantic_fixturegen.core.providers.registry import ProviderRegistry
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary

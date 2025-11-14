@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from pydantic_fixturegen.core import openapi as openapi_mod
 from pydantic_fixturegen.core.errors import DiscoveryError
 
@@ -67,7 +66,10 @@ def test_select_openapi_schemas_unknown_route() -> None:
 
 def test_load_openapi_document_requires_file(tmp_path: Path, monkeypatch) -> None:
     doc_path = tmp_path / "doc.yaml"
-    doc_path.write_text("openapi: 3.1.0\npaths: {}\ncomponents:\n  schemas:\n    User: {}\n", encoding="utf-8")
+    doc_path.write_text(
+        "openapi: 3.1.0\npaths: {}\ncomponents:\n  schemas:\n    User: {}\n",
+        encoding="utf-8",
+    )
     document = openapi_mod.load_openapi_document(doc_path)
     assert document["openapi"] == "3.1.0"
 

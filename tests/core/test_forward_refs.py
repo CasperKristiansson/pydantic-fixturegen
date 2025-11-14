@@ -56,4 +56,3 @@ def test_forward_reference_resolution_missing_attr(monkeypatch: pytest.MonkeyPat
     entry = ForwardRefEntry(name="Missing", target=f"{module_name}:Nested.Inner")
     with pytest.raises(ForwardReferenceResolutionError):
         configure_forward_refs([entry])
-

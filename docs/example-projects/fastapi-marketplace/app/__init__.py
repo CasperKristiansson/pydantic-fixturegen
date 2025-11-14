@@ -1,4 +1,5 @@
 """FastAPI entrypoint for the marketplace example."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

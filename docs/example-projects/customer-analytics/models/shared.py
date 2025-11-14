@@ -1,4 +1,5 @@
 """Shared telemetry primitives for the analytics example."""
+
 from __future__ import annotations
 
 import json
@@ -18,6 +19,7 @@ class AnalyticsBaseModel(BaseModel):
     def model_dump(self, *args, **kwargs):  # type: ignore[override]
         kwargs.setdefault("mode", "json")
         payload = super().model_dump(*args, **kwargs)
+
         def _default(value: object) -> str:
             if isinstance(value, datetime):
                 return value.isoformat()

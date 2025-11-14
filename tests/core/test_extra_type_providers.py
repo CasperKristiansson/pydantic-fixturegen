@@ -4,7 +4,6 @@ import random
 
 import pytest
 from faker import Faker
-
 from pydantic_fixturegen.core.providers import extra_types as extra_mod
 from pydantic_fixturegen.core.providers.registry import ProviderRegistry
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
@@ -15,7 +14,10 @@ def field_summary() -> FieldSummary:
     return FieldSummary(type="string", constraints=FieldConstraints())
 
 
-def test_register_extra_type_providers_filters_available(monkeypatch: pytest.MonkeyPatch, field_summary: FieldSummary) -> None:
+def test_register_extra_type_providers_filters_available(
+    monkeypatch: pytest.MonkeyPatch,
+    field_summary: FieldSummary,
+) -> None:
     monkeypatch.setattr(extra_mod, "available_type_ids", lambda: {"color", "ulid"})
     registry = ProviderRegistry()
     extra_mod.register_extra_type_providers(registry)

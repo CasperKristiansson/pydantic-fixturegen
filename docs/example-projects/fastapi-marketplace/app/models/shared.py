@@ -49,8 +49,8 @@ class Address(MarketplaceBaseModel):
     line1: str = Field(default="Fabriksgatan 12", min_length=3)
     line2: str | None = Field(default="Suite 5")
     city: str = "Göteborg"
-    postal_code: Annotated[str, Field(pattern=r"^[0-9A-Za-z\- ]{3,10}$")]= "41123"
-    country: Annotated[str, Field(pattern=r"^[A-Z]{2}$")]= "SE"
+    postal_code: Annotated[str, Field(pattern=r"^[0-9A-Za-z\- ]{3,10}$")] = "41123"
+    country: Annotated[str, Field(pattern=r"^[A-Z]{2}$")] = "SE"
 
 
 class AuditEvent(MarketplaceBaseModel):
@@ -73,7 +73,7 @@ class AuditEvent(MarketplaceBaseModel):
 
 
 class LocalizedText(MarketplaceBaseModel):
-    locale: Annotated[str, Field(pattern=r"^[a-z]{2}-[A-Z]{2}$")]= "en-US"
+    locale: Annotated[str, Field(pattern=r"^[a-z]{2}-[A-Z]{2}$")] = "en-US"
     text: str = "Deterministic sample"
 
 

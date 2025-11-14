@@ -11,6 +11,7 @@ from pydantic import BaseModel, TypeAdapter
 try:  # typing_extensions < 4.5 compatibility
     from typing_extensions import is_typeddict as _typing_extensions_is_typeddict
 except ImportError:  # pragma: no cover - typing extra not installed
+
     def _typing_extensions_is_typeddict(tp: object) -> bool:
         return False
 

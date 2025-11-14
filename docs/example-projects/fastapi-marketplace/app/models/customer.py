@@ -20,7 +20,7 @@ class LoyaltyTier(str, Enum):
 class CustomerProfile(Timestamped):
     id: UUID = UUID("00000000-0000-4000-8000-000000000001")
     email: EmailStr = "astrid@example.com"
-    primary_phone: Annotated[str, Field(pattern=r"^\+?[0-9]{8,15}$")]= "+46700000000"
+    primary_phone: Annotated[str, Field(pattern=r"^\+?[0-9]{8,15}$")] = "+46700000000"
     shipping_address: Address = Address()
     billing_address: Address | None = Field(default_factory=lambda: Address(line2="Billing"))
     loyalty_tier: LoyaltyTier = LoyaltyTier.bronze

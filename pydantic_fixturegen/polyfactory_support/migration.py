@@ -61,8 +61,7 @@ class FactoryReport:
 
 class _PolyfactoryIntrospectable(Protocol):
     @classmethod
-    def get_model_fields(cls) -> Sequence[Any]:
-        ...
+    def get_model_fields(cls) -> Sequence[Any]: ...
 
 
 def describe_strategy(strategy: StrategyResult | None) -> str | None:

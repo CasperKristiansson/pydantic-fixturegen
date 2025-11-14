@@ -1,4 +1,5 @@
 """Identity & lifecycle models reused across events and segments."""
+
 from __future__ import annotations
 
 from enum import Enum

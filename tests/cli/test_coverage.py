@@ -110,9 +110,7 @@ def test_coverage_profile_option_applies_cli_overrides(
     assert captured["cli"] == {"profile": "pii-safe"}
 
 
-def test_coverage_out_option_writes_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_coverage_out_option_writes_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     module_path = _write_models(tmp_path)
     output_path = tmp_path / "report.json"
     monkeypatch.setattr(coverage_mod, "load_config", lambda **_: AppConfig())

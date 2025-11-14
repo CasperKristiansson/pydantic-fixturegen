@@ -1,4 +1,5 @@
 """Telemetry events consumed by downstream segmentation jobs."""
+
 from __future__ import annotations
 
 from uuid import UUID
