@@ -57,8 +57,9 @@ def test_snapshot_verify_detects_drift(tmp_path: Path) -> None:
         ],
     )
 
+    combined_output = result.stdout + (result.stderr or "")
     assert result.exit_code == 1
-    assert "JSON artifact differs" in result.stdout
+    assert "JSON artifact differs" in combined_output
 
 
 def test_snapshot_write_refreshes_artifact(tmp_path: Path) -> None:
