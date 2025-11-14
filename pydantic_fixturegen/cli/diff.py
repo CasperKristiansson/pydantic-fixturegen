@@ -33,6 +33,7 @@ from pydantic_fixturegen.core.errors import (
 )
 from pydantic_fixturegen.core.field_policies import FieldPolicy
 from pydantic_fixturegen.core.generate import GenerationConfig, InstanceGenerator
+from pydantic_fixturegen.core.model_utils import dump_model_instance
 from pydantic_fixturegen.core.seed import RNGModeLiteral, SeedManager
 from pydantic_fixturegen.core.seed_freeze import (
     FreezeStatus,
@@ -696,7 +697,7 @@ def _diff_json_artifact(
             rng_mode=app_config_rng_mode,
         )
 
-        def sample_factory() -> BaseModel:
+        def sample_factory() -> Any:
             instance = generator.generate_one(target_model)
             if instance is None:
                 details: dict[str, Any] = {"model": target_model.__name__}
@@ -710,13 +711,16 @@ def _diff_json_artifact(
                     f"Failed to generate instance for {target_model.__name__}.",
                     details=details,
                 )
-            if not isinstance(instance, BaseModel):
+            if isinstance(instance, BaseModel):
+                return instance
+            try:
+                return dump_model_instance(target_model, instance, mode="python")
+            except Exception as exc:  # pragma: no cover - defensive
                 raise MappingError(
                     f"Generator returned unexpected instance type ({type(instance).__name__}) "
                     f"for {target_model.__name__}.",
                     details={"model": target_model.__name__},
-                )
-            return instance
+                ) from exc
 
         indent_value = options.indent if options.indent is not None else app_config_indent
         use_orjson_value = (
