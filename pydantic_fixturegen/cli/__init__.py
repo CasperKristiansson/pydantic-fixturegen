@@ -16,6 +16,8 @@ from pydantic_fixturegen.cli import polyfactory as polyfactory_cli
 from pydantic_fixturegen.cli import schema as schema_cli
 from pydantic_fixturegen.logging import DEFAULT_VERBOSITY_INDEX, LOG_LEVEL_ORDER, get_logger
 
+DOCS_URL = "https://pydantic-fixturegen.kitgrid.dev/"
+
 apply_warning_filters()
 
 
@@ -31,6 +33,7 @@ def _load_typer(import_path: str) -> typer.Typer:
 def _invoke(import_path: str, ctx: typer.Context) -> None:
     sub_app = _load_typer(import_path)
     command = get_command(sub_app)
+    _append_docs_footer(command)
     args = builtins.list(ctx.args)
     result = command.main(
         args=args,
@@ -42,7 +45,7 @@ def _invoke(import_path: str, ctx: typer.Context) -> None:
 
 
 app = typer.Typer(
-    help="pydantic-fixturegen command line interface",
+    help=f"pydantic-fixturegen command line interface\n\nDocs: {DOCS_URL}",
     invoke_without_command=True,
     context_settings={
         "allow_extra_args": True,
@@ -85,6 +88,19 @@ def _proxy(name: str, import_path: str, help_text: str) -> None:
         add_help_option=False,
     )
     decorator(_command)
+
+
+def _append_docs_footer(command: typer.main.TyperCommand) -> None:
+    if getattr(command, "_pfg_docs_patched", False):
+        return
+    footer = f"\n\nDocs: {DOCS_URL}"
+    help_text = command.help or ""
+    command.help = f"{help_text}{footer}" if help_text else f"Docs: {DOCS_URL}"
+    setattr(command, "_pfg_docs_patched", True)
+    children = getattr(command, "commands", None)
+    if isinstance(children, dict):
+        for child in children.values():
+            _append_docs_footer(child)
 
 
 _proxy(
@@ -157,5 +173,7 @@ app.add_typer(schema_cli.app, name="schema")
 app.add_typer(fastapi_cli.app, name="fastapi")
 app.add_typer(anonymize_cli.app, name="anonymize")
 app.add_typer(polyfactory_cli.app, name="polyfactory")
+
+_append_docs_footer(get_command(app))
 
 __all__ = ["app"]

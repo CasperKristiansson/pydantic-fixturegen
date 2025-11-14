@@ -63,6 +63,14 @@ Expected results:
 
 Once those commands work, swap in your actual module path and tweak shared flags like `--include`, `--seed`, `--watch`, or `--cases` as needed.
 
+## Documentation & examples
+
+- **Command reference:** <https://pydantic-fixturegen.kitgrid.dev/commands/> — step-by-step explanations for every `pfg` subcommand (JSON, dataset, fixtures, schema, diff, lock/verify, etc.) with copy-paste scripts and sample output.
+- **Concept guides:** <https://pydantic-fixturegen.kitgrid.dev/concepts/> — seeds, presets, overrides, relation wiring, sandboxing, and provider heuristics in one place.
+- **Recipes & troubleshooting:** <https://pydantic-fixturegen.kitgrid.dev/examples/> — runnable demos for SQLModel/Beanie seeding, snapshot verification, large dataset export, and Polyfactory delegation.
+
+If you ever get stuck, run `pfg <command> --help` to see the available flags plus the docs permalink for that command.
+
 ## Why
 
 <a id="why"></a>
@@ -76,7 +84,7 @@ Once those commands work, swap in your actual module path and tweak shared flags
 
 You also stay observant while you work: every command can emit structured logs, diff artifacts against disk, and surface sandbox warnings so you catch regressions before they land.
 
-## Quick start
+## Extended quickstart
 
 <a id="quickstart"></a>
 

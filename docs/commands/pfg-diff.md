@@ -78,6 +78,24 @@ Limits import cost during CI while still validating artifacts.
 [json_diff] unchanged artifacts/orders.json
 ```
 
+### Absolute paths + template outputs
+```bash
+TEMP_DIR=$(pwd)/tmp
+pfg diff ../temp/models.py \
+  --include models.User \
+  --json-out "$TEMP_DIR/snapshots/users.json" \
+  --fixtures-out "$TEMP_DIR/snapshots/fixtures.py" \
+  --seed 42 --freeze-seeds --timeout 60 --memory-limit-mb 512
+```
+Demonstrates how to diff artifacts that live outside the current working directory now that path templates can resolve `../` segments. The command regenerates both JSON and fixture artifacts using the same seeds and reports `0` when they match.
+
+**Sample output**
+```text
+[json_diff] unchanged /repo/tmp/snapshots/users.json
+[fixtures_diff] unchanged /repo/tmp/snapshots/fixtures.py
+All compared artifacts match.
+```
+
 ## Operational notes
 - Exit code `0` means “no drift”; `1` means either a difference was detected or an unrecoverable error occurred. Gate CI on `pfg diff` by checking for `0` explicitly.
 - Constraint summaries are attached to diff outputs so you can see which fields failed validation or had provider warnings.

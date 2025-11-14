@@ -52,6 +52,25 @@ Discovered 12 model(s) for validation.
 warning: import skipped; AST mode enabled
 ```
 
+### Validate sibling output directories
+```bash
+TEMP_DIR=$(pwd)/tmp
+pfg check ../temp/models.py \
+  --timeout 30 --memory-limit-mb 256 \
+  --json-out "$TEMP_DIR/out/check.json" \
+  --fixtures-out "$TEMP_DIR/tests/fixtures/check.py" \
+  --schema-out "$TEMP_DIR/schemas/check.json"
+```
+Helpful when you run the CLI from the repo root but want to confirm that paths under `../temp` (or another workspace) are writable before running heavy generators.
+
+**Sample output**
+```text
+Configuration OK
+Discovered 7 model(s) for validation.
+Emitter destinations verified.
+Check complete. No issues detected.
+```
+
 ## Operational notes
 - `pfg check` loads `pyproject.toml`/`pydantic-fixturegen.yaml` to validate configuration before discovery runs. Misconfigured values raise `ConfigError` which surfaces as `DiscoveryError` so CI sees a uniform failure type.
 - When include/exclude filters select zero models the command raises `DiscoveryError` (“No models discovered.”) to ensure you catch typos early.

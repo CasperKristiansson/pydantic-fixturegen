@@ -63,6 +63,31 @@ Ensures the stored schema matches regenerated output without touching JSON or fi
 Snapshots verified.
 ```
 
+### Refresh, then verify (absolute paths)
+```bash
+TEMP_DIR=$(pwd)/tmp
+pfg snapshot update ../temp/models.py \
+  --include models.User \
+  --json-out "$TEMP_DIR/snapshots/users.json" \
+  --fixtures-out "$TEMP_DIR/snapshots/fixtures.py" \
+  --freeze-seeds
+
+pfg snapshot verify ../temp/models.py \
+  --include models.User \
+  --json-out "$TEMP_DIR/snapshots/users.json" \
+  --fixtures-out "$TEMP_DIR/snapshots/fixtures.py" \
+  --freeze-seeds
+```
+Use `pfg snapshot update` once to regenerate the artifacts, then rerun `pfg snapshot verify` to ensure everything matches. Because path templates now resolve `../` segments, you can keep snapshots in sibling directories and still verify them from the repo root.
+
+**Sample output**
+```text
+[snapshot_update] wrote /repo/tmp/snapshots/users.json and fixtures.py
+Snapshots refreshed.
+[snapshot_verify] json_out=/repo/tmp/snapshots/users.json fixtures_out=/repo/tmp/snapshots/fixtures.py
+Snapshots verified.
+```
+
 ## Operational notes
 - At least one `--*-out` flag is required; otherwise the command raises `BadParameter`.
 - Under the hood, `SnapshotRunner` reuses safe-import discovery (respecting AST/hybrid settings) so verification never mutates files.

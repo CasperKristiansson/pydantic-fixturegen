@@ -1,6 +1,8 @@
 # Command Guides
 
-This section expands on the high-level [CLI reference](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/cli.md) by dedicating a deep dive to every `pfg` command and subcommand. Each guide covers:
+This section expands on the high-level [CLI reference](https://github.com/CasperKristiansson/pydantic-fixturegen/blob/main/docs/cli.md) by dedicating a deep dive to every `pfg` command and subcommand. Prefer a rendered version? Visit <https://pydantic-fixturegen.kitgrid.dev/commands/> — the CLI help footers point at the same site.
+
+Each guide covers:
 
 - What the command does and when to choose it.
 - Required inputs, emitted artifacts, and deterministic controls.

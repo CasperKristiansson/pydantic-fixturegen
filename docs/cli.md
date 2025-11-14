@@ -1,6 +1,6 @@
 # CLI: drive generation from commands
 
-> Learn every command, flag, and default so you can script generation with confidence.
+> Learn every command, flag, and default so you can script generation with confidence. Full reference (and the examples below) live at <https://pydantic-fixturegen.kitgrid.dev/> — the CLI prints the same URL in every `--help` screen so you always have a breadcrumb back to the docs.
 
 ## Global options
 
@@ -10,7 +10,7 @@ pfg --quiet         # repeat -q to reduce output (info → warning → error →
 pfg --log-json ...  # prefix a specific command to emit structured logs; combine with jq for CI parsing
 ```
 
-You can append `-- --help` after any proxy command to view native Typer help because `pfg` forwards arguments to sub-apps.
+You can append `-- --help` after any proxy command to view native Typer help because `pfg` forwards arguments to sub-apps. The footer of every help screen links back to the hosted docs so newcomers can jump straight into walkthroughs and troubleshooting guides.
 
 ## Command map (cheat sheet)
 
@@ -44,7 +44,7 @@ pfg list ./models.py --include pkg.User --public-only
 
 ## `pfg gen`
 
-`gen` hosts multiple subcommands. Inspect them with `pfg gen -- --help`.
+`gen` hosts multiple subcommands. Inspect them with `pfg gen -- --help` (note the docs URL at the bottom of the help text).
 
 ### `pfg gen json`
 

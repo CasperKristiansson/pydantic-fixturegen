@@ -45,6 +45,18 @@ diff:
   - coverage/models/User/address coverage changed 100% -> 92%
 ```
 
+### Re-run after locking a sibling directory
+```bash
+pfg lock ../temp/models.py --lockfile ../temp/.pfg-lock.json
+pfg verify ../temp/models.py --lockfile ../temp/.pfg-lock.json
+```
+Works well when you store lockfiles under `../temp` or another workspace outside the repository root. The second command exits `0` when nothing has changed, even if you tweak runtime guards like `--timeout 30`.
+
+**Sample output**
+```text
+Coverage manifest verification succeeded.
+```
+
 ## Operational notes
 - Lockfile loading is strict: missing files raise `EmitError` with a helpful message.
 - When `--json-errors` is enabled the mismatch diff is attached to the JSON payload so you can parse it programmatically.

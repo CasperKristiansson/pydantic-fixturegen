@@ -71,6 +71,27 @@ Generates rows but never commits changes, making it safe for CI verification.
 Generated batch size=5 (dry run, nothing inserted)
 ```
 
+### Large batch with auto-incrementing primary keys
+```bash
+pfg gen seed sqlmodel ./examples/sql_models.py \
+  --database sqlite:///tmp/sql_seed.db \
+  --include examples.sql_models.Customer \
+  --n 200 --truncate --create-schema --batch-size 100
+```
+Seeds 200 deterministic `Customer` rows, truncating the table first and letting SQLite autoincrement the primary key columns (`--auto-primary-keys` is enabled by default).
+
+**Sample output**
+```text
+[sqlmodel_connect] url=sqlite:///tmp/sql_seed.db create_schema=True truncate=True auto_primary_keys=True
+Inserted 200 rows across 1 model(s) (rollback=False dry_run=False)
+```
+
+**Row preview (`sqlite3 tmp/sql_seed.db 'SELECT id,email FROM customer LIMIT 2;'`)**
+```text
+1|mirror.theodore@example.com
+2|rocio.lee@example.org
+```
+
 
 ## Operational notes
 - The command builds a `ModelArtifactPlan` once and reuses it for every batch, so large seed runs stay consistent even when `--with-related` fans out.

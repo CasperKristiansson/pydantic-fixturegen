@@ -45,6 +45,18 @@ Wrote coverage lockfile to /repo/ci/openapi-lock.json
 Schemas locked: ['UserResponse', 'PagedUsers']
 ```
 
+### Lock from a sibling directory
+```bash
+pfg lock ../temp/models.py --lockfile ../temp/.pfg-lock.json
+```
+Thanks to the relaxed path-template rules you can point `--lockfile` at locations outside the current working directory (handy when running commands from the repo root but storing artifacts under `../temp`).
+
+**Sample output**
+```text
+Wrote coverage lockfile to /repo/temp/.pfg-lock.json
+Models: 7, coverage ratio: 100%
+```
+
 ## Operational notes
 - Manifests include plugin-derived providers, so install your plugin extras before running `pfg lock`.
 - The CLI compares the new manifest to the existing file when `--force` is false; this makes the command idempotent in CI.
