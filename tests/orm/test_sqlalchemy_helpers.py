@@ -3,11 +3,10 @@ from types import SimpleNamespace
 
 import pytest
 from pydantic import BaseModel
-from sqlmodel import Field, SQLModel
-
 from pydantic_fixturegen.api._runtime import ModelArtifactPlan
 from pydantic_fixturegen.core.path_template import OutputTemplateContext
 from pydantic_fixturegen.orm.sqlalchemy import _clean_payload, _expand_sample
+from sqlmodel import Field, SQLModel
 
 
 class Primary(BaseModel):

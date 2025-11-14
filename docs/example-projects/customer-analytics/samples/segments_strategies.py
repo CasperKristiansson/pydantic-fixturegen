@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from models.segments import SegmentSnapshot
 from pydantic_fixturegen.core.generate import GenerationConfig
 from pydantic_fixturegen.hypothesis import strategy_for
-from models.segments import SegmentSnapshot
 
 _GENERATION_CONFIG = GenerationConfig(
     seed=4142,

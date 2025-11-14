@@ -11,7 +11,7 @@ from .api import create_app
 __all__ = ["create_app"]
 
 
-def build_app() -> "FastAPI":
+def build_app() -> FastAPI:
     """Factory used by `uvicorn app:build_app` style commands."""
 
     return create_app()

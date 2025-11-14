@@ -7,7 +7,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing helper
     from fastapi import FastAPI
 
 
-def create_app() -> "FastAPI":
+def create_app() -> FastAPI:
     """Instantiate FastAPI and include routers.
 
     FastAPI is imported lazily so `pfg` discovery can import models without the

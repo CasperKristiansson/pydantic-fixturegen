@@ -95,7 +95,9 @@ class SQLAlchemySeeder:
         for _ in range(chunk_size):
             sample = self.plan.sample_factory()
             for model_cls, payload in _expand_sample(self.plan, sample):
-                obj = model_cls(**_clean_payload(model_cls, payload, auto_primary_keys=auto_primary_keys))
+                obj = model_cls(
+                    **_clean_payload(model_cls, payload, auto_primary_keys=auto_primary_keys)
+                )
                 if not dry_run:
                     session.add(obj)
         if not dry_run:

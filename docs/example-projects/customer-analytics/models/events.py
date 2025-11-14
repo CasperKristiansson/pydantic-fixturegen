@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from pydantic import HttpUrl, Field
+from pydantic import Field, HttpUrl
 
 from .identity import LoyaltyProfile
-from .shared import AnalyticsBaseModel, BaseEvent, Money
+from .shared import BaseEvent, Money
 
 
 class PurchaseEvent(BaseEvent):

@@ -63,7 +63,10 @@ def test_emit_json_serializes_temporal_types_without_orjson(tmp_path: Path) -> N
         payload: Payload
         noted_at: datetime.datetime
 
-    wrapped = Wrapper(payload=item, noted_at=datetime.datetime(2024, 5, 1, 10, tzinfo=datetime.timezone.utc))
+    wrapped = Wrapper(
+        payload=item,
+        noted_at=datetime.datetime(2024, 5, 1, 10, tzinfo=datetime.timezone.utc),
+    )
     output = tmp_path / "temporal.json"
 
     paths = emit_json_samples([wrapped], output_path=output, count=1, use_orjson=False)

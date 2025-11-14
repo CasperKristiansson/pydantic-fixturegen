@@ -1,12 +1,12 @@
 """Shared telemetry primitives for the analytics example."""
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from enum import Enum
 from typing import Annotated
 from uuid import UUID
 
-import json
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -18,7 +18,12 @@ class AnalyticsBaseModel(BaseModel):
     def model_dump(self, *args, **kwargs):  # type: ignore[override]
         kwargs.setdefault("mode", "json")
         payload = super().model_dump(*args, **kwargs)
-        return json.loads(json.dumps(payload, default=lambda value: value.isoformat() if isinstance(value, datetime) else str(value)))
+        def _default(value: object) -> str:
+            if isinstance(value, datetime):
+                return value.isoformat()
+            return str(value)
+
+        return json.loads(json.dumps(payload, default=_default))
 
 
 class Locale(str, Enum):

@@ -6,7 +6,7 @@ import datetime as _dt
 import hashlib
 import math
 import warnings as _warnings
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path

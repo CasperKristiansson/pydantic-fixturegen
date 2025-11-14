@@ -49,7 +49,9 @@ def test_output_template_watch_parent_and_preview(tmp_path: Path) -> None:
     assert preview.parent.name == "preview"
 
 
-def test_output_template_allows_parent_escape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_output_template_allows_parent_escape(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.chdir(tmp_path)
     target_dir = tmp_path.parent / "outside"
     template = OutputTemplate("../outside/{model}/data.json")

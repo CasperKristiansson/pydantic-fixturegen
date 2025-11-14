@@ -183,7 +183,10 @@ TRUNCATE_OPTION = typer.Option(
 AUTO_PRIMARY_KEYS_OPTION = typer.Option(
     True,
     "--auto-primary-keys/--keep-primary-keys",
-    help="Null out SQLModel primary keys whose default is None so the database can autoincrement them.",
+    help=(
+        "Null out SQLModel primary keys whose default is None so the database can "
+        "autoincrement them."
+    ),
 )
 
 CREATE_SCHEMA_OPTION = typer.Option(
@@ -507,7 +510,7 @@ def _create_beanie_client(database: str) -> Any:
         from mongomock_motor import AsyncMongoMockClient
 
         client = AsyncMongoMockClient()
-        setattr(client, "_pfg_is_mongomock", True)
+        client._pfg_is_mongomock = True
         return client
 
     from motor.motor_asyncio import AsyncIOMotorClient

@@ -79,7 +79,10 @@ def _regex_string(summary: FieldSummary, *, faker: Faker) -> str:
         try:
             candidate = faker.regexify(pattern)
         except Exception:
-            candidate = _fallback_regex(pattern, faker)  # pragma: no cover - fallback path without regex extra
+            candidate = _fallback_regex(  # pragma: no cover - fallback path
+                pattern,
+                faker,
+            )
     return _apply_length(candidate, summary, faker=faker)
 
 

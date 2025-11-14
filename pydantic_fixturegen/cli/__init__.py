@@ -96,8 +96,8 @@ def _append_docs_footer(command: typer.main.TyperCommand) -> None:
         return
     footer = f"\n\nDocs: {DOCS_URL}"
     help_text = getattr(command, "help", "") or ""
-    setattr(command, "help", f"{help_text}{footer}" if help_text else f"Docs: {DOCS_URL}")
-    setattr(command, "_pfg_docs_patched", True)
+    command.help = f"{help_text}{footer}" if help_text else f"Docs: {DOCS_URL}"
+    command._pfg_docs_patched = True
     children = getattr(command, "commands", None)
     if isinstance(children, dict):
         for child in children.values():

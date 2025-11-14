@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import replace
 
 import pytest
+from faker import Faker
 from pydantic_fixturegen.core.providers import strings as strings_mod
 from pydantic_fixturegen.core.schema import FieldConstraints, FieldSummary
-from faker import Faker
 
 
 class DummyFaker:
