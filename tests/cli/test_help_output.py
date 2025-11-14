@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from pydantic_fixturegen.cli import app as cli_app
+from pydantic_fixturegen.core.version import get_tool_version
 from tests._cli import create_cli_runner
 
 runner = create_cli_runner()
@@ -27,3 +28,9 @@ def test_polyfactory_help_lists_subcommands() -> None:
     assert result.exit_code == 0
     stdout = _strip_ansi(result.stdout)
     assert "migrate" in stdout
+
+
+def test_root_version_option() -> None:
+    result = runner.invoke(cli_app, ["--version"])
+    assert result.exit_code == 0
+    assert result.stdout.strip() == f"pydantic-fixturegen {get_tool_version()}"

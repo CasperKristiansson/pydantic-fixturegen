@@ -16,6 +16,7 @@ from pydantic_fixturegen.cli import anonymize as anonymize_cli
 from pydantic_fixturegen.cli import fastapi as fastapi_cli
 from pydantic_fixturegen.cli import polyfactory as polyfactory_cli
 from pydantic_fixturegen.cli import schema as schema_cli
+from pydantic_fixturegen.core.version import get_tool_version
 from pydantic_fixturegen.logging import DEFAULT_VERBOSITY_INDEX, LOG_LEVEL_ORDER, get_logger
 
 DOCS_URL = "https://pydantic-fixturegen.kitgrid.dev/"
@@ -62,12 +63,22 @@ def _root(
     verbose: int = typer.Option(0, "--verbose", "-v", count=True, help="Increase log verbosity."),
     quiet: int = typer.Option(0, "--quiet", "-q", count=True, help="Decrease log verbosity."),
     log_json: bool = typer.Option(False, "--log-json", help="Emit structured JSON logs."),
+    version: bool = typer.Option(
+        False,
+        "--version",
+        is_eager=True,
+        help="Show the installed pydantic-fixturegen version and exit.",
+    ),
 ) -> None:  # noqa: D401
     logger = get_logger()
     level_index = DEFAULT_VERBOSITY_INDEX + verbose - quiet
     level_index = max(0, min(level_index, len(LOG_LEVEL_ORDER) - 1))
     level_name = LOG_LEVEL_ORDER[level_index]
     logger.configure(level=level_name, json_mode=log_json)
+
+    if version:
+        typer.echo(f"pydantic-fixturegen {get_tool_version()}")
+        raise typer.Exit()
 
     if ctx.invoked_subcommand is None:
         _invoke("pydantic_fixturegen.cli.list:app", ctx)
