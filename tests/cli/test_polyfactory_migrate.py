@@ -8,6 +8,10 @@ import pytest
 pytest.importorskip("polyfactory")
 
 from pydantic_fixturegen.cli import app as cli_app
+from pydantic_fixturegen.polyfactory_support.discovery import (
+    POLYFACTORY_MODEL_FACTORY,
+    POLYFACTORY_UNAVAILABLE_REASON,
+)
 from tests._cli import create_cli_runner
 
 runner = create_cli_runner()
@@ -41,6 +45,8 @@ class ModelFactoryShim(ModelFactory[Model]):
     )
 
     overrides_path = tmp_path / "overrides.toml"
+    if POLYFACTORY_MODEL_FACTORY is None and POLYFACTORY_UNAVAILABLE_REASON:
+        pytest.skip(POLYFACTORY_UNAVAILABLE_REASON)
     result = runner.invoke(
         cli_app,
         [

@@ -88,14 +88,15 @@ def _proxy(name: str, import_path: str, help_text: str) -> None:
         add_help_option=False,
     )
     decorator(_command)
+    _command.__doc__ = help_text
 
 
 def _append_docs_footer(command: typer.main.TyperCommand) -> None:
     if getattr(command, "_pfg_docs_patched", False):
         return
     footer = f"\n\nDocs: {DOCS_URL}"
-    help_text = command.help or ""
-    command.help = f"{help_text}{footer}" if help_text else f"Docs: {DOCS_URL}"
+    help_text = getattr(command, "help", "") or ""
+    setattr(command, "help", f"{help_text}{footer}" if help_text else f"Docs: {DOCS_URL}")
     setattr(command, "_pfg_docs_patched", True)
     children = getattr(command, "commands", None)
     if isinstance(children, dict):

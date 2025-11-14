@@ -111,7 +111,7 @@ def test_diff_rejects_directory_target(tmp_path: Path) -> None:
     result = runner.invoke(cli_package.app, ["diff", "--json-out", str(json_out), str(package_dir)])
 
     assert result.exit_code == 10
-    assert "Target must be a Python module file" in result.stderr
+    assert "Directory does not contain any Python modules" in result.stderr
 
 
 def test_execute_diff_surfaces_discovery_errors(

@@ -74,7 +74,7 @@ def test_check_rejects_directory_target(tmp_path: Path) -> None:
     result = runner.invoke(cli_app, ["check", str(directory)])
 
     assert result.exit_code == 10
-    assert "Target must be a Python module file" in result.stderr
+    assert "Directory does not contain any Python modules" in result.stderr
 
 
 def test_check_handles_config_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

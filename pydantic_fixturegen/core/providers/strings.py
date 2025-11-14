@@ -67,8 +67,15 @@ def _regex_string(summary: FieldSummary, *, faker: Faker) -> str:
     pattern = summary.constraints.pattern or ".*"
     candidate: str
     if rstr is not None:
-        candidate = rstr.Xeger(_random=faker.random).xeger(pattern)
+        if hasattr(rstr, "Xeger"):
+            candidate = rstr.Xeger(_random=faker.random).xeger(pattern)
+        elif hasattr(rstr, "xeger"):
+            candidate = rstr.xeger(pattern)
+        else:
+            candidate = None
     else:
+        candidate = None
+    if candidate is None:
         try:
             candidate = faker.regexify(pattern)
         except Exception:
